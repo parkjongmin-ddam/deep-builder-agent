@@ -16,6 +16,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from builder.builder import SpecGenerationError, generate_spec, save_spec
+from registry import MCP_PREFIX
+from registry.mcp import MCPConfigError
+from registry.mcp import load_tools as load_mcp_tools
 from runtime.factory import build_agent, resolve_builtin_fs_tools
 from runtime.spec import AgentSpec
 
@@ -42,11 +45,13 @@ def load_spec(path: Path) -> AgentSpec:
 def describe(spec: AgentSpec) -> str:
     """생성 결과를 사람이 확인할 수 있게 요약한다."""
     fs_tools = ", ".join(resolve_builtin_fs_tools(spec))
+    mcp_servers = [t for t in spec.tools if t.startswith(MCP_PREFIX)]
     return (
         f"  name        : {spec.name}\n"
         f"  description : {spec.description}\n"
         f"  model       : {spec.model}\n"
         f"  spec tools  : {spec.tools or '(none)'}\n"
+        f"  mcp servers : {mcp_servers or '(none)'}\n"
         f"  builtin fs  : {fs_tools}  (+ task; deepagents가 항상 주입)"
     )
 
@@ -131,7 +136,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("\n[runtime] 에이전트를 생성하는 중...")
-    chat(build_agent(spec))
+    try:
+        mcp_tools = load_mcp_tools(spec.tools)
+    except MCPConfigError as exc:
+        print(f"[error] MCP 도구 로드 실패: {exc}", file=sys.stderr)
+        return 1
+    if mcp_tools:
+        print(f"[mcp] 도구 {len(mcp_tools)}개 로드: {[t.name for t in mcp_tools]}")
+
+    chat(build_agent(spec, extra_tools=mcp_tools))
     return 0
 
 

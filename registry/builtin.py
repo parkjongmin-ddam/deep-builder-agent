@@ -1,10 +1,11 @@
-"""Phase 1 내장 도구 구현.
+"""내장 커스텀 도구 구현.
 
-설계 원칙:
-- AgentSpec의 도구 키(문자열)와 실제 구현을 이 모듈에서 연결한다.
-- file_read/file_write는 deepagents 내장 파일시스템 도구로 위임한다(factory.BUILTIN_FS_TOOLS).
-  따라서 여기에는 커스텀 도구(web_search, python_repl)만 구현한다.
-- Phase 2에서 registry/ 모듈로 이관한다.
+Phase 1의 runtime/tools.py에서 이관했다. file_read/file_write는 deepagents
+내장 파일시스템 도구로 위임하므로(registry.BUILTIN_FS_TOOLS) 여기에는
+직접 구현이 필요한 도구만 둔다.
+
+각 도구의 설명 첫 줄은 Builder 프롬프트의 도구 목록에 그대로 노출된다
+(`registry.tool_catalog()`). 모델이 읽는 문장이므로 무엇을 하는 도구인지 명확히 쓴다.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import tempfile
 
 from langchain_core.tools import tool
 
-from runtime.factory import register_tool
+from registry.registry import register_tool
 
 # python_repl 실행 제한. 무한 루프/폭주 스크립트를 차단한다.
 PYTHON_REPL_TIMEOUT_SECONDS = 30

@@ -26,10 +26,14 @@
 - 2026-08-08: Builder 모델과 생성 에이전트 모델 **분리**. Builder는 `DEEP_BUILDER_MODEL` 환경변수(기본 claude-sonnet-4-6), 생성 에이전트는 `AgentSpec.model`
 - 2026-08-08: web_search는 Tavily 연동. `TAVILY_API_KEY` 미설정 시 조용히 실패하지 않고 "키 없음 + 지어내지 말 것" 에러 문자열을 모델에게 반환
 - 2026-08-08: 스펙 저장 방식 확정 — `specs/<name>.json` 파일 저장 (`.gitignore` 대상)
+- 2026-08-08 (Phase 2): 도구 레지스트리를 `registry/`로 이관. **허용 도구 목록을 하드코딩에서 레지스트리 파생으로 전환** — `spec.ALLOWED_TOOLS` 상수를 제거하고 `registry.allowed_tool_keys()`가 단일 진실 원천이 되었다. 구현 없는 키가 화이트리스트에 남을 수 없다. 스키마 필드는 불변이므로 SPEC_VERSION은 0.1 유지
+- 2026-08-08 (Phase 2): Builder 프롬프트의 도구 목록을 `registry.tool_catalog()`에서 렌더링. 도구를 추가·제거해도 프롬프트를 손댈 필요가 없고, 프롬프트가 광고하는 도구와 밸리데이터가 허용하는 도구가 어긋날 수 없다 (`builder.prompts.build_system_prompt()`)
+- 2026-08-08 (Phase 2): MCP 커넥터는 langchain-mcp-adapters 0.3.2 기반. 접속 설정은 코드가 아니라 `mcp_servers.json`(gitignore 대상, `mcp_servers.example.json` 제공)에 두고, 비밀값은 `${ENV_VAR}` 참조로만 기재해 로드 시 치환한다
+- 2026-08-08 (Phase 2): **MCP 스펙 검증 강화** — `mcp:` 접두사만으로 통과하던 Phase 1 동작을 폐기. 설정 파일에 존재하는 서버명일 때만 스펙이 통과한다 (오타 서버명이 런타임까지 흘러가지 않는다)
 
 ## 4. Phase 로드맵
 - Phase 1 (8월, 1~3주차): CLI — 자연어 → AgentSpec → 단일 에이전트 생성·대화 ✅ **완료 (2026-08-08)**
-- Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터(aibrief 연결 검증), Builder 도구 자동 선택
+- Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터(aibrief 연결 검증), Builder 도구 자동 선택 🔸 **진행 중 — aibrief 실연결만 남음**
 - Phase 3 (9월 말~10월 중): subagents 활성화, 팀 템플릿 2~3개, 멀티에이전트 검증
 - Phase 4 (10월 말): Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭
 - 11월 초: 보고서(개조식)·README·데모 영상 마무리. 2주 버퍼
@@ -57,6 +61,23 @@
 ### Phase 1에서 잡은 버그
 - `python_repl`: `subprocess.run(text=True)`가 로케일 코덱(Windows cp949)으로 디코딩해 한글 출력이 UnicodeDecodeError로 유실 → 도구 결과가 에이전트에 전달되지 않고 5회 재시도 후 포기. `encoding="utf-8", errors="replace"` + 자식 프로세스 `PYTHONIOENCODING`/`PYTHONUTF8` 지정으로 수정. 회귀 테스트: `tests/test_tools.py::test_python_repl_handles_non_ascii_output`
 - `cli.py`: Windows 콘솔 cp949에서 이모지 출력 시 UnicodeEncodeError, 파이프 입력 시 한글이 서로게이트로 디코딩됨. `_force_utf8_stdio()`로 stdin/stdout/stderr를 UTF-8 고정
+
+## 5-2. Phase 2 체크리스트
+- [x] `registry/` 모듈 구현 — 레지스트리 코어(registry.py), 도구 구현(builtin.py), MCP 커넥터(mcp.py)
+- [x] `runtime/tools.py` → `registry/builtin.py` 이관, factory는 "스펙 → deepagents 번역"만 담당
+- [x] 허용 도구 목록을 레지스트리에서 파생 (spec.ALLOWED_TOOLS 상수 제거)
+- [x] Builder 도구 자동 선택 — 프롬프트가 `tool_catalog()`에서 도구 목록·설명을 렌더링
+- [x] MCP 커넥터 골격 + `mcp_servers.json` 설정 스키마 + `${ENV_VAR}` 치환
+- [x] MCP 서버명을 스펙 검증 단계에서 확인 (미설정 서버 거부)
+- [ ] **aibrief 실연결 검증** — 접속 정보(transport/URL/인증) 확보 후 진행
+- [ ] Phase 2 데모 기록 + 본 문서 갱신 + 커밋
+
+### Phase 2 검증 기록 (2026-08-08)
+- 테스트 **66 passed** (Phase 1 43건 → registry 7건, MCP 12건, 프롬프트 3건 추가, MCP 계약 변경 반영 1건 교체)
+- 도구 화이트리스트 파생 검증: `test_registry.py::test_every_allowed_key_is_resolvable` — 화이트리스트에 있는데 구현이 없는 키는 존재할 수 없다
+- 프롬프트 동기화 검증: `test_builder.py::test_prompt_lists_every_registered_tool`
+- MCP 검증 실측: 합성 `mcp_servers.json`(`demo_server`) 상태에서 `mcp:demo_server` 통과, `mcp:typo_server` 거부 확인
+- CLI 회귀: MCP 미설정 상태에서 기존 스펙 로드·표시 정상 (`mcp servers : (none)`)
 
 ## 6. 미결 사항 / 알려진 한계
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.

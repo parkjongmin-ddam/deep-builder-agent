@@ -4,7 +4,7 @@ python_repl의 UTF-8 케이스는 회귀 테스트다: subprocess가 로케일 �
 디코딩하면 한글 출력이 UnicodeDecodeError로 유실되어, 에이전트가 도구 결과를 못 받는다.
 """
 
-from runtime.tools import (
+from registry.builtin import (
     PYTHON_REPL_MAX_OUTPUT_CHARS,
     _truncate,
     python_repl,

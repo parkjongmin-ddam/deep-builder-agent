@@ -6,11 +6,8 @@ deepagents는 스펙과 무관하게 내장 도구를 주입하므로, 스펙이
 
 import pytest
 
-from runtime.factory import (
-    BUILTIN_FS_TOOLS,
-    resolve_builtin_fs_tools,
-    resolve_tools,
-)
+from registry import BUILTIN_FS_TOOLS
+from runtime.factory import resolve_builtin_fs_tools, resolve_tools
 from runtime.spec import AgentSpec
 
 
@@ -35,8 +32,16 @@ def test_builtin_fs_keys_are_not_returned_as_custom_tools():
     assert resolve_tools(_spec(tools=["file_read", "file_write"])) == []
 
 
+def test_mcp_tools_are_not_resolved_as_custom(monkeypatch):
+    """mcp: 키는 registry.mcp 경로가 로드한다. 커스텀 도구 해석 대상이 아니다."""
+    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"aibrief"})
+    assert resolve_tools(_spec(tools=["mcp:aibrief"])) == []
+
+
 def test_unimplemented_tool_raises():
-    spec = _spec(tools=["mcp:aibrief"])  # 스키마는 통과하지만 Phase 1에 구현이 없다
+    """스펙 검증을 우회해 들어온 미구현 키는 런타임에서 막힌다."""
+    spec = _spec(tools=[])
+    spec.tools = ["ghost_tool"]  # 밸리데이터를 우회한 직접 대입
     with pytest.raises(LookupError, match="not implemented"):
         resolve_tools(spec)
 

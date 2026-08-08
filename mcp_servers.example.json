@@ -1,0 +1,13 @@
+{
+  "_comment": "mcp_servers.json 으로 복사해 사용하세요. 비밀값은 ${ENV_VAR} 참조로만 적습니다.",
+  "aibrief": {
+    "transport": "streamable_http",
+    "url": "https://REPLACE-ME.example.com/mcp",
+    "headers": { "Authorization": "Bearer ${AIBRIEF_TOKEN}" }
+  },
+  "local_stdio_example": {
+    "transport": "stdio",
+    "command": "python",
+    "args": ["-m", "your_mcp_server"]
+  }
+}

@@ -14,7 +14,8 @@ from builder.builder import (
     generate_spec,
     save_spec,
 )
-from builder.prompts import GUARDRAIL_SENTENCE
+from builder.prompts import GUARDRAIL_SENTENCE, build_system_prompt, render_tool_list
+from registry import allowed_tool_keys
 from runtime.spec import AgentSpec
 
 VALID_SPEC = {
@@ -43,6 +44,27 @@ class FakeChatModel:
     def invoke(self, messages):
         self.calls.append(messages)
         return FakeResponse(self._responses.pop(0))
+
+
+# --- 프롬프트 렌더링 (도구 자동 선택) --------------------------------------
+
+
+def test_prompt_lists_every_registered_tool():
+    """프롬프트가 광고하는 도구와 밸리데이터가 허용하는 도구는 어긋날 수 없다."""
+    rendered = render_tool_list()
+    for key in allowed_tool_keys():
+        assert f"`{key}`" in rendered
+
+
+def test_prompt_includes_guardrail_and_tools():
+    prompt = build_system_prompt()
+    assert GUARDRAIL_SENTENCE in prompt
+    assert "## 사용 가능한 도구" in prompt
+    assert "web_search" in prompt
+
+
+def test_prompt_has_no_unrendered_placeholder():
+    assert "{tool_list}" not in build_system_prompt()
 
 
 # --- extract_json ---------------------------------------------------------

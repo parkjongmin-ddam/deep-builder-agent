@@ -28,9 +28,16 @@ def test_unregistered_tool_rejected():
         AgentSpec(**_base(tools=["shell_exec"]))
 
 
-def test_mcp_prefixed_tool_allowed_at_schema_level():
+def test_configured_mcp_server_allowed(monkeypatch):
+    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"aibrief"})
     spec = AgentSpec(**_base(tools=["mcp:aibrief"]))
     assert "mcp:aibrief" in spec.tools
+
+
+def test_unconfigured_mcp_server_rejected():
+    """Phase 2: mcp: 접두사만으로는 통과하지 못한다. 설정된 서버여야 한다."""
+    with pytest.raises(ValidationError, match="unconfigured MCP server"):
+        AgentSpec(**_base(tools=["mcp:ghost_server"]))
 
 
 def test_subagents_disabled_until_phase3():

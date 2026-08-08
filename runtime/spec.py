@@ -10,18 +10,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+from registry import MCP_PREFIX, allowed_tool_keys
+from registry.mcp import configured_server_names
+
 SPEC_VERSION = "0.1"
-
-# Phase 1 허용 도구 화이트리스트. Phase 2에서 registry 모듈로 이관한다.
-ALLOWED_TOOLS: set[str] = {
-    "web_search",
-    "python_repl",
-    "file_read",
-    "file_write",
-}
-
-# MCP 도구는 "mcp:<server_name>" 접두사로 참조한다 (Phase 2에서 활성화).
-MCP_PREFIX = "mcp:"
 
 
 class SubAgentSpec(BaseModel):
@@ -47,14 +39,24 @@ class AgentSpec(BaseModel):
     @field_validator("tools")
     @classmethod
     def tools_must_be_registered(cls, v: list[str]) -> list[str]:
-        """레지스트리에 없는 도구 참조를 차단한다(제품 층위 하네스 가드레일)."""
+        """레지스트리에 없는 도구 참조를 차단한다(제품 층위 하네스 가드레일).
+
+        허용 목록은 하드코딩이 아니라 registry에서 파생된다 —
+        구현되지 않은 도구가 화이트리스트에 남아 있을 수 없다.
+        """
+        allowed = allowed_tool_keys()
         for t in v:
             if t.startswith(MCP_PREFIX):
-                # MCP 도구 실제 검증은 Phase 2의 registry에서 수행
+                configured = configured_server_names()
+                if t[len(MCP_PREFIX) :] not in configured:
+                    raise ValueError(
+                        f"unconfigured MCP server: {t!r} "
+                        f"(configured: {sorted(configured)})"
+                    )
                 continue
-            if t not in ALLOWED_TOOLS:
+            if t not in allowed:
                 raise ValueError(
-                    f"unregistered tool: {t!r} (allowed: {sorted(ALLOWED_TOOLS)})"
+                    f"unregistered tool: {t!r} (allowed: {sorted(allowed)})"
                 )
         return v
 

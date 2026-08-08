@@ -19,9 +19,9 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from builder.prompts import (
-    BUILDER_SYSTEM_PROMPT,
     GUARDRAIL_SENTENCE,
     RETRY_FEEDBACK_TEMPLATE,
+    build_system_prompt,
 )
 from runtime.spec import AgentSpec
 
@@ -129,7 +129,7 @@ def generate_spec(
     llm = chat_model if chat_model is not None else _build_chat_model(model)
 
     messages: list = [
-        ("system", BUILDER_SYSTEM_PROMPT),
+        ("system", build_system_prompt()),
         ("user", request),
     ]
 

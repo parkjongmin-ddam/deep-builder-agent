@@ -11,8 +11,9 @@
 - 의존성은 requirements.txt에 고정한다. 비밀값은 .env(커밋 금지), 형식은 .env.example 참조
 
 ## 아키텍처 (4레이어)
-- builder/  — 메타 에이전트: 자연어 → AgentSpec JSON
-- registry/ — 도구 레지스트리 + MCP 커넥터 (Phase 2)
+- builder/  — 메타 에이전트: 자연어 → AgentSpec JSON. 프롬프트의 도구 목록은 registry에서 렌더링
+- registry/ — 도구 레지스트리(registry.py) + 도구 구현(builtin.py) + MCP 커넥터(mcp.py).
+              허용 도구 화이트리스트의 단일 진실 원천 — 도구를 늘리려면 여기에만 등록한다
 - runtime/  — AgentSpec 검증(spec.py) → deepagents 인스턴스화(factory.py)
 - ui/       — Streamlit 2패널 (Phase 4)
 - eval/     — LangSmith + LLM-as-judge (Phase 4)
