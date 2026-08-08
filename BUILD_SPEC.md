@@ -1,9 +1,11 @@
 # BUILD_SPEC.md — deep_builder_agent
 
 ## 1. 프로젝트 개요
-- 목표: 자연어 대화로 AI 에이전트를 생성·실행·평가하는 빌더 제작 (브레인크루 Deep Agent Builder 미니 재현)
-- 제출: 2026년 11월, 생성 AI 교육과정 파이널 과제
-- 기반: LangChain deepagents(하네스), LangGraph 런타임, Claude Code로 개발
+- 명칭: **deep_builder_agent** (2026-08-08 확정. 가칭 mini-agent-builder 폐기)
+- 현재 상태: **Phase 1 완료 (2026-08-08)** — 자연어 → AgentSpec → 단일 에이전트 생성·대화 CLI 동작, 테스트 43건 통과
+- 진입점: `cli.py` (`python cli.py "<자연어 요구>"`)
+- 기술 스택 (설치본 검증 완료): deepagents 0.7.5(하네스), LangGraph 1.2.10(런타임), langchain-anthropic 1.5.4, Pydantic v2, Python 3.13. 개발은 Claude Code
+- 실행 환경: 프로젝트 전용 venv(`.venv/`). 전역 파이썬의 langchain 버전과 충돌하므로 격리한다
 
 ## 2. 설계 기조 (3축)
 - 카파시 원칙: baseline(단일 에이전트) → 복잡도(멀티) 순. Phase 게이트 강제
@@ -30,7 +32,7 @@
 - Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터(aibrief 연결 검증), Builder 도구 자동 선택
 - Phase 3 (9월 말~10월 중): subagents 활성화, 팀 템플릿 2~3개, 멀티에이전트 검증
 - Phase 4 (10월 말): Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭
-- 11월 초: 보고서(개조식)·README·데모 영상·제출. 2주 버퍼
+- 11월 초: 보고서(개조식)·README·데모 영상 마무리. 2주 버퍼
 
 ## 5. Phase 1 체크리스트
 - [x] AgentSpec v0.1 스키마 (runtime/spec.py) + 테스트 5건 통과

@@ -1,6 +1,6 @@
 # CLAUDE.md — deep_builder_agent
 
-생성 AI 교육과정 파이널 과제. 자연어로 AI 에이전트를 생성·실행·평가하는 빌더 (Deep Agent Builder 유사 미니 버전).
+자연어로 AI 에이전트를 생성·실행·평가하는 빌더.
 
 ## 진실의 원천
 - 모든 설계 결정과 현재 상태는 BUILD_SPEC.md에 있다. 작업 전 반드시 읽고, 결정 변경 시 갱신한다.
