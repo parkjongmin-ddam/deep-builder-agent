@@ -5,6 +5,7 @@
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -78,6 +79,25 @@ def test_unsupported_transport_raises(tmp_path):
 def test_missing_required_field_raises(tmp_path):
     with pytest.raises(MCPConfigError, match="requires 'url'"):
         load_config(_write(tmp_path, {"srv": {"transport": "streamable_http"}}))
+
+
+def test_comment_keys_are_skipped(tmp_path):
+    """`_`로 시작하는 최상위 키는 서버가 아니라 설명문이다."""
+    payload = {"_comment": "복사해서 쓰세요", "local": STDIO_SERVER}
+
+    config = load_config(_write(tmp_path, payload))
+
+    assert set(config) == {"local"}
+
+
+def test_shipped_example_config_is_loadable(monkeypatch):
+    """배포하는 example 파일을 그대로 복사해도 로드가 깨지지 않아야 한다."""
+    monkeypatch.setenv("AIBRIEF_TOKEN", "synthetic-token")
+
+    config = load_config(Path("mcp_servers.example.json"))
+
+    assert "aibrief" in config
+    assert not any(name.startswith("_") for name in config)
 
 
 def test_invalid_json_raises(tmp_path):

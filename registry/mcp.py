@@ -93,6 +93,11 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> dict[str, dict]:
 
     config: dict[str, dict] = {}
     for name, entry in raw.items():
+        # JSON에는 주석이 없다. `_`로 시작하는 최상위 키는 설명문으로 보고 건너뛴다 —
+        # 이게 없으면 주석이 달린 example 파일을 그대로 복사했을 때 로드가 깨진다.
+        if name.startswith("_"):
+            continue
+
         if not isinstance(entry, dict):
             raise MCPConfigError(f"{path}: server {name!r} config must be an object")
 

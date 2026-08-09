@@ -1,13 +1,15 @@
 {
   "_comment": "mcp_servers.json 으로 복사해 사용하세요. 비밀값은 ${ENV_VAR} 참조로만 적습니다.",
+  "_comment_stdio": "stdio의 command는 PATH를 탄다. venv 의존성이 필요한 서버라면 'python'이 아니라 .venv 인터프리터 경로를 적으세요.",
   "aibrief": {
     "transport": "streamable_http",
     "url": "https://REPLACE-ME.example.com/mcp",
     "headers": { "Authorization": "Bearer ${AIBRIEF_TOKEN}" }
   },
-  "local_stdio_example": {
+  "echo": {
     "transport": "stdio",
-    "command": "python",
-    "args": ["-m", "your_mcp_server"]
+    "command": ".venv/Scripts/python.exe",
+    "args": ["-m", "examples.echo_mcp_server"],
+    "cwd": "."
   }
 }

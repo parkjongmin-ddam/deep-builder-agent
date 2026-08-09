@@ -3,4 +3,5 @@ langchain-anthropic==1.5.4
 langchain-tavily
 python-dotenv
 pytest
-langchain-mcp-adapters
+langchain-mcp-adapters==0.3.2
+mcp
