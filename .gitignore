@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 specs/
 mcp_servers.json
+
+# 에이전트 작업공간: 사용자가 넣은 문서는 커밋하지 않는다.
+# (안내문만 추적 — 여기 무엇을 두면 안 되는지 적혀 있다)
+workspace/*
+!workspace/README.md

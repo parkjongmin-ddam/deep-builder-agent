@@ -18,6 +18,8 @@
               서브에이전트 번역·도구 격리도 factory가 담당한다
 - templates/ — 손으로 쓴 팀 스펙 JSON. `cli.py --spec`으로 바로 실행된다.
               Builder를 거치지 않으므로 가드레일 문장을 파일에 직접 써야 한다
+- workspace/ — 에이전트가 실제 디스크를 읽고 쓸 수 있는 **유일한** 디렉터리.
+              가상 루트가 `/`라 파일은 `/README.md` 형태로 보인다
 - ui/       — Streamlit 2패널. app.py는 그리기만, 판단은 state.py의 순수 함수에 둔다
 - eval/     — Builder 회귀 평가. checks.py(기계적 판정) + judge.py(LLM 심판) + runner.py(집계).
               `import eval`은 내장 함수를 가린다 — 항상 `from eval.x import y` 형태로 쓴다
@@ -40,4 +42,10 @@
 - 서브에이전트에 FilesystemMiddleware 없이 도구를 붙이지 않는다. 메인의 도구 화이트리스트는
   서브에이전트에 전파되지 않으며, 빠뜨리면 위임 한 번으로 셸(execute)이 열린다
   (실측 근거는 BUILD_SPEC.md 5-3)
+- `workspace/`에 비밀값을 두지 않는다. 경로 탈출은 `virtual_mode`가 막지만 그 안의 파일은
+  에이전트가 전부 읽는다 — 프로세스 격리가 아니라 경로 제한이다
+- 파일 백엔드의 `root_dir`을 프로젝트 루트로 넓히지 않는다. `.env`가 읽히게 된다
+- 보안 경계 테스트를 `pytest.raises(Exception)`만으로 쓰지 않는다. 오타난 메서드명이 던지는
+  AttributeError를 '차단됨'으로 오인해 통과한 적이 있다 — 대조군(허용 경로가 실제로 되는지)을
+  함께 두고, "비밀값이 결과에 없다"처럼 성질로 검사한다
 - CLAUDE.md/훅/커스텀 커맨드 등 개발 하네스 개선에 반나절 이상 쓰지 않는다

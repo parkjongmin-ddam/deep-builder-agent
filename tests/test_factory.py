@@ -67,7 +67,14 @@ def test_read_file_always_present():
 
 
 def test_builtin_map_covers_only_file_keys():
-    assert set(BUILTIN_FS_TOOLS) == {"file_read", "file_write"}
+    """파일 관련 키만 내장 위임 대상이다 — execute/delete 같은 것은 여기 없다."""
+    assert set(BUILTIN_FS_TOOLS) == {"file_read", "file_write", "file_list"}
+
+
+def test_file_list_enables_the_ls_tool():
+    """경로를 모를 때 목록을 볼 수 있어야 한다 (doc_qa_team이 여기서 막혔다)."""
+    assert "ls" in resolve_builtin_fs_tools(_spec(tools=["file_list"]))
+    assert "ls" not in resolve_builtin_fs_tools(_spec(tools=["file_read"]))
 
 
 # --- Phase 3: subagents ---------------------------------------------------

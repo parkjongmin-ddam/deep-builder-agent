@@ -12,8 +12,11 @@ deepagents 0.7.5 검증 결과 (2026-08-08, 설치본 소스 대조):
   → `middleware=[FilesystemMiddleware(tools=[...])]`로 파일시스템 도구를 최소 집합만 남긴다.
 - 제거 불가 잔여 도구: `read_file`(FilesystemMiddleware 필수), `task`(SubAgentMiddleware 필수).
   BUILD_SPEC.md "6. 미결 사항"에 한계로 기록한다.
-- 기본 파일시스템 백엔드는 `StateBackend`(에이전트 상태 내 가상 FS)이므로
-  file_read/file_write는 실제 디스크가 아니라 세션 상태를 대상으로 한다.
+- 파일시스템 백엔드는 `FilesystemBackend(root_dir=workspace/, virtual_mode=True)`로
+  교체했다. deepagents 기본값 `StateBackend`는 세션 내 가상 FS라 실제 문서를 읽지
+  못했고(doc_qa_team이 설명대로 동작하지 않는 것을 실측), 그렇다고 루트를 프로젝트
+  전체로 열면 `.env`가 읽힌다. `workspace/` 전용 디렉터리가 그 사이의 답이다.
+  (2026-08-10 결정 — BUILD_SPEC 참조)
 
 Phase 3 추가 검증 (2026-08-10, 실측):
 - **메인 에이전트의 FilesystemMiddleware는 서브에이전트에 전파되지 않는다.**
@@ -33,6 +36,7 @@ from registry import (
     REQUIRED_FS_TOOL,
     get_custom_tool,
 )
+from runtime.config import workspace_dir
 from runtime.spec import AgentSpec, SubAgentSpec
 
 
@@ -116,6 +120,25 @@ def resolve_builtin_fs_tools(spec: AgentSpec) -> list[str]:
     return _builtin_fs_names(spec.tools)
 
 
+def _filesystem_middleware(tool_keys: list[str]):
+    """요청된 FS 도구만 켠 FilesystemMiddleware를 만든다.
+
+    백엔드를 `workspace/`에 묶는다. 기본값인 StateBackend는 세션 내 가상 FS라
+    실제 문서를 읽지 못했고(doc_qa_team이 설명대로 동작하지 않았다), 반대로
+    루트를 프로젝트 전체로 열면 `.env`가 읽힌다. 전용 디렉터리가 그 사이의 답이다.
+
+    `virtual_mode=True`가 `..`·`~`·root_dir 밖 절대경로를 차단한다. 다만
+    프로세스 격리는 아니므로 workspace 안에 비밀값을 두지 않는 규칙이 함께 필요하다.
+    """
+    from deepagents import FilesystemMiddleware
+    from deepagents.backends import FilesystemBackend
+
+    return FilesystemMiddleware(
+        tools=_builtin_fs_names(tool_keys),
+        backend=FilesystemBackend(root_dir=workspace_dir(), virtual_mode=True),
+    )
+
+
 def _subagent_payload(
     sub: SubAgentSpec,
     *,
@@ -127,8 +150,6 @@ def _subagent_payload(
     `middleware`가 핵심이다. 이걸 빼면 서브에이전트가 내장 도구 전체(execute 포함)를
     물려받아 도구 화이트리스트가 무의미해진다 — 실측으로 확인한 동작이다.
     """
-    from deepagents import FilesystemMiddleware
-
     return {
         "name": sub.name,
         "description": sub.description,
@@ -139,7 +160,7 @@ def _subagent_payload(
             *_resolve_custom_tools(sub.tools),
             *_resolve_mcp_tools(sub.tools, mcp_tools_by_server),
         ],
-        "middleware": [FilesystemMiddleware(tools=_builtin_fs_names(sub.tools))],
+        "middleware": [_filesystem_middleware(sub.tools)],
     }
 
 
@@ -173,7 +194,7 @@ def build_agent(
             해석하는 데 쓴다. 없으면 서브에이전트는 MCP 도구를 받지 못한다.
     """
     # 지연 임포트: 테스트가 deepagents 없이도 스펙 검증을 돌릴 수 있게 한다.
-    from deepagents import FilesystemMiddleware, create_deep_agent
+    from deepagents import create_deep_agent
 
     tools = [*resolve_tools(spec), *(extra_tools or [])]
     subagents = resolve_subagents(spec, mcp_tools_by_server=mcp_tools_by_server)
@@ -182,7 +203,7 @@ def build_agent(
         model=spec.model,
         tools=tools,
         system_prompt=spec.system_prompt,
-        middleware=[FilesystemMiddleware(tools=resolve_builtin_fs_tools(spec))],
+        middleware=[_filesystem_middleware(spec.tools)],
         # 빈 리스트를 넘기면 deepagents가 "최소 1개" 검사에 걸리므로 None으로 접는다.
         subagents=subagents or None,
     )

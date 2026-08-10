@@ -25,6 +25,9 @@ MCP_PREFIX = "mcp:"
 BUILTIN_FS_TOOLS: dict[str, str] = {
     "file_read": "read_file",
     "file_write": "write_file",
+    # 목록 조회가 없으면 에이전트가 경로를 추측할 수밖에 없다.
+    # doc_qa_team이 실제로 `/workspace/README.md`를 찍어보고 실패했다 (2026-08-10 실측).
+    "file_list": "ls",
 }
 
 # FilesystemMiddleware가 반드시 요구하는 도구. 스펙이 요청하지 않아도 항상 켜진다.
@@ -32,8 +35,9 @@ REQUIRED_FS_TOOL = "read_file"
 
 # 내장 FS 도구 키의 설명. Builder 프롬프트가 사용한다.
 _BUILTIN_FS_DESCRIPTIONS: dict[str, str] = {
-    "file_read": "세션 작업공간의 파일을 읽는다.",
-    "file_write": "세션 작업공간에 파일을 쓴다.",
+    "file_read": "작업공간(workspace/)의 파일을 읽는다. 경로는 `/파일명` 형태의 가상 경로다.",
+    "file_write": "작업공간(workspace/)에 파일을 쓴다.",
+    "file_list": "작업공간의 파일 목록을 본다. 경로를 모를 때 file_read보다 먼저 쓴다.",
 }
 
 _CUSTOM_TOOLS: dict[str, Any] = {}

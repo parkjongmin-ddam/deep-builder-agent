@@ -50,6 +50,9 @@
 - 2026-08-10 (Phase 4): UI는 **그리기(`ui/app.py`)와 판단(`ui/state.py`)을 분리**한다. Streamlit 앱은 단위 테스트가 어렵지만 순수 함수는 그대로 테스트된다. 앱이 실제로 뜨는지는 `streamlit.testing.v1.AppTest`로 따로 검증한다
 - 2026-08-10 (Phase 4): `last_text`를 `cli.py`에서 `runtime/messages.py`로 옮겼다. UI도 같은 추출이 필요한데 `ui`가 `cli`를 임포트하는 것은 레이어가 거꾸로다
 - 2026-08-10 (Phase 4): UI는 비밀값을 **존재 여부만** 표시한다(`check_readiness`). 값이 화면에 새지 않는지 테스트로 고정했다
+- 2026-08-10: **파일 백엔드를 `workspace/` 전용 디렉터리로 묶는다** (Phase 2에서 미뤄둔 결정). deepagents 기본 `StateBackend`는 세션 내 가상 FS라 실제 문서를 못 읽어 `doc_qa_team`이 설명대로 동작하지 않았다. 반대로 루트를 프로젝트 전체로 열면 `.env`가 읽힌다. `FilesystemBackend(root_dir=workspace/, virtual_mode=True)`가 그 사이의 답이다 — `virtual_mode`가 `..`·`~`·외부 절대경로를 `ValueError: Path traversal not allowed`로 막는 것을 실측했다. **프로세스 격리는 아니므로** "workspace 안에 비밀값을 두지 않는다"는 규칙이 함께 필요하고, `workspace/README.md`와 `CLAUDE.md`에 명시했다
+- 2026-08-10: 레지스트리에 `file_list`(→ 내장 `ls`) 추가. 목록 조회가 없으면 에이전트가 경로를 추측할 수밖에 없다 — `doc_qa_team`이 실제로 `/workspace/README.md`를 찍어보고 실패했다(가상 루트가 `/`이므로 정답은 `/README.md`). 프롬프트 도구 목록은 레지스트리에서 렌더링되므로 Builder가 자동으로 새 도구를 알게 된다 (Phase 2 설계의 효과)
+- 2026-08-10: `workspace/`의 사용자 문서는 gitignore 대상. 안내문(`workspace/README.md`)만 추적한다 — 문서를 넣다가 실수로 커밋하는 것을 막는다
 
 ## 4. Phase 로드맵
 - Phase 1 (8월, 1~3주차): CLI — 자연어 → AgentSpec → 단일 에이전트 생성·대화 ✅ **완료 (2026-08-08)**
@@ -234,9 +237,28 @@ API 키 설정 후 처음으로 LLM을 실제로 호출해 검증했다. **이 �
   키는 반드시 `.env`에만 넣는다 — 실제로 `.env.example`에 잘못 들어간 적이 있고,
   커밋 전에 발견해 되돌렸다(`git log -S` 확인 결과 히스토리 유입 0건)
 
+### Tavily 연동 + 템플릿 3종 실동작 (2026-08-10)
+- **web_search 단독 호출**: Tavily 응답 6,215자, 출처 URL 포함. LLM 없이 도구만 검증
+- **`research_team`**: "LangGraph vs LangChain 조사" → researcher 조사 → writer 작성 →
+  출처 26건 전부 URL 첨부. "출처 없는 주장은 넣지 않는다"는 템플릿 지시가 지켜졌다
+- **`data_analysis_team`**: analyst 계산 → reviewer가 **다른 방법으로** 독립 검산 → 일치 후 보고
+- **`doc_qa_team`**: 백엔드 교체 + `file_list` 추가 후 실제 문서를 읽고 원문 인용해 답변.
+  교체 전에는 "파일을 찾지 못했습니다"로 실패했다
+- 테스트 **183 passed**
+
+#### 이 과정에서 잡은 것
+- **보안 경계 테스트가 잘못된 이유로 통과하고 있었다.** 경로 탈출을 검증한다며
+  `backend.read_file(...)`을 `pytest.raises(Exception)`으로 감쌌는데, `FilesystemBackend`에는
+  `read_file` 메서드 자체가 없어서 **`AttributeError`를 '차단됨'으로 오인**하고 있었다.
+  실제 API는 `read(file_path)`다. 경계는 진짜로 작동하지만(실측 확인), 그것을 확인해준다던
+  테스트는 아무것도 확인하지 못했다 — 통과하는 보안 테스트일수록 **무엇이 통과시켰는지**
+  확인해야 한다. `test_workspace.py::test_read_is_the_actual_backend_api`로 계약을 고정했다
+- 경로 차단 방식이 경로마다 다르다: `..`·외부 절대경로는 `ValueError`, `~`는 not-found 결과.
+  테스트는 "비밀값이 결과에 나타나지 않는다"는 공통 성질로 검사한다
+
 ## 6. 미결 사항 / 알려진 한계
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.
-- **파일 백엔드**: 기본 `StateBackend` — file_read/file_write는 실제 디스크가 아니라 에이전트 상태 내 가상 FS를 대상으로 한다. Phase 2에서 실제 디스크 접근 필요 여부를 결정한다.
+- ~~**파일 백엔드**: 기본 `StateBackend` — 실제 디스크 접근 필요 여부를 결정한다~~ → 2026-08-10 결정. `FilesystemBackend(root_dir=workspace/, virtual_mode=True)`로 교체 (아래 결정 로그 참조)
 - **모델 최신화**: 현재 기본값 `claude-sonnet-4-6`은 유효하나 상위 모델로 `claude-sonnet-5`·`claude-opus-5`가 존재한다. Phase 4 평가 탭에서 모델별 비교 후 기본값 재검토.
 - ~~**MCP 도구**: `mcp:` 접두사는 스키마 레벨에서만 통과하며 Phase 1에 구현이 없다~~ → Phase 2에서 해소. `registry/mcp.py`가 로드하고 `cli.py`가 `build_agent(extra_tools=...)`로 주입한다. 실서버 검증 완료 (2026-08-10)
 - ~~**`task` 도구 노출 평가**~~ → Phase 3에서 해소. general-purpose는 리더 도구를 상속하므로 구멍이 아니다 (위 5-3 참조)

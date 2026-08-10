@@ -113,7 +113,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 }
 ```
 
-- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write` (그 외는 거부).
+- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write`, `file_list` (그 외는 거부).
   **팀원의 `tools`도 같은 검증을 받는다** — 위임이 화이트리스트 우회 경로가 되지 않는다
 - `mcp:<server>`는 `mcp_servers.json`에 설정된 서버명일 때만 통과한다
 - `subagents`는 최대 5개, 이름 중복 금지, 계층 깊이 1 (팀원은 다시 팀을 못 거느린다)
@@ -134,6 +134,22 @@ python cli.py --spec templates/research_team.json
 
 템플릿은 Builder를 거치지 않으므로 가드레일 문장이 파일에 직접 적혀 있다
 (`tests/test_templates.py`가 강제한다).
+
+## 작업공간 (`workspace/`)
+
+`file_read` / `file_write` / `file_list`는 **`workspace/` 안만** 볼 수 있다.
+`..`, `~`, 바깥 절대경로는 차단된다(`FilesystemBackend(virtual_mode=True)`).
+가상 루트가 `/`이므로 `workspace/report.md`는 에이전트에게 `/report.md`로 보인다.
+
+```bash
+cp ~/some-report.md workspace/
+python cli.py --spec templates/doc_qa_team.json
+```
+
+> ⚠️ **`workspace/`에 비밀값을 두지 않는다.** 경로 탈출은 막히지만 그 안의 파일은
+> 에이전트가 전부 읽는다 — 프로세스 격리가 아니라 경로 제한이다.
+> `.env`는 이 디렉터리 밖(프로젝트 루트)에 있어 접근되지 않는다.
+> 위치를 바꾸려면 `DEEP_BUILDER_WORKSPACE`를 설정한다.
 
 ## 개발
 
