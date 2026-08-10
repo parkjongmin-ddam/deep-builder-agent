@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 226건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~4 완료 · 테스트 235건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -137,11 +137,11 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 
 ---
 
-## AgentSpec v0.2
+## AgentSpec v0.3
 
 ```json
 {
-  "spec_version": "0.2",
+  "spec_version": "0.3",
   "name": "research_team",
   "description": "주제를 조사해 근거가 붙은 브리핑을 만드는 팀",
   "system_prompt": "너는 리서치 팀의 리더다. ...",
@@ -152,7 +152,8 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
       "name": "researcher",
       "description": "웹 검색으로 사실을 조사해 출처와 함께 돌려준다",
       "system_prompt": "너는 조사 담당이다. ...",
-      "tools": ["web_search"]
+      "tools": ["web_search"],
+      "model": "claude-haiku-4-5"
     }
   ]
 }
@@ -162,6 +163,21 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
   - **팀원의 `tools`도 같은 검증을 받는다** — 위임이 화이트리스트 우회 경로가 되지 않는다
 - `mcp:<server>`는 `mcp_servers.json`에 **설정된 서버명일 때만** 통과한다 (오타가 런타임까지 흘러가지 않는다)
 - `subagents`는 최대 5개, 이름 중복 금지, 계층 깊이 1 (팀원은 다시 팀을 거느릴 수 없다)
+- 팀원의 `model`은 **선택**이다. 비우면 리더 모델을 상속하므로 v0.2 스펙 파일이 그대로 돌아간다
+
+### 팀원 모델을 언제 내리는가 (v0.3)
+
+값싼 모델(`claude-haiku-4-5`)은 **기계적인 일**에만 쓴다 — 검색 결과 수집, 원문 발췌,
+형식 변환, 단순 계산. 종합·집필·**검증**은 리더 모델 그대로 둔다
+(검산 담당을 값싼 모델로 돌리면 검산이 의미를 잃는다).
+
+> ⚠️ **절감폭은 생각보다 작다.** `doc_qa_team`의 발췌 담당만 내려 실측한 결과
+> **11.1%**($0.091 → $0.081)였다. 값싼 모델을 붙였는지가 아니라
+> **그 팀원이 전체 작업의 몇 %를 하는지**가 절감폭을 정한다 —
+> 이 팀에서는 7회 호출 중 2회뿐이었다.
+
+> ⚠️ **모델 ID는 검증되지 않는다.** 도구 키·MCP 서버명과 달리 자유 문자열이라
+> 오타를 적으면 명세는 통과하고 **실행할 때** 죽는다.
 
 허용 도구 목록은 하드코딩이 아니라 `registry`에서 파생된다.
 도구를 등록하면 Builder 프롬프트에도 자동으로 반영되므로,
@@ -175,7 +191,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 |---|---|---|---|
 | `research_team` | researcher(`web_search`) + writer | 주제 조사 → 출처 붙은 브리핑 | Anthropic + Tavily |
 | `data_analysis_team` | analyst(`python_repl`) + reviewer(`python_repl`) | 계산 후 **독립 검산** | Anthropic |
-| `doc_qa_team` | extractor(`file_read`) + summarizer | 문서 근거를 인용한 질의응답 | Anthropic |
+| `doc_qa_team` | extractor(`file_read`, **haiku**) + summarizer | 문서 근거를 인용한 질의응답 | Anthropic |
 
 ```bash
 python cli.py --spec templates/data_analysis_team.json
@@ -224,7 +240,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 226건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 235건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 

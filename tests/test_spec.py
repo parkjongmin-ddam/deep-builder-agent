@@ -34,6 +34,47 @@ def test_valid_spec_passes():
     assert spec.subagents == []
 
 
+# --- 팀원 모델 (v0.3) ------------------------------------------------------
+
+
+def test_subagent_model_defaults_to_inherit():
+    """모델을 안 적으면 None — 리더 상속이 기본이다.
+
+    **기존 스펙 파일이 그대로 돌아야 한다.** v0.2로 쓰인 템플릿·평가 케이스에는
+    이 필드가 없다.
+    """
+    spec = AgentSpec(**_base(subagents=[_sub()]))
+
+    assert spec.subagents[0].model is None
+
+
+def test_subagent_model_can_be_overridden():
+    spec = AgentSpec(**_base(subagents=[_sub(model="claude-haiku-4-5")]))
+
+    assert spec.subagents[0].model == "claude-haiku-4-5"
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\t"])
+def test_blank_subagent_model_becomes_inherit(blank):
+    """공백뿐인 모델 ID는 상속으로 정규화한다.
+
+    그대로 넘기면 deepagents가 빈 모델 ID를 해석하려다 런타임에 죽는다.
+    `.env`의 빈 값이 기본값을 덮어썼던 것과 같은 함정이다.
+    """
+    spec = AgentSpec(**_base(subagents=[_sub(model=blank)]))
+
+    assert spec.subagents[0].model is None
+
+
+def test_leader_model_is_untouched_by_subagent_models():
+    """팀원 모델을 지정해도 리더 모델은 그대로다 (대조군)."""
+    spec = AgentSpec(
+        **_base(model="claude-sonnet-4-6", subagents=[_sub(model="claude-haiku-4-5")])
+    )
+
+    assert spec.model == "claude-sonnet-4-6"
+
+
 def test_unregistered_tool_rejected():
     with pytest.raises(ValidationError, match="unregistered tool"):
         AgentSpec(**_base(tools=["shell_exec"]))

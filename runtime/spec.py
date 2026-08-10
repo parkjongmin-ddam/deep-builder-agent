@@ -25,7 +25,7 @@ from registry import MCP_PREFIX, allowed_tool_keys
 from registry.mcp import configured_server_names
 from runtime.guardrail import ensure_guardrail
 
-SPEC_VERSION = "0.2"
+SPEC_VERSION = "0.3"
 
 # 팀 규모 상한. deepagents는 서브에이전트마다 별도 그래프를 컴파일하므로
 # 무제한 허용하면 생성 비용·토큰이 조용히 폭증한다.
@@ -67,11 +67,31 @@ class SubAgentSpec(BaseModel):
     system_prompt: str = Field(..., min_length=1)
     tools: list[str] = Field(default_factory=list)
 
+    # 이 팀원만 다른 모델로 돌린다. 비우면 **리더 모델을 상속**한다.
+    #
+    # 왜 필요한가 (v0.3): 실측상 2인 팀은 단일 대비 출력 토큰을 10배 이상 쓰고,
+    # 그 대부분이 팀원 쪽에서 나온다. 조사·추출처럼 판단이 단순한 역할을 값싼
+    # 모델로 돌리면 비용이 직접 줄어든다.
+    #
+    # 기본값을 None으로 두는 이유는 **기존 스펙 파일이 그대로 돌아야** 하기 때문이다.
+    # 빈 문자열은 미지정으로 취급한다 — `.env`에서 겪은 것과 같은 함정을 막는다.
+    model: str | None = Field(default=None, max_length=100)
+
     @field_validator("tools")
     @classmethod
     def tools_must_be_registered(cls, v: list[str]) -> list[str]:
         """서브에이전트 도구도 메인과 동일한 화이트리스트를 통과해야 한다."""
         return validate_tool_keys(v)
+
+    @field_validator("model")
+    @classmethod
+    def blank_model_means_inherit(cls, v: str | None) -> str | None:
+        """공백뿐인 모델 ID를 미지정으로 바꾼다.
+
+        `"model": ""`을 그대로 넘기면 deepagents가 빈 모델 ID를 해석하려다
+        런타임에 죽는다. 스펙 단계에서 상속으로 정규화하는 편이 낫다.
+        """
+        return v.strip() or None if isinstance(v, str) else v
 
 
 class AgentSpec(BaseModel):

@@ -147,15 +147,24 @@ def _subagent_payload(
 ) -> dict[str, Any]:
     """SubAgentSpec을 deepagents `SubAgent` TypedDict로 번역한다.
 
+    Args:
+        sub: 팀원 명세.
+        model: **리더 모델**. 팀원이 자기 모델을 지정하지 않았을 때 상속된다.
+        mcp_tools_by_server: 서버명 → 도구 목록.
+
     `middleware`가 핵심이다. 이걸 빼면 서브에이전트가 내장 도구 전체(execute 포함)를
     물려받아 도구 화이트리스트가 무의미해진다 — 실측으로 확인한 동작이다.
+
+    deepagents 0.7.5 `SubAgent` TypedDict 확인 (설치본 소스):
+    `model: NotRequired[str | BaseChatModel]` — 문자열 모델 ID를 그대로 받는다.
     """
     return {
         "name": sub.name,
         "description": sub.description,
         "system_prompt": sub.system_prompt,
-        # 모델은 리더와 동일하게 고정한다. 서브에이전트만 몰래 다른 모델을 쓰는 일이 없도록.
-        "model": model,
+        # v0.3부터 팀원이 자기 모델을 가질 수 있다. 지정하지 않으면 리더 모델을 상속한다 —
+        # 상속이 기본이라 스펙을 안 고쳐도 예전과 같은 구성이 나온다.
+        "model": sub.model or model,
         "tools": [
             *_resolve_custom_tools(sub.tools),
             *_resolve_mcp_tools(sub.tools, mcp_tools_by_server),

@@ -160,6 +160,44 @@ def test_subagent_write_file_requires_explicit_request():
     assert "write_file" in _middleware_fs_tools(writer)
 
 
+def test_subagent_inherits_the_leader_model_by_default():
+    """모델을 안 적은 팀원은 리더 모델로 돈다 — v0.2와 같은 구성이 나온다."""
+    spec = _spec(model="claude-sonnet-4-6", subagents=[_sub()])
+
+    assert resolve_subagents(spec)[0]["model"] == "claude-sonnet-4-6"
+
+
+def test_subagent_model_overrides_the_leader_model():
+    """팀원이 지정한 모델이 리더 모델을 이긴다 (v0.3의 요점)."""
+    spec = _spec(
+        model="claude-sonnet-4-6", subagents=[_sub(model="claude-haiku-4-5")]
+    )
+
+    assert resolve_subagents(spec)[0]["model"] == "claude-haiku-4-5"
+
+
+def test_one_subagent_model_does_not_affect_the_others():
+    """한 팀원의 모델이 옆 팀원에게 번지지 않는다 (대조군).
+
+    이 대조군이 없으면 `_subagent_payload`가 첫 팀원의 모델을 전체에 쓰는
+    구현으로 바뀌어도 위 두 테스트는 그대로 통과한다.
+    """
+    spec = _spec(
+        model="claude-sonnet-4-6",
+        subagents=[
+            _sub(name="extractor", model="claude-haiku-4-5"),
+            _sub(name="reviewer"),
+        ],
+    )
+
+    payloads = {p["name"]: p["model"] for p in resolve_subagents(spec)}
+
+    assert payloads == {
+        "extractor": "claude-haiku-4-5",
+        "reviewer": "claude-sonnet-4-6",
+    }
+
+
 def test_subagent_mcp_reference_without_mapping_is_loud(monkeypatch):
     """팀원의 MCP 참조가 조용히 사라지지 않는다."""
     monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"remote_http"})
