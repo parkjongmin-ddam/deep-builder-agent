@@ -41,7 +41,7 @@ cp .env.example .env    # ANTHROPIC_API_KEY를 채운다
 | `ANTHROPIC_API_KEY` | ✅ | Builder와 생성된 에이전트 |
 | `TAVILY_API_KEY` | — | `web_search` 도구. 없으면 도구가 명확한 에러를 반환한다 |
 | `DEEP_BUILDER_MODEL` | — | Builder LLM 모델 (기본 `claude-sonnet-4-6`) |
-| `DEEP_BUILDER_JUDGE_MODEL` | — | 평가 심판 모델. Builder와 분리한다 |
+| `DEEP_BUILDER_JUDGE_MODEL` | — | 평가 심판 모델 (기본 `claude-haiku-4-5`). Builder와 **다른 모델이 기본값** — 자기 채점 편향 방지 |
 | `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 실행 전에 막는다 |
 | `LANGSMITH_API_KEY` | — | 트레이싱을 켤 때 필수 |
 
@@ -88,6 +88,9 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 |---|---|---|
 | 기계적 검사 | 코드로 확정 판정 | 도구 선택, 과잉 선택, 팀 구성, 가드레일 |
 | LLM 심판 | 5점 척도 + 이유 | system_prompt가 요구를 담았는가 |
+
+심판은 Builder와 **다른 모델**을 기본값으로 쓴다 — 같은 모델이 자기 출력을 채점하면
+점수가 후해진다. 판별력은 실측으로 확인했다 (부실 스펙 1/5, 무관 스펙 1/5).
 
 기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다.
 케이스는 `eval/cases/*.json`에 있다.

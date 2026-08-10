@@ -21,8 +21,14 @@ from eval.dataset import EvalCase
 from runtime.config import env_or_default
 from runtime.spec import AgentSpec
 
-# 심판 모델. Builder(DEEP_BUILDER_MODEL)와 의도적으로 분리한다.
-DEFAULT_JUDGE_MODEL = env_or_default("DEEP_BUILDER_JUDGE_MODEL", "claude-sonnet-4-6")
+# 심판 모델. Builder(기본 claude-sonnet-4-6)와 **다른 모델을 기본값으로** 둔다.
+#
+# 환경변수 설정에 의존하면 아무도 설정하지 않아 결국 같은 모델이 자기 출력을
+# 채점하게 된다. 기본값 자체를 다르게 해서 분리를 구조적으로 보장한다.
+#
+# Haiku를 고른 이유: 채점은 생성보다 쉬운 작업이고, 판별력을 실측으로 확인했다
+# (2026-08-10: 좋은 스펙 5/5, 부실 1/5, 무관 1/5 — Sonnet과 동일). 비용은 약 1/3.
+DEFAULT_JUDGE_MODEL = env_or_default("DEEP_BUILDER_JUDGE_MODEL", "claude-haiku-4-5")
 
 MIN_SCORE = 1
 MAX_SCORE = 5

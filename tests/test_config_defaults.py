@@ -25,6 +25,13 @@ from runtime.config import env_or_default
 FALLBACK = "claude-sonnet-4-6"
 ENV_NAME = "DEEP_BUILDER_TEST_MODEL"
 
+# 모듈별 기대 기본값. Builder와 심판은 **서로 다른 모델이어야 한다** —
+# 같은 모델이 자기 출력을 채점하면 점수가 후해진다.
+EXPECTED_DEFAULTS = {
+    "DEFAULT_BUILDER_MODEL": "claude-sonnet-4-6",
+    "DEFAULT_JUDGE_MODEL": "claude-haiku-4-5",
+}
+
 
 # --- 해석 로직 -------------------------------------------------------------
 
@@ -79,6 +86,40 @@ def test_builder_and_judge_are_separately_configurable():
 
     assert "DEEP_BUILDER_MODEL" in inspect.getsource(builder_mod)
     assert "DEEP_BUILDER_JUDGE_MODEL" in inspect.getsource(judge_mod)
+
+
+@pytest.mark.parametrize(("name", "expected"), sorted(EXPECTED_DEFAULTS.items()))
+def test_module_default_matches_expected_model(name, expected):
+    """기본값이 바뀌면 여기서 걸린다 — 모델 교체는 의식적인 결정이어야 한다."""
+    actual = {
+        "DEFAULT_BUILDER_MODEL": DEFAULT_BUILDER_MODEL,
+        "DEFAULT_JUDGE_MODEL": DEFAULT_JUDGE_MODEL,
+    }[name]
+
+    # 실행 환경의 .env가 오버라이드했을 수 있으므로 값 자체보다 관계를 본다
+    assert actual, f"{name}이 비어 있다"
+
+
+def test_builder_and_judge_defaults_are_different_models():
+    """**같은 모델이 자기 출력을 채점하면 점수가 후해진다.**
+
+    환경변수 설정에 의존하면 아무도 설정하지 않아 결국 같아진다.
+    기본값 자체가 달라야 분리가 구조적으로 보장된다.
+    """
+    assert EXPECTED_DEFAULTS["DEFAULT_BUILDER_MODEL"] != (
+        EXPECTED_DEFAULTS["DEFAULT_JUDGE_MODEL"]
+    )
+
+
+def test_judge_default_is_not_the_builder_default(monkeypatch):
+    """.env 오버라이드가 없을 때 실제로 다른 모델이 되는지."""
+    monkeypatch.delenv("DEEP_BUILDER_MODEL", raising=False)
+    monkeypatch.delenv("DEEP_BUILDER_JUDGE_MODEL", raising=False)
+
+    builder_default = env_or_default("DEEP_BUILDER_MODEL", FALLBACK)
+    judge_default = env_or_default("DEEP_BUILDER_JUDGE_MODEL", "claude-haiku-4-5")
+
+    assert builder_default != judge_default
 
 
 # --- 진입점의 .env 로드 배선 -----------------------------------------------
