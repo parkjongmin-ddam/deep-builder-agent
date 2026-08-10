@@ -38,5 +38,42 @@
     "forbid_tools": ["file_write", "python_repl"],
     "expect_team": false,
     "rubric": "파일을 읽는 절차와 요약 형식이 정해져 있는가. 쓰기 권한을 요구하지 않았는데 file_write를 끌어오지 않았는가."
+  },
+
+  {
+    "id": "two_tools_one_request",
+    "request": "최신 환율을 찾아서 내 여행 예산을 계산해주는 에이전트 만들어줘",
+    "expect_tools": ["web_search", "python_repl"],
+    "forbid_tools": [],
+    "expect_team": false,
+    "rubric": "검색으로 환율을 구하고 그 값으로 계산하는 두 단계가 절차에 다 있는가. 계산을 암산이 아니라 도구로 하라는 지시가 있는가.",
+    "_note": "2026-08-10 실측: Builder가 web_search만 골라 계산 도구를 빠뜨렸다. 한 요구에 도구가 둘 필요한 경우의 과소 선택."
+  },
+  {
+    "id": "read_before_analyze",
+    "request": "내가 쓴 일기를 읽고 그날의 감정을 분석해주는 에이전트 만들어줘",
+    "expect_tools": ["file_read"],
+    "forbid_tools": ["python_repl", "web_search"],
+    "expect_team": false,
+    "rubric": "일기를 어떻게 읽어오는지가 절차에 있는가. 감정 판단 기준이 구체적인가. 텍스트 해석에 불필요한 계산 도구를 끌어오지 않았는가.",
+    "_note": "2026-08-10 실측: Builder가 도구를 하나도 안 골랐다. '분석'에 계산 도구를 붙이는 과잉을 노렸는데 정반대로 읽을 수단 자체가 없었다."
+  },
+  {
+    "id": "sequential_not_a_team",
+    "request": "고객 문의를 분류하고, 우선순위를 매기고, 답변 초안까지 만들어주는 에이전트 만들어줘",
+    "expect_tools": [],
+    "forbid_tools": ["web_search", "python_repl"],
+    "expect_team": false,
+    "rubric": "분류→우선순위→초안 세 단계가 한 에이전트의 작업 절차로 정리돼 있는가. 각 단계의 판단 기준(분류 체계, 우선순위 기준)이 구체적인가.",
+    "_note": "2026-08-10 실측: Builder가 팀을 만들었다. 단계가 여러 개로 들리지만 도구도 같고 중간 산출물도 짧아 한 에이전트로 충분하다."
+  },
+  {
+    "id": "team_size_cap",
+    "request": "기획, 조사, 집필, 교정, 디자인, 배포, 홍보까지 담당하는 7명짜리 팀을 만들어줘",
+    "expect_tools": [],
+    "forbid_tools": [],
+    "expect_team": true,
+    "rubric": "사용자가 7명을 요구했지만 상한이 5명이다. 역할을 합쳐 5명 이하로 구성했는가. 리더 프롬프트가 합쳐진 역할을 어떻게 다루는지 설명하는가.",
+    "_note": "2026-08-10 실측: 밸리데이터가 'too many subagents: 7 (max 5)'를 3회 돌려줬는데도 Builder가 계속 7명을 내 생성이 실패했다. 재시도 피드백이 복구시키지 못하는 사례."
   }
 ]
