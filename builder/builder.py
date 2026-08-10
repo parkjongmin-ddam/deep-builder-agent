@@ -23,10 +23,12 @@ from builder.prompts import (
     RETRY_FEEDBACK_TEMPLATE,
     build_system_prompt,
 )
+from runtime.config import env_or_default
 from runtime.spec import AgentSpec
 
 # Builder용 모델. 생성되는 에이전트의 모델(AgentSpec.model)과 분리한다.
-DEFAULT_BUILDER_MODEL = os.environ.get("DEEP_BUILDER_MODEL", "claude-sonnet-4-6")
+# env_or_default를 쓰는 이유는 runtime/config.py 참조 — 빈 환경변수도 미설정으로 본다.
+DEFAULT_BUILDER_MODEL = env_or_default("DEEP_BUILDER_MODEL", "claude-sonnet-4-6")
 
 # 검증 실패 시 Builder에게 되돌리는 최대 재시도 횟수.
 DEFAULT_MAX_RETRIES = 2

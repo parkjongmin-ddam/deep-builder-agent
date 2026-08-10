@@ -27,6 +27,7 @@ from eval.judge import judge_spec  # noqa: E402
 from eval.runner import format_report, run_evaluation  # noqa: E402
 from registry import MCP_PREFIX  # noqa: E402
 from registry.mcp import MCPConfigError, load_tools_by_server  # noqa: E402
+from runtime.config import load_env  # noqa: E402
 from runtime.factory import build_agent  # noqa: E402
 from runtime.spec import AgentSpec  # noqa: E402
 from runtime.tracing import TracingConfigError, configure_tracing  # noqa: E402
@@ -41,6 +42,10 @@ from ui.state import (  # noqa: E402
 )
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+
+# check_readiness()가 os.environ을 읽기 전에 .env를 올려야 한다.
+# 빠뜨리면 키가 있는데도 사이드바가 "미설정"으로 실행을 막는다.
+load_env()
 
 st.set_page_config(page_title="deep_builder_agent", layout="wide")
 

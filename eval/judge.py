@@ -18,10 +18,11 @@ from dataclasses import dataclass
 
 from builder.builder import extract_json
 from eval.dataset import EvalCase
+from runtime.config import env_or_default
 from runtime.spec import AgentSpec
 
 # 심판 모델. Builder(DEEP_BUILDER_MODEL)와 의도적으로 분리한다.
-DEFAULT_JUDGE_MODEL = os.environ.get("DEEP_BUILDER_JUDGE_MODEL", "claude-sonnet-4-6")
+DEFAULT_JUDGE_MODEL = env_or_default("DEEP_BUILDER_JUDGE_MODEL", "claude-sonnet-4-6")
 
 MIN_SCORE = 1
 MAX_SCORE = 5

@@ -20,6 +20,7 @@ from typing import Callable
 from eval.checks import CheckResult, run_checks
 from eval.dataset import EvalCase, load_cases
 from eval.judge import JudgeError, JudgeVerdict, judge_spec
+from runtime.config import load_env
 from runtime.spec import AgentSpec
 
 SpecGenerator = Callable[[str], AgentSpec]
@@ -188,6 +189,8 @@ def format_report(report: EvalReport) -> str:
 
 def main() -> int:
     """`python -m eval.runner` — 기본 케이스로 평가를 돌린다 (심판 포함)."""
+    load_env()
+
     report = run_evaluation(judge=judge_spec)
     print(format_report(report))
     return 0 if report.passed == report.total else 1

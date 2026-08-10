@@ -204,9 +204,15 @@ def test_streamlit_app_renders_without_exceptions(monkeypatch):
 
 @pytest.mark.integration
 def test_app_blocks_execution_without_api_key(monkeypatch):
-    """키가 없으면 실행을 막고 그 사실을 화면에 알려야 한다."""
+    """키가 없으면 실행을 막고 그 사실을 화면에 알려야 한다.
+
+    앱은 시작 시 `.env`를 로드하므로, 개발자 머신의 실제 키가 새어 들어오지
+    않도록 로더를 no-op으로 막는다. 이 격리가 없으면 테스트가 환경에 따라
+    통과했다 실패했다 한다.
+    """
     AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
 
+    monkeypatch.setattr("runtime.config.load_env", lambda: None)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     app = AppTest.from_file(str(APP_PATH), default_timeout=60).run()
 

@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
+from runtime.config import load_env
 
 from builder.builder import SpecGenerationError, generate_spec, save_spec
 from registry import MCP_PREFIX
@@ -99,7 +99,7 @@ def chat(agent) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
-    load_dotenv()
+    load_env()
 
     parser = argparse.ArgumentParser(prog="deep_builder_agent", description=__doc__)
     parser.add_argument("request", nargs="?", help="에이전트를 설명하는 자연어 요구")

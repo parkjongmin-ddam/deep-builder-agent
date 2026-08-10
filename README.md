@@ -45,6 +45,10 @@ cp .env.example .env    # ANTHROPIC_API_KEY를 채운다
 | `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 실행 전에 막는다 |
 | `LANGSMITH_API_KEY` | — | 트레이싱을 켤 때 필수 |
 
+> ⚠️ 키는 **`.env`에만** 넣는다. `.env.example`은 git 추적 대상이라
+> (`.gitignore`가 막는 것은 `.env`뿐) 키를 적으면 그대로 커밋된다.
+> 선택 항목은 비워 두면 기본값이 쓰인다.
+
 ## 사용법
 
 ```bash
