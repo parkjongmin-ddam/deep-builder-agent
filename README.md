@@ -1,10 +1,41 @@
 # deep_builder_agent
 
-자연어 요구를 받아 AI 에이전트를 **생성·실행**하는 빌더. LangChain deepagents 하네스 위에서
-Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
+자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
+LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> 현재 상태: **Phase 4 완료** (CLI + Streamlit UI, 팀 구성, MCP 연동, LangSmith 트레이싱, 평가).
-> 모든 설계 결정과 진행 상황은 [BUILD_SPEC.md](BUILD_SPEC.md)에 있다.
+> **상태**: Phase 1~4 완료 · 테스트 188건 통과 · 전 경로 실호출 검증 완료
+> **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
+
+---
+
+## 빠른 시작
+
+Anthropic API 키 하나만 있으면 5분 안에 돌아간다.
+
+```bash
+# 1. 설치
+python -m venv .venv
+./.venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows
+# python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # macOS/Linux
+
+# 2. 키 설정 — .env 를 열어 ANTHROPIC_API_KEY= 뒤에 붙여넣는다
+cp .env.example .env
+
+# 3. 바로 실행 (Anthropic 키만 필요)
+python cli.py --spec templates/data_analysis_team.json
+```
+
+```
+you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구해줘
+```
+
+- analyst가 계산하고 → reviewer가 **다른 방법으로** 검산하고 → 리더가 일치를 확인한 뒤 보고한다
+- 위임이 3단계라 답이 나오기까지 30초~1분 걸린다
+
+> `templates/`는 저장소에 포함돼 있어 clone 직후 바로 쓸 수 있다.
+> `specs/`는 생성물이라 gitignore 대상이므로 처음에는 비어 있다.
+
+---
 
 ## 동작 방식
 
@@ -14,55 +45,63 @@ Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강
    ↓  runtime/    AgentSpec 검증 (도구 화이트리스트 / 팀 구성 검증)
    ↓  registry/   커스텀 도구 + MCP 서버 도구 해석
    ↓  runtime/    deepagents 인스턴스화 (리더·팀원 각각 요청한 도구만 노출)
-대화
+대화 / 평가
 ```
 
 핵심은 **LLM의 준수를 신뢰하지 않는 것**이다.
 
-- 도구 화이트리스트는 프롬프트 요청이 아니라 Pydantic 밸리데이터가 거부한다.
-- 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 코드로 삽입한다.
-- deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다.
-- **서브에이전트에도 같은 차단을 따로 건다.** 메인의 제한은 팀원에게 전파되지 않아서,
-  빠뜨리면 위임 한 번으로 셸이 열린다 (실측 근거는 BUILD_SPEC.md 5-3).
-- 검증에 실패하면 에러 메시지를 Builder에게 되돌려 최대 2회 재생성한다.
+- 도구 화이트리스트는 프롬프트 요청이 아니라 Pydantic 밸리데이터가 **거부**한다
+- 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 **코드로 삽입**한다
+- deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다
+- **서브에이전트에도 같은 차단을 따로 건다** — 메인의 제한은 팀원에게 전파되지 않아서,
+  빠뜨리면 위임 한 번으로 셸이 열린다 (실측 근거: [BUILD_SPEC.md](BUILD_SPEC.md) 5-3)
+- 검증에 실패하면 에러 메시지를 Builder에게 되돌려 **최대 3회까지 시도**한다
 
-## 설치
+---
 
-```bash
-python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows
-# source .venv/bin/activate && pip install -r requirements.txt  # macOS/Linux
+## 환경변수
 
-cp .env.example .env    # ANTHROPIC_API_KEY를 채운다
-```
-
-| 환경변수 | 필수 | 용도 |
+| 변수 | 필수 | 용도 |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | ✅ | Builder와 생성된 에이전트 |
-| `TAVILY_API_KEY` | — | `web_search` 도구. 없으면 도구가 명확한 에러를 반환한다 |
-| `DEEP_BUILDER_MODEL` | — | Builder LLM 모델 (기본 `claude-sonnet-4-6`) |
-| `DEEP_BUILDER_JUDGE_MODEL` | — | 평가 심판 모델 (기본 `claude-haiku-4-5`). Builder와 **다른 모델이 기본값** — 자기 채점 편향 방지 |
-| `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 실행 전에 막는다 |
+| `TAVILY_API_KEY` | — | `web_search` 도구. 없으면 결과를 지어내지 않고 명확한 에러를 반환한다 |
+| `DEEP_BUILDER_MODEL` | — | Builder 모델 (기본 `claude-sonnet-4-6`) |
+| `DEEP_BUILDER_JUDGE_MODEL` | — | 평가 심판 모델 (기본 `claude-haiku-4-5`) — Builder와 **다른 모델이 기본값**이라 자기 채점 편향이 없다 |
+| `DEEP_BUILDER_WORKSPACE` | — | 에이전트가 파일을 읽고 쓰는 디렉터리 (기본 `workspace`) |
+| `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 **실행 전에** 막는다 |
 | `LANGSMITH_API_KEY` | — | 트레이싱을 켤 때 필수 |
 
 > ⚠️ 키는 **`.env`에만** 넣는다. `.env.example`은 git 추적 대상이라
 > (`.gitignore`가 막는 것은 `.env`뿐) 키를 적으면 그대로 커밋된다.
-> 선택 항목은 비워 두면 기본값이 쓰인다.
+> 선택 항목은 **비워 두면** 기본값이 쓰인다.
+
+기능별로 필요한 키:
+
+| 하려는 것 | 필요한 키 |
+|---|---|
+| 자연어로 에이전트 생성, `data_analysis_team`, `doc_qa_team`, 평가 | `ANTHROPIC_API_KEY` |
+| `research_team` (웹 검색) | \+ `TAVILY_API_KEY` |
+| 실행 추적·토큰 측정 | \+ `LANGSMITH_API_KEY` |
+
+---
 
 ## 사용법
+
+### CLI
 
 ```bash
 # 자연어로 에이전트를 만들고 바로 대화
 python cli.py "웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘"
 
-# 저장된 스펙으로 대화
+# 팀 템플릿으로 실행
+python cli.py --spec templates/research_team.json
+
+# 생성한 스펙을 다시 사용 (specs/ 에 저장된다)
 python cli.py --spec specs/it_news_summarizer.json
 
 # 생성·검증만 하고 종료 (대화 없음)
 python cli.py "..." --no-chat
 ```
-
-생성된 스펙은 `specs/<name>.json`에 저장된다.
 
 ### Streamlit UI
 
@@ -70,9 +109,9 @@ python cli.py "..." --no-chat
 streamlit run ui/app.py
 ```
 
-- 사이드바: 환경 점검 (키·트레이싱·MCP). 비밀값은 **존재 여부만** 표시한다
-- 탭 **빌더**: 왼쪽에서 자연어로 만들거나 템플릿을 불러오고, 오른쪽에서 바로 대화
-- 탭 **평가**: 케이스를 돌려 Builder 회귀를 확인
+- **사이드바** — 환경 점검(키·트레이싱·MCP). 비밀값은 **존재 여부만** 표시한다
+- **빌더 탭** — 왼쪽에서 자연어로 만들거나 템플릿을 불러오고, 오른쪽에서 바로 대화
+- **평가 탭** — 케이스를 돌려 Builder 회귀 확인. 심판은 기본 꺼짐(비용 발생)
 
 ### 평가
 
@@ -81,19 +120,19 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 ```
 
 무엇을 재는가: **Builder가 자연어 요구를 옳은 AgentSpec으로 옮기는가.**
-생성된 에이전트의 답변 품질이 아니다 — 그건 도구·모델·프롬프트가 뒤섞인 결과라
-회귀 신호로 쓰기 어렵다.
+생성된 에이전트의 답변 품질이 아니다 — 그건 도구·모델·프롬프트가 뒤섞인 결과라 회귀 신호로 쓰기 어렵다.
 
 | 단계 | 방법 | 대상 |
 |---|---|---|
 | 기계적 검사 | 코드로 확정 판정 | 도구 선택, 과잉 선택, 팀 구성, 가드레일 |
-| LLM 심판 | 5점 척도 + 이유 | system_prompt가 요구를 담았는가 |
+| LLM 심판 | 5점 척도 + 이유 | `system_prompt`가 요구를 담았는가 |
 
-심판은 Builder와 **다른 모델**을 기본값으로 쓴다 — 같은 모델이 자기 출력을 채점하면
-점수가 후해진다. 판별력은 실측으로 확인했다 (부실 스펙 1/5, 무관 스펙 1/5).
+- 기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다
+- 심판 판별력은 실측으로 확인했다: 부실 스펙 1/5, 무관 스펙 1/5, 좋은 스펙 5/5
+- 케이스는 `eval/cases/*.json`에 있다
+- **비용 주의**: 1회 실행 = Builder 호출 9회. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다
 
-기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다.
-케이스는 `eval/cases/*.json`에 있다.
+---
 
 ## AgentSpec v0.2
 
@@ -116,33 +155,41 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 }
 ```
 
-- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write`, `file_list` (그 외는 거부).
-  **팀원의 `tools`도 같은 검증을 받는다** — 위임이 화이트리스트 우회 경로가 되지 않는다
-- `mcp:<server>`는 `mcp_servers.json`에 설정된 서버명일 때만 통과한다
-- `subagents`는 최대 5개, 이름 중복 금지, 계층 깊이 1 (팀원은 다시 팀을 못 거느린다)
+- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write`, `file_list` (그 외는 거부)
+  - **팀원의 `tools`도 같은 검증을 받는다** — 위임이 화이트리스트 우회 경로가 되지 않는다
+- `mcp:<server>`는 `mcp_servers.json`에 **설정된 서버명일 때만** 통과한다 (오타가 런타임까지 흘러가지 않는다)
+- `subagents`는 최대 5개, 이름 중복 금지, 계층 깊이 1 (팀원은 다시 팀을 거느릴 수 없다)
+
+허용 도구 목록은 하드코딩이 아니라 `registry`에서 파생된다.
+도구를 등록하면 Builder 프롬프트에도 자동으로 반영되므로,
+**프롬프트가 광고하는 도구와 밸리데이터가 허용하는 도구가 어긋날 수 없다.**
+
+---
 
 ## 팀 템플릿
 
-`templates/`에 바로 쓸 수 있는 팀 스펙이 있다.
-
-| 템플릿 | 구성 | 쓰임 |
-|---|---|---|
-| `research_team` | researcher(web_search) + writer | 주제 조사 → 출처 붙은 브리핑 |
-| `data_analysis_team` | analyst(python_repl) + reviewer(python_repl) | 계산 후 독립 검산 |
-| `doc_qa_team` | extractor(file_read) + summarizer | 문서 근거를 인용한 질의응답 |
+| 템플릿 | 구성 | 쓰임 | 필요한 키 |
+|---|---|---|---|
+| `research_team` | researcher(`web_search`) + writer | 주제 조사 → 출처 붙은 브리핑 | Anthropic + Tavily |
+| `data_analysis_team` | analyst(`python_repl`) + reviewer(`python_repl`) | 계산 후 **독립 검산** | Anthropic |
+| `doc_qa_team` | extractor(`file_read`) + summarizer | 문서 근거를 인용한 질의응답 | Anthropic |
 
 ```bash
-python cli.py --spec templates/research_team.json
+python cli.py --spec templates/data_analysis_team.json
 ```
 
 템플릿은 Builder를 거치지 않으므로 가드레일 문장이 파일에 직접 적혀 있다
-(`tests/test_templates.py`가 강제한다).
+(`tests/test_templates.py`가 리더·팀원 전원에 대해 강제한다).
+
+---
 
 ## 작업공간 (`workspace/`)
 
 `file_read` / `file_write` / `file_list`는 **`workspace/` 안만** 볼 수 있다.
-`..`, `~`, 바깥 절대경로는 차단된다(`FilesystemBackend(virtual_mode=True)`).
-가상 루트가 `/`이므로 `workspace/report.md`는 에이전트에게 `/report.md`로 보인다.
+
+- `..`, `~`, 바깥 절대경로는 차단된다 (`FilesystemBackend(virtual_mode=True)`)
+- 가상 루트가 `/`이므로 `workspace/report.md`는 에이전트에게 `/report.md`로 보인다
+- `.env`는 이 디렉터리 **밖**(프로젝트 루트)에 있어 접근되지 않는다
 
 ```bash
 cp ~/some-report.md workspace/
@@ -150,19 +197,47 @@ python cli.py --spec templates/doc_qa_team.json
 ```
 
 > ⚠️ **`workspace/`에 비밀값을 두지 않는다.** 경로 탈출은 막히지만 그 안의 파일은
-> 에이전트가 전부 읽는다 — 프로세스 격리가 아니라 경로 제한이다.
-> `.env`는 이 디렉터리 밖(프로젝트 루트)에 있어 접근되지 않는다.
-> 위치를 바꾸려면 `DEEP_BUILDER_WORKSPACE`를 설정한다.
+> 에이전트가 전부 읽는다 — **프로세스 격리가 아니라 경로 제한**이다.
+> 웹 검색 도구를 함께 켠 에이전트에게는 여기 있는 내용이 외부로 나갈 경로가 생긴다.
+
+`workspace/`의 사용자 문서는 gitignore 대상이라 실수로 커밋되지 않는다.
+
+---
+
+## MCP 연동 (선택)
+
+외부 MCP 서버의 도구를 에이전트에 붙일 수 있다.
+
+```bash
+cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
+```
+
+- 비밀값은 파일에 직접 쓰지 않고 `${ENV_VAR}` 참조로 적으면 로드 시 치환된다
+- 스펙에서는 `"mcp:<서버명>"`으로 참조하며, **설정에 없는 서버명은 검증 단계에서 거부**된다
+- 연결 확인용 로컬 서버가 포함돼 있다 (`examples/echo_mcp_server.py`)
+
+---
 
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 188건
+./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 
-작업 규칙은 [CLAUDE.md](CLAUDE.md) 참조.
+- `integration` 마커는 실제 프로세스·Streamlit 앱을 띄우는 느린 검증이다
+- 작업 규칙은 [CLAUDE.md](CLAUDE.md) 참조
+
+---
 
 ## 알려진 한계
 
-- `read_file`과 `task`는 deepagents가 필수 미들웨어로 강제하므로 스펙이 요청하지 않아도 항상 노출된다.
-- 파일 도구는 기본 `StateBackend`(에이전트 상태 내 가상 FS)를 대상으로 하며 실제 디스크가 아니다.
+- **제거 불가 도구** — `read_file`과 `task`는 deepagents가 필수 미들웨어로 강제하므로 스펙이 요청하지 않아도 항상 노출된다.
+  다만 `task`가 띄우는 general-purpose 서브에이전트는 리더의 제한된 도구를 그대로 물려받으므로 화이트리스트 구멍은 아니다(실측 확인).
+- **`workspace/`는 샌드박스가 아니다** — 경로 제한일 뿐 프로세스 격리가 없다. 위 경고 참조.
+- **MCP는 호출당 프로세스를 재기동한다** — 어댑터가 연결을 유지하지 않아 stdio 서버는 호출마다 기동 비용을 낸다.
+- **`--spec` 경로는 가드레일 자동 주입을 받지 못한다** — `ensure_guardrail()`은 Builder 루프 안에만 있다.
+  손으로 쓴 스펙을 직접 넣으면 가드레일 문장 없이도 통과한다(배포 템플릿은 테스트로 방어).
+- **평가 케이스가 현재 전부 통과한다** — 지금 이 스위트는 이미 고친 결함의 재발만 감지한다.
+
+전체 목록과 실측 근거는 [BUILD_SPEC.md](BUILD_SPEC.md) 6절에 있다.
