@@ -31,6 +31,7 @@ from registry.mcp import MCPConfigError
 from registry.mcp import load_tools_by_server as load_mcp_tools_by_server
 from runtime.factory import build_agent, resolve_builtin_fs_tools
 from runtime.messages import last_text
+from runtime.readiness import blocking_problems, check_readiness, readiness_error
 from runtime.spec import AgentSpec, load_spec_file
 from runtime.spec_diff import diff_specs, format_diff
 from runtime.tracing import TracingConfigError, configure_tracing
@@ -201,6 +202,15 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("자연어 요구 또는 --spec 중 정확히 하나를 지정하세요.")
     if args.revise and not args.spec:
         parser.error("--revise 는 --spec 과 함께 써야 합니다 (고칠 대상이 필요합니다).")
+
+    # LLM을 부르기 **전에** 막는다. 예전에는 키가 없어도 대화 화면까지 들어간 뒤
+    # 질문을 던지는 순간 SDK 원시 오류로 죽었다 — 무엇을 고쳐야 하는지 알 수 없었다.
+    # `--spec ... --no-chat`은 스펙 검증만 하므로 키가 필요 없다.
+    needs_llm = bool(args.request) or bool(args.revise) or not args.no_chat
+    missing = blocking_problems(check_readiness())
+    if needs_llm and missing:
+        print(f"[error] {readiness_error(missing)}", file=sys.stderr)
+        return 1
 
     if args.spec:
         spec = load_spec(args.spec)

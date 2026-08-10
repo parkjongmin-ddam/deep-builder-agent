@@ -6,64 +6,17 @@
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from typing import Mapping
-
-from registry.mcp import configured_server_names
 from runtime.messages import last_text, message_text
+
+# 환경 점검은 UI만의 관심사가 아니다 — CLI도 같은 판정을 써야 한다.
+# `cli`가 `ui`를 임포트하는 것은 레이어가 거꾸로라 runtime/으로 내렸고,
+# 여기서는 재수출만 한다 (기존 `from ui.state import check_readiness`가 그대로 동작).
+from runtime.readiness import (  # noqa: F401
+    ReadinessItem,
+    blocking_problems,
+    check_readiness,
+)
 from runtime.spec import AgentSpec
-from runtime.tracing import tracing_status
-
-
-@dataclass(frozen=True)
-class ReadinessItem:
-    """환경 점검 항목 하나."""
-
-    label: str
-    ok: bool
-    detail: str
-    required: bool = False
-
-
-def check_readiness(env: Mapping[str, str] | None = None) -> list[ReadinessItem]:
-    """실행 전에 무엇이 준비됐는지 점검한다.
-
-    비밀값은 **존재 여부만** 본다. 값을 읽어 화면에 흘리지 않는다.
-    """
-    env = os.environ if env is None else env
-
-    trace = tracing_status(env)
-    servers = sorted(configured_server_names())
-
-    return [
-        ReadinessItem(
-            label="ANTHROPIC_API_KEY",
-            ok=bool(env.get("ANTHROPIC_API_KEY")),
-            detail="Builder와 생성된 에이전트 실행에 필요",
-            required=True,
-        ),
-        ReadinessItem(
-            label="TAVILY_API_KEY",
-            ok=bool(env.get("TAVILY_API_KEY")),
-            detail="web_search 도구용. 없으면 도구가 명확한 에러를 반환한다",
-        ),
-        ReadinessItem(
-            label="LangSmith 트레이싱",
-            ok=trace.enabled,
-            detail=str(trace),
-        ),
-        ReadinessItem(
-            label="MCP 서버",
-            ok=bool(servers),
-            detail=", ".join(servers) if servers else "mcp_servers.json 없음",
-        ),
-    ]
-
-
-def blocking_problems(items: list[ReadinessItem]) -> list[str]:
-    """실행을 막는 항목만 추린다. 선택 항목은 경고일 뿐 차단하지 않는다."""
-    return [item.label for item in items if item.required and not item.ok]
 
 
 def spec_overview(spec: AgentSpec) -> dict[str, str]:

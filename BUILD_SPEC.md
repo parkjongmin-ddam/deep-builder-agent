@@ -2,8 +2,8 @@
 
 ## 1. 프로젝트 개요
 - 명칭: **deep_builder_agent** (2026-08-08 확정. 가칭 mini-agent-builder 폐기)
-- 현재 상태: **Phase 1~4 완료 (2026-08-10)** — CLI·Streamlit UI, 팀(subagents), MCP 연동, LangSmith 트레이싱, 평가 레이어. **테스트 226건 통과, 전 경로 실호출 검증 완료. 평가 21케이스 21/21(평균 5.00, 1회 표본).** MCP 3개 transport(stdio·streamable_http·sse) 모두 실서버로 검증했고, **미해결 외부 의존은 없다**
-- 보고서: [REPORT.md](REPORT.md)
+- 현재 상태: **Phase 1~5 완료 (2026-08-10)** — CLI·Streamlit UI, 팀(subagents), MCP 연동, LangSmith 트레이싱, 평가 레이어, 계산 전용 도구, 자연어 수정 루프. **테스트 307건 통과, 전 경로 실호출 검증 완료. 평가 21케이스 21/21(평균 5.00, 1회 표본).** MCP 3개 transport(stdio·streamable_http·sse) 모두 실서버로 검증했고, **미해결 외부 의존은 없다**
+- 보고서: [REPORT.md](REPORT.md) · 데모 대본: [DEMO.md](DEMO.md)
 - 진입점: `cli.py` (`python cli.py "<자연어 요구>"`)
 - 기술 스택 (설치본 검증 완료): deepagents 0.7.5(하네스), LangGraph 1.2.10(런타임), langchain-anthropic 1.5.4, Pydantic v2, Python 3.13. 개발은 Claude Code
 - 실행 환경: 프로젝트 전용 venv(`.venv/`). 전역 파이썬의 langchain 버전과 충돌하므로 격리한다
@@ -94,7 +94,9 @@
   - [x] **5-2 에이전트 수정 루프** ✅ **완료 (2026-08-10)** —
         CLI `/revise`·`--revise`, UI 수정 폼, 변경 내역 diff. 실측에서
         요청하지 않은 변경 없음 (아래 기록)
-  - [ ] **5-3 제출 패키지 점검** — clone → 5분 재현 실측, 문서 간 일관성, 데모 대본
+  - [x] **5-3 제출 패키지 점검** ✅ **완료 (2026-08-10)** —
+        clone 재현 실측, 문서 일관성 자동 점검, [DEMO.md](DEMO.md) 대본.
+        **키 없이 실행하면 원시 오류로 죽던 결함을 잡았다** (아래 기록)
 - 11월 초 마무리 (2주 버퍼)
   - [x] 보고서(개조식) — [REPORT.md](REPORT.md)
   - [x] README 정비 — 빠른 시작 5분 경로, 기능별 필요 키, 자기모순 수정
@@ -682,6 +684,54 @@ Builder 변동을 제거했고, 도구는 양쪽 다 `python_repl` 하나다.
 `data_analysis_team`으로 대화 중 `/revise 계산 결과를 파일로도 저장해줘` →
 analyst에 `file_write` 추가 → 에이전트 재구축 → 새 능력이 반영된 응답까지 확인했다.
 **템플릿 원본은 그대로고 수정본만 `specs/`에 저장된다.**
+
+### Phase 5-3 실측 (2026-08-10) — 심사자가 밟는 경로를 그대로 밟았다
+
+`git clone` → venv → `pip install` → 테스트 → 실행 순서로 **실제 사본에서** 확인했다.
+
+| 단계 | 결과 |
+|---|---|
+| clone 직후 상태 | `.env`·`specs/`·`mcp_servers.json` 없음, `templates/`·`workspace/` 있음 — README 설명과 일치 |
+| `pip install -r requirements.txt` | 성공 |
+| `cp .env.example .env` | 값이 채워진 항목은 `LANGSMITH_PROJECT`(비밀값 아님)뿐 — **키 유출 없음** |
+| `pytest tests/ -q` (키 없이) | **303건 전부 통과** |
+
+#### 잡은 결함 — 키 없이 실행하면 원시 오류로 죽었다
+README 빠른 시작을 그대로 따르되 키를 넣지 않으면, CLI는 **대화 화면까지 들어간 뒤**
+첫 질문에서 이렇게 죽었다:
+
+```
+[error] 에이전트 실행 실패: TypeError: Could not resolve authentication method.
+        Expected one of api_key, auth_token, or credentials to be set. ...
+```
+
+`ANTHROPIC_API_KEY`도 `.env`도 언급되지 않는다. **UI는 이미 막고 있었는데 CLI만 안 막았다** —
+점검 로직이 `ui/state.py`에 있어 CLI가 쓸 수 없었기 때문이다.
+`.env` 로드·콘솔 인코딩과 **같은 실패 계열**이다(진입점마다 각자 배선).
+
+`runtime/readiness.py`로 내려 공용화하고, 무엇을 해야 하는지까지 알려준다:
+
+```
+[error] 필수 환경변수가 설정되지 않았습니다: ANTHROPIC_API_KEY
+        1) cp .env.example .env
+        2) .env 를 열어 ANTHROPIC_API_KEY= 뒤에 키를 붙여넣으세요
+        키 발급: https://console.anthropic.com/settings/keys
+```
+
+**대조군을 함께 뒀다**: `--no-chat`은 스펙 검증만 하므로 키 없이 통과해야 한다.
+이게 없으면 "전부 막는" 구현도 위 테스트를 통과한다.
+
+#### 문서 일관성 자동 점검
+문서가 언급하는 파일 경로·테스트 이름이 실제로 있는지, 테스트 수 표기가 맞는지 훑었다.
+`BUILD_SPEC` 첫 줄이 **226건 / Phase 1~4**로 멈춰 있었다(실제 303건 / Phase 5-2).
+README의 `--revise` 예시가 gitignore 대상인 `specs/` 파일을 가리켜
+**clone 직후 실패하는 명령**이었던 것도 함께 고쳤다 — 예전에 한 번 잡은 것과 같은 실수다.
+
+#### 이 과정에서 잡은 테스트 자체의 결함
+새로 쓴 "키 없으면 막힌다" 테스트가 **개발자 머신의 실제 `.env` 때문에 실패**했다.
+`cli.py`가 `from runtime.config import load_env`로 이름을 직접 바인딩해서
+`runtime.config.load_env`를 monkeypatch해도 소용이 없었다 — `cli.load_env`를 갈아끼워야 한다.
+**환경에 따라 통과했다 실패했다 하는 테스트**가 될 뻔했다.
 
 ## 6. 미결 사항 / 알려진 한계
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.

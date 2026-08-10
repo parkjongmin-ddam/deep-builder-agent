@@ -3,8 +3,8 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~5-2 완료 · 테스트 303건 통과 · 전 경로 실호출 검증 완료
-> **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
+> **상태**: Phase 1~5 완료 · 테스트 307건 통과 · 전 경로 실호출 검증 완료
+> **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [DEMO.md](DEMO.md) 데모 대본 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
 
@@ -107,8 +107,8 @@ python cli.py --spec specs/it_news_summarizer.json
 # 생성·검증만 하고 종료 (대화 없음)
 python cli.py "..." --no-chat
 
-# 기존 명세를 자연어로 고치기
-python cli.py --spec specs/it_news_summarizer.json --revise "파일 저장 기능도 넣어줘"
+# 기존 명세를 자연어로 고치기 (원본은 그대로, 수정본은 specs/ 에 저장된다)
+python cli.py --spec templates/research_team.json --revise "찾은 자료를 파일로도 저장하게 해줘"
 ```
 
 대화 중에도 `/revise <바꾸고 싶은 내용>`으로 고칠 수 있다.
@@ -259,7 +259,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 303건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 307건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 

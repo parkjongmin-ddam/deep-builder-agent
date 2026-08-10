@@ -212,6 +212,60 @@ def test_spec_loading_entry_point_does_not_build_spec_inline(relative_path):
     )
 
 
+# --- 진입점의 환경 점검 배선 -----------------------------------------------
+
+# UI만 점검하고 CLI는 안 했다. 그래서 키 없이 대화 화면까지 들어간 뒤
+# 질문을 던지는 순간 SDK 원시 오류로 죽었다 — ANTHROPIC_API_KEY도 .env도
+# 언급되지 않는 `TypeError: Could not resolve authentication method...` 하나였다.
+# `.env` 로드·콘솔 인코딩과 같은 실패 계열이다.
+READINESS_ENTRY_POINTS = ["cli.py", "ui/app.py"]
+
+
+@pytest.mark.parametrize("relative_path", READINESS_ENTRY_POINTS)
+def test_entry_point_checks_readiness(relative_path):
+    """LLM을 부르는 진입점은 실행 전에 필수 환경변수를 확인해야 한다."""
+    source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+    assert "check_readiness" in source, (
+        f"{relative_path}가 환경 점검을 하지 않는다 — 키 없이 실행되어 원시 오류로 죽는다"
+    )
+
+
+def test_cli_refuses_to_run_without_the_required_key(monkeypatch, capsys):
+    """키가 없으면 **LLM을 부르기 전에** 막고, 고치는 방법을 알려준다."""
+    # `cli`는 `from runtime.config import load_env`로 이름을 직접 바인딩한다 —
+    # `runtime.config.load_env`를 갈아끼워도 소용없고, 개발자 머신의 실제 .env가
+    # 로드되어 테스트가 환경에 따라 통과했다 실패했다 한다.
+    monkeypatch.setattr("cli.load_env", lambda: None)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    from cli import main
+
+    exit_code = main(["--spec", "templates/data_analysis_team.json"])
+
+    assert exit_code == 1
+    message = capsys.readouterr().err
+    assert "ANTHROPIC_API_KEY" in message
+    assert ".env" in message, "무엇을 해야 하는지 알려주지 않는다"
+
+
+def test_cli_validates_a_spec_without_a_key(monkeypatch, capsys):
+    """대조군 — `--no-chat`은 스펙 검증만 하므로 키 없이도 되어야 한다.
+
+    이게 없으면 "전부 막는" 구현도 위 테스트를 통과한다.
+    """
+    # `cli`는 `from runtime.config import load_env`로 이름을 직접 바인딩한다 —
+    # `runtime.config.load_env`를 갈아끼워도 소용없고, 개발자 머신의 실제 .env가
+    # 로드되어 테스트가 환경에 따라 통과했다 실패했다 한다.
+    monkeypatch.setattr("cli.load_env", lambda: None)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    from cli import main
+
+    assert main(["--spec", "templates/data_analysis_team.json", "--no-chat"]) == 0
+    assert "data_analysis_team" in capsys.readouterr().out
+
+
 def test_forcing_utf8_survives_streams_without_reconfigure(monkeypatch):
     """`reconfigure`가 없는 스트림에서 죽지 않는다 (대조군).
 
