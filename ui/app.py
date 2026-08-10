@@ -21,7 +21,12 @@ import streamlit as st
 # `streamlit run ui/app.py`는 프로젝트 루트를 sys.path에 넣어주지 않는다.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from builder.builder import SpecGenerationError, generate_spec, save_spec  # noqa: E402
+from builder.builder import (  # noqa: E402
+    SpecGenerationError,
+    generate_spec,
+    revise_spec,
+    save_spec,
+)
 from eval.dataset import load_cases  # noqa: E402
 from eval.judge import judge_spec  # noqa: E402
 from eval.runner import format_report, run_evaluation  # noqa: E402
@@ -30,6 +35,7 @@ from registry.mcp import MCPConfigError, load_tools_by_server  # noqa: E402
 from runtime.config import load_env  # noqa: E402
 from runtime.factory import build_agent  # noqa: E402
 from runtime.spec import AgentSpec, load_spec_file  # noqa: E402
+from runtime.spec_diff import diff_specs, format_diff  # noqa: E402
 from runtime.tracing import TracingConfigError, configure_tracing  # noqa: E402
 from ui.state import (  # noqa: E402
     agent_reply,
@@ -158,6 +164,49 @@ def render_builder_panel(blocked: bool) -> None:
     if rows:
         st.markdown("**팀 구성**")
         st.table(rows)
+
+    render_revision_form(spec, blocked)
+
+
+def render_revision_form(spec: AgentSpec, blocked: bool) -> None:
+    """현재 명세를 자연어로 고친다.
+
+    **변경 내역을 반드시 함께 보여준다.** 전체 명세를 다시 받는 방식이라
+    요청하지 않은 문장이 다듬어질 수 있고, 그것이 보이지 않으면 사용자는
+    자기가 쓴 프롬프트가 바뀐 줄 모른다.
+    """
+    st.divider()
+    st.markdown("**② 명세 고치기**")
+
+    with st.form("revise"):
+        request = st.text_area(
+            "무엇을 바꿀까요?",
+            placeholder="결과를 파일로 저장하는 기능도 넣어줘",
+            height=80,
+        )
+        submitted = st.form_submit_button("수정", disabled=blocked)
+
+    if not (submitted and request.strip()):
+        return
+
+    with st.spinner("명세를 수정하는 중..."):
+        try:
+            revised = revise_spec(spec, request.strip())
+        except SpecGenerationError as exc:
+            st.error(f"수정 실패: {exc}\n\n마지막 원인: {exc.__cause__}")
+            return
+
+    diff = diff_specs(spec, revised)
+    st.markdown("**변경 내역**")
+    st.code(format_diff(diff), language="text")
+
+    if diff.is_empty:
+        st.info("바뀐 것이 없어 저장하지 않았습니다.")
+        return
+
+    saved = save_spec(revised)
+    st.success(f"{saved} 에 저장했습니다")
+    activate(revised)
 
     with st.expander("system_prompt 전문"):
         st.code(spec.system_prompt, language="markdown")

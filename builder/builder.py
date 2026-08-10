@@ -18,7 +18,11 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from builder.prompts import RETRY_FEEDBACK_TEMPLATE, build_system_prompt
+from builder.prompts import (
+    RETRY_FEEDBACK_TEMPLATE,
+    REVISION_TEMPLATE,
+    build_system_prompt,
+)
 from runtime.config import env_or_default
 
 # 가드레일은 runtime/에 산다 — Builder 루프뿐 아니라 `--spec`·UI 경로도 같은 보장을
@@ -124,20 +128,18 @@ def _message_text(response) -> str:
     return "".join(parts)
 
 
-def generate_spec(
-    request: str,
+def _produce_spec(
+    user_message: str,
     *,
-    model: str = DEFAULT_BUILDER_MODEL,
-    max_retries: int = DEFAULT_MAX_RETRIES,
-    chat_model=None,
+    model: str,
+    max_retries: int,
+    chat_model,
 ) -> AgentSpec:
-    """자연어 요구로부터 검증된 AgentSpec을 생성한다.
+    """사용자 메시지 하나로 검증된 AgentSpec을 얻는다 (재시도 포함).
 
-    Args:
-        request: 사용자의 자연어 요구.
-        model: Builder LLM 모델 ID. `chat_model`이 주어지면 무시된다.
-        max_retries: 검증 실패 시 추가 재시도 횟수.
-        chat_model: 테스트용 주입 지점. LangChain BaseChatModel 호환 객체.
+    생성과 수정이 **같은 시스템 프롬프트·같은 검증·같은 재시도**를 쓰도록 공용화했다.
+    수정 경로에만 느슨한 검증이 걸리면 화이트리스트가 우회된다 —
+    서브에이전트 도구 검증을 공용화한 것과 같은 이유다.
 
     Raises:
         SpecGenerationError: 모든 시도가 실패한 경우. 마지막 원인을 __cause__로 전달한다.
@@ -146,7 +148,7 @@ def generate_spec(
 
     messages: list = [
         _cached_system_message(),
-        ("user", request),
+        ("user", user_message),
     ]
 
     last_error: Exception | None = None
@@ -169,6 +171,64 @@ def generate_spec(
     raise SpecGenerationError(
         f"failed to produce a valid AgentSpec after {max_retries + 1} attempts"
     ) from last_error
+
+
+def generate_spec(
+    request: str,
+    *,
+    model: str = DEFAULT_BUILDER_MODEL,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    chat_model=None,
+) -> AgentSpec:
+    """자연어 요구로부터 검증된 AgentSpec을 생성한다.
+
+    Args:
+        request: 사용자의 자연어 요구.
+        model: Builder LLM 모델 ID. `chat_model`이 주어지면 무시된다.
+        max_retries: 검증 실패 시 추가 재시도 횟수.
+        chat_model: 테스트용 주입 지점. LangChain BaseChatModel 호환 객체.
+
+    Raises:
+        SpecGenerationError: 모든 시도가 실패한 경우.
+    """
+    return _produce_spec(
+        request, model=model, max_retries=max_retries, chat_model=chat_model
+    )
+
+
+def revise_spec(
+    spec: AgentSpec,
+    request: str,
+    *,
+    model: str = DEFAULT_BUILDER_MODEL,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    chat_model=None,
+) -> AgentSpec:
+    """기존 명세를 자연어 요구대로 고친 새 명세를 만든다.
+
+    원본을 변경하지 않는다 — 호출자가 전후를 비교할 수 있어야 하기 때문이다
+    (`runtime.spec_diff.diff_specs`).
+
+    **패치가 아니라 전체 명세를 다시 받는다.** 부분 수정 형식(JSON Patch 등)을
+    쓰면 생성 경로와 다른 검증·다른 실패 모드가 생긴다. 전체를 받으면
+    `AgentSpec` 검증이 그대로 걸리고, 무엇이 바뀌었는지는 diff로 보여주면 된다.
+
+    Args:
+        spec: 고칠 대상 명세.
+        request: 무엇을 어떻게 바꿀지에 대한 자연어 요구.
+        model: Builder LLM 모델 ID. `chat_model`이 주어지면 무시된다.
+        max_retries: 검증 실패 시 추가 재시도 횟수.
+        chat_model: 테스트용 주입 지점.
+
+    Raises:
+        SpecGenerationError: 모든 시도가 실패한 경우.
+    """
+    message = REVISION_TEMPLATE.format(
+        current=spec.model_dump_json(indent=2), request=request
+    )
+    return _produce_spec(
+        message, model=model, max_retries=max_retries, chat_model=chat_model
+    )
 
 
 def save_spec(spec: AgentSpec, directory: Path = SPECS_DIR) -> Path:

@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 284건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~5-2 완료 · 테스트 303건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -46,6 +46,7 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
    ↓  registry/   커스텀 도구 + MCP 서버 도구 해석
    ↓  runtime/    deepagents 인스턴스화 (리더·팀원 각각 요청한 도구만 노출)
 대화 / 평가
+   ↺  자연어로 수정 (`/revise`) → 변경 내역 확인 → 다시 만들기
 ```
 
 핵심은 **LLM의 준수를 신뢰하지 않는 것**이다.
@@ -105,6 +106,21 @@ python cli.py --spec specs/it_news_summarizer.json
 
 # 생성·검증만 하고 종료 (대화 없음)
 python cli.py "..." --no-chat
+
+# 기존 명세를 자연어로 고치기
+python cli.py --spec specs/it_news_summarizer.json --revise "파일 저장 기능도 넣어줘"
+```
+
+대화 중에도 `/revise <바꾸고 싶은 내용>`으로 고칠 수 있다.
+고치면 **변경 내역을 보여주고** 에이전트를 다시 만든다 (대화 이력은 초기화).
+
+```
+you> /revise 계산 결과를 파일로도 저장해줘
+
+[변경 내역]
+  ~ 팀원 analyst
+      system_prompt: (292자) → (414자)
+      + 도구 file_write
 ```
 
 ### Streamlit UI
@@ -114,7 +130,8 @@ streamlit run ui/app.py
 ```
 
 - **사이드바** — 환경 점검(키·트레이싱·MCP). 비밀값은 **존재 여부만** 표시한다
-- **빌더 탭** — 왼쪽에서 자연어로 만들거나 템플릿을 불러오고, 오른쪽에서 바로 대화
+- **빌더 탭** — 왼쪽에서 자연어로 만들거나 템플릿을 불러오고, 오른쪽에서 바로 대화.
+  올라온 명세는 「명세 고치기」로 자연어 수정 — 변경 내역이 함께 표시된다
 - **평가 탭** — 케이스를 돌려 Builder 회귀 확인. 심판은 기본 꺼짐(비용 발생)
 
 ### 평가
@@ -242,7 +259,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 284건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 303건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 

@@ -12,6 +12,7 @@ from builder.builder import (
     ensure_guardrail,
     extract_json,
     generate_spec,
+    revise_spec,
     save_spec,
 )
 from builder.prompts import GUARDRAIL_SENTENCE, build_system_prompt, render_tool_list
@@ -153,6 +154,62 @@ def test_generate_spec_raises_after_retries_exhausted():
 def test_generate_spec_reads_block_style_content():
     llm = FakeChatModel([[{"type": "text", "text": json.dumps(VALID_SPEC)}]])
     assert generate_spec("...", chat_model=llm).name == "news_summarizer"
+
+
+# --- revise_spec ----------------------------------------------------------
+
+
+def test_revise_spec_applies_the_change():
+    before = AgentSpec(**VALID_SPEC)
+    revised_json = json.dumps({**VALID_SPEC, "tools": ["web_search", "file_write"]})
+    llm = FakeChatModel([revised_json])
+
+    after = revise_spec(before, "결과를 파일로 저장하는 기능도 넣어줘", chat_model=llm)
+
+    assert after.tools == ["web_search", "file_write"]
+
+
+def test_revise_spec_does_not_mutate_the_original():
+    """호출자가 전후를 비교해야 하므로 원본이 살아 있어야 한다."""
+    before = AgentSpec(**VALID_SPEC)
+    llm = FakeChatModel([json.dumps({**VALID_SPEC, "tools": []})])
+
+    revise_spec(before, "도구 다 빼줘", chat_model=llm)
+
+    assert before.tools == ["web_search"], "원본이 변경됐다"
+
+
+def test_revise_spec_shows_the_current_spec_to_the_model():
+    """지금 명세를 보여주지 않으면 '고치는' 게 아니라 새로 만드는 것이다."""
+    before = AgentSpec(**VALID_SPEC)
+    llm = FakeChatModel([json.dumps(VALID_SPEC)])
+
+    revise_spec(before, "파일 저장 추가", chat_model=llm)
+
+    user_message = llm.calls[0][-1][1]
+    assert "news_summarizer" in user_message, "현재 명세가 전달되지 않았다"
+    assert "파일 저장 추가" in user_message, "수정 요구가 전달되지 않았다"
+
+
+def test_revise_spec_injects_the_guardrail():
+    """수정 경로에도 가드레일 보장이 걸린다 — 생성 경로와 같은 하네스를 탄다."""
+    before = AgentSpec(**VALID_SPEC)
+    stripped = {**VALID_SPEC, "system_prompt": "가드레일 없는 프롬프트"}
+    llm = FakeChatModel([json.dumps(stripped)])
+
+    after = revise_spec(before, "프롬프트 바꿔줘", chat_model=llm)
+
+    assert GUARDRAIL_SENTENCE in after.system_prompt
+
+
+def test_revise_spec_rejects_a_tool_outside_the_whitelist():
+    """수정으로 화이트리스트를 우회할 수 없다."""
+    before = AgentSpec(**VALID_SPEC)
+    bad = json.dumps({**VALID_SPEC, "tools": ["shell_exec"]})
+    llm = FakeChatModel([bad, bad, bad])
+
+    with pytest.raises(SpecGenerationError):
+        revise_spec(before, "셸 도구 붙여줘", chat_model=llm, max_retries=2)
 
 
 # --- save_spec ------------------------------------------------------------

@@ -224,6 +224,28 @@ def test_loading_a_template_opens_the_chat_panel(monkeypatch):
 
 
 @pytest.mark.integration
+def test_revision_form_appears_once_a_spec_is_active(monkeypatch):
+    """명세를 올린 뒤에야 수정 폼이 뜬다 — 고칠 대상이 없으면 의미가 없다.
+
+    LLM은 호출하지 않는다. 폼이 실제로 렌더링되는지만 본다 —
+    `render_revision_form`이 호출되지 않으면 CLI에만 있는 기능이 된다.
+    """
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    pytest.importorskip("deepagents")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=90).run()
+    before = [b for b in app.button if "수정" in b.label]
+    assert not before, "명세가 없는데 수정 폼이 떠 있다"
+
+    app.selectbox[0].set_value("data_analysis_team").run()
+    loaded = [b for b in app.button if "불러오기" in b.label][0].click().run()
+
+    assert not loaded.exception, [e.value for e in loaded.exception]
+    assert [b for b in loaded.button if "수정" in b.label], "수정 폼이 렌더링되지 않았다"
+
+
+@pytest.mark.integration
 def test_app_blocks_execution_without_api_key(monkeypatch):
     """키가 없으면 실행을 막고 그 사실을 화면에 알려야 한다.
 
