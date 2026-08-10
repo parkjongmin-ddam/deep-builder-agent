@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 193건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~4 완료 · 테스트 204건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -223,7 +223,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 193건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 204건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 
@@ -243,6 +243,9 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
   스펙에 이 도구를 넣는 것은 그 권한을 주는 것과 같다.
 - **`workspace/`는 샌드박스가 아니다** — 경로 제한일 뿐 프로세스 격리가 없다. 위 경고 참조.
 - **MCP는 호출당 프로세스를 재기동한다** — 어댑터가 연결을 유지하지 않아 stdio 서버는 호출마다 기동 비용을 낸다.
+- **MCP 검증 대상은 커넥터이지 임의의 서버가 아니다** — `stdio`·`streamable_http`·`sse` 세 transport를
+  실서버로 왕복시켰지만, 상대는 우리가 만든 `examples/echo_mcp_server.py` 하나다.
+  다른 구현체의 인증 방식(OAuth 등)·세션 정책·스키마 방언과의 상호운용성은 미검증이다.
 - **`--spec` 경로는 가드레일 자동 주입을 받지 못한다** — `ensure_guardrail()`은 Builder 루프 안에만 있다.
   손으로 쓴 스펙을 직접 넣으면 가드레일 문장 없이도 통과한다(배포 템플릿은 테스트로 방어).
 - **평가 케이스가 현재 전부 통과한다** — 지금 이 스위트는 이미 고친 결함의 재발만 감지한다.

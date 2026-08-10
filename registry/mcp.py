@@ -42,12 +42,12 @@ class MCPConfigError(ValueError):
 
 
 def server_key(name: str) -> str:
-    """서버 이름을 스펙 도구 키로 바꾼다 (`aibrief` → `mcp:aibrief`)."""
+    """서버 이름을 스펙 도구 키로 바꾼다 (`echo` → `mcp:echo`)."""
     return f"{MCP_PREFIX}{name}"
 
 
 def server_name(tool_key: str) -> str:
-    """스펙 도구 키에서 서버 이름을 뽑는다 (`mcp:aibrief` → `aibrief`)."""
+    """스펙 도구 키에서 서버 이름을 뽑는다 (`mcp:echo` → `echo`)."""
     if not tool_key.startswith(MCP_PREFIX):
         raise ValueError(f"not an MCP tool key: {tool_key!r}")
     return tool_key[len(MCP_PREFIX) :]

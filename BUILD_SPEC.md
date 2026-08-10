@@ -2,7 +2,7 @@
 
 ## 1. 프로젝트 개요
 - 명칭: **deep_builder_agent** (2026-08-08 확정. 가칭 mini-agent-builder 폐기)
-- 현재 상태: **Phase 1~4 완료 (2026-08-10)** — CLI·Streamlit UI, 팀(subagents), MCP 연동, LangSmith 트레이싱, 평가 레이어. **테스트 193건 통과, 전 경로 실호출 검증 완료.** 남은 외부 의존은 aibrief 접속 정보 하나뿐
+- 현재 상태: **Phase 1~4 완료 (2026-08-10)** — CLI·Streamlit UI, 팀(subagents), MCP 연동, LangSmith 트레이싱, 평가 레이어. **테스트 204건 통과, 전 경로 실호출 검증 완료.** MCP 3개 transport(stdio·streamable_http·sse) 모두 실서버로 검증했고, **미해결 외부 의존은 없다**
 - 보고서: [REPORT.md](REPORT.md)
 - 진입점: `cli.py` (`python cli.py "<자연어 요구>"`)
 - 기술 스택 (설치본 검증 완료): deepagents 0.7.5(하네스), LangGraph 1.2.10(런타임), langchain-anthropic 1.5.4, Pydantic v2, Python 3.13. 개발은 Claude Code
@@ -31,7 +31,7 @@
 - 2026-08-08 (Phase 2): Builder 프롬프트의 도구 목록을 `registry.tool_catalog()`에서 렌더링. 도구를 추가·제거해도 프롬프트를 손댈 필요가 없고, 프롬프트가 광고하는 도구와 밸리데이터가 허용하는 도구가 어긋날 수 없다 (`builder.prompts.build_system_prompt()`)
 - 2026-08-08 (Phase 2): MCP 커넥터는 langchain-mcp-adapters 0.3.2 기반. 접속 설정은 코드가 아니라 `mcp_servers.json`(gitignore 대상, `mcp_servers.example.json` 제공)에 두고, 비밀값은 `${ENV_VAR}` 참조로만 기재해 로드 시 치환한다
 - 2026-08-08 (Phase 2): **MCP 스펙 검증 강화** — `mcp:` 접두사만으로 통과하던 Phase 1 동작을 폐기. 설정 파일에 존재하는 서버명일 때만 스펙이 통과한다 (오타 서버명이 런타임까지 흘러가지 않는다)
-- 2026-08-10 (Phase 2): **MCP 검증을 외부 서비스에서 분리**. aibrief 접속 정보가 없어 커넥터가 미검증으로 남는 상황을 피하려고, 로컬 stdio 서버(`examples/echo_mcp_server.py`)를 검증 픽스처로 채택했다. 외부 계정·네트워크 없이 커넥터 회귀를 상시 검증할 수 있고, aibrief는 설정 한 줄로 붙는 문제로 축소된다
+- 2026-08-10 (Phase 2): **MCP 검증을 외부 서비스에서 분리**. 특정 외부 MCP 서버의 접속 정보가 없어 커넥터가 미검증으로 남는 상황을 피하려고, 로컬 서버(`examples/echo_mcp_server.py`)를 검증 픽스처로 채택했다. 외부 계정·네트워크 없이 커넥터 회귀를 상시 검증할 수 있다
 - 2026-08-10 (Phase 2): 느린 검증은 `integration` 마커로 분리. 기본 실행은 전부 돌리고, 빠른 피드백이 필요하면 `-m "not integration"` (68건 0.6초 vs 73건 6초)
 - 2026-08-10 (Phase 2): `mcp_servers.json` 최상위의 `_` 접두사 키는 설명문으로 취급해 건너뛴다. JSON에 주석이 없어 생긴 문제 — 이 규칙이 없으면 주석 달린 템플릿을 복사하는 순간 로드가 깨진다
 - 2026-08-10 (Phase 3): **AgentSpec v0.2 — subagents 게이트 해제**. `subagents_disabled_before_phase3` 밸리데이터를 제거했다(2026-08-06 결정대로 Phase 3 착수 시 제거·기록). 스키마 의미가 바뀌었으므로 SPEC_VERSION 0.1 → 0.2
@@ -63,18 +63,22 @@
 - 2026-08-10: **Builder 시스템 프롬프트에 프롬프트 캐시를 건다.** 프롬프트가 약 2,850토큰인데 호출마다 통째로 재전송되고, 평가는 케이스 수만큼 Builder를 연속 호출한다(현재 12회). 캐시 적중 실측 — 2회차에서 2,830토큰을 캐시에서 읽었다. 평가 1회 기준 $0.103 → 약 $0.020. 캐시 breakpoint는 system 블록에만 두고 재시도로 덧붙는 user/assistant는 튜플 형식 그대로 둔다(프리픽스만 캐시되면 뒤가 바뀌어도 유효하다)
 - 2026-08-10: **비용의 61%는 출력이다** — 입력 568,192토큰($1.70)보다 출력 177,256토큰($2.66)이 크다(단가 5배). **캐싱은 입력만 줄인다.** 출력을 줄이려면 실행 횟수를 줄이는 수밖에 없고, 그래서 "평가는 프롬프트·레지스트리 변경 시에만"이 가장 큰 절감 수단이다
 - 2026-08-10: 평가 케이스는 **추측이 아니라 실측으로 늘린다.** 기대값을 먼저 적고 → 후보 요구를 실제로 던지고 → 어긋난 것만 고정한다. 이 절차로 4건을 찾았고, 그중 하나(`over_selection_bait`)는 과잉 선택을 노렸는데 정반대인 과소 선택이 나왔다 — 추측으로는 못 잡을 지점이었다
+- 2026-08-10: **특정 외부 MCP 서버(aibrief) 연결을 로드맵에서 제거한다.** 최초 커밋의 로드맵에 사유 없이 들어간 항목이었다. 그 서버는 프로젝트 소유자가 직접 만들어 배포한 것이라, 붙여봐야 "내가 만든 서버가 내 커넥터와 붙는다"를 보일 뿐 **제3자 상호운용성의 증거가 아니다.** 데모 요건도 아니고, 외부 계정·토큰을 게이트에 묶는 것은 Phase 2에서 이미 같은 이유로 피한 구조다. 코드·설정에서 이름을 전부 걷어내(`remote_http` 등 중립 placeholder로 교체) `grep aibrief`가 0건임을 검증 가능하게 했다
+- 2026-08-10: **커넥터가 선언한 transport는 전부 실서버로 검증한다.** 위 항목을 닫으면서 그것이 암묵적으로 덮고 있던 빈틈이 드러났다 — `streamable_http`·`sse`는 지원한다고 선언만 하고 설정 파싱만 테스트돼 있었다. HTTP 경로가 깨져도 전 테스트가 초록이었다. echo 서버에 `--transport` 인자를 붙여 세 transport를 같은 코드로 띄우고, `test_mcp_http_integration.py`가 도구 목록·호출·비ASCII 왕복을 확인한다. **오프라인·무자격증명·LLM 호출 0회**로 상시 돈다
+- 2026-08-10: **설정 헤더가 실제로 전송되는지 서버 쪽에서 확인한다.** 기존 `${ENV_VAR}` 치환 테스트는 `load_config()`가 돌려주는 dict만 봤다 — 치환된 헤더가 전송되지 않아도 통과하는 단언이었고, 인증이 필요한 MCP 서버는 전부 이 경로를 탄다. echo 서버에 `http_request_headers` 도구를 두어 수신 헤더를 되돌려받는다. **음성 대조군으로 검출력을 확인했다**: headers 없이 붙으면 `{}`, 붙이면 `authorization`·`x-deep-builder-probe`가 관측된다. stdio에서는 HTTP 요청이 없어 `{}`가 나오는 것도 고정해, 이 도구가 상수를 돌려주는 게 아님을 보장한다
 
 ## 4. Phase 로드맵
 - Phase 1 (8월, 1~3주차): CLI — 자연어 → AgentSpec → 단일 에이전트 생성·대화 ✅ **완료 (2026-08-08)**
-- Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터, Builder 도구 자동 선택 ✅ **완료 (2026-08-10)** — 커넥터는 로컬 실서버로 검증. aibrief 실연결은 접속 정보 확보 시 설정만 추가하면 되므로 게이트를 막지 않는다
+- Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터, Builder 도구 자동 선택 ✅ **완료 (2026-08-10)** — 커넥터는 stdio·streamable_http·sse **세 transport 모두 로컬 실서버로 검증**. 외부 MCP 서버 연결은 게이트가 아니다 (3절 결정 참조)
 - Phase 3 (9월 말~10월 중): subagents 활성화, 팀 템플릿 2~3개, 멀티에이전트 검증 ✅ **완료 (2026-08-10)**
 - Phase 4 (10월 말): Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭 ✅ **완료 (2026-08-10)**
 - 11월 초 마무리 (2주 버퍼)
   - [x] 보고서(개조식) — [REPORT.md](REPORT.md)
   - [x] README 정비 — 빠른 시작 5분 경로, 기능별 필요 키, 자기모순 수정
+  - [x] MCP HTTP transport 실연결 검증 — `streamable_http`·`sse` (5-2절)
   - [ ] **데모 영상** — 🚧 **기능이 전부 구축된 뒤에 촬영한다** (2026-08-10 결정).
         미완 기능이 남은 상태로 찍으면 재촬영 비용이 든다. 남은 선행 조건은
-        aibrief MCP 실연결과 평가 케이스 확장 (6절 참조)
+        평가 케이스 확장뿐이다 (6절 참조) — 외부 MCP 실연결은 선행 조건에서 제외됐다
 
 ## 5. Phase 1 체크리스트
 - [x] AgentSpec v0.1 스키마 (runtime/spec.py) + 테스트 5건 통과
@@ -107,9 +111,12 @@
 - [x] Builder 도구 자동 선택 — 프롬프트가 `tool_catalog()`에서 도구 목록·설명을 렌더링
 - [x] MCP 커넥터 골격 + `mcp_servers.json` 설정 스키마 + `${ENV_VAR}` 치환
 - [x] MCP 서버명을 스펙 검증 단계에서 확인 (미설정 서버 거부)
-- [x] **MCP 실연결 검증** — 로컬 echo MCP 서버로 커넥터 전 구간 확인 (통합 테스트 5건)
-- [ ] **aibrief 실연결 검증** — 🚧 외부 의존으로 보류. 접속 정보(transport/URL/인증) 확보 후 진행.
-      커넥터 자체는 실서버로 검증했으므로 남은 일은 `mcp_servers.json`에 aibrief 항목을 넣는 것뿐이다
+- [x] **MCP 실연결 검증 (stdio)** — 로컬 echo MCP 서버로 커넥터 전 구간 확인 (통합 테스트 6건)
+- [x] **MCP 실연결 검증 (streamable_http · sse)** — 같은 echo 서버를 HTTP로 띄워 검증 (통합 테스트 10건).
+      설정 헤더가 서버까지 도달하는지 포함. 음성 대조군으로 검출력 확인 완료
+- [x] ~~aibrief 실연결 검증~~ — **로드맵에서 제거 (2026-08-10).** 사유는 3절 결정 로그.
+      요약: 자체 배포 서버라 제3자 상호운용성 증거가 못 되고, 그것이 덮던 HTTP transport 빈틈은
+      로컬 서버로 더 낫게(상시·오프라인·회귀 감지) 막았다
 - [x] Phase 2 데모 기록 + 본 문서 갱신 + 커밋
 
 ### Phase 2 검증 기록 (2026-08-08)
@@ -396,11 +403,52 @@ Streamlit UI에서 사람이 직접 눌러 확인했다.
 - 경로 차단 방식이 경로마다 다르다: `..`·외부 절대경로는 `ValueError`, `~`는 not-found 결과.
   테스트는 "비밀값이 결과에 나타나지 않는다"는 공통 성질로 검사한다
 
+### MCP HTTP transport 검증 (2026-08-10)
+"외부 MCP 서버(aibrief) 연결"을 로드맵에서 빼면서, **그 항목이 사유 없이 덮고 있던
+진짜 빈틈**이 드러났다. 커넥터는 transport 셋을 지원한다고 선언하는데:
+
+| transport | 지원 선언 | 실연결 검증 (이전) | 실연결 검증 (지금) |
+|---|---|---|---|
+| `stdio` | ✅ | ✅ echo 서버 | ✅ |
+| `streamable_http` | ✅ | ❌ 설정 파싱만 | ✅ echo 서버 |
+| `sse` | ✅ | ❌ 설정 파싱만 | ✅ echo 서버 |
+
+HTTP 경로가 깨져 있어도 전 테스트가 초록이었다. `examples/echo_mcp_server.py`에
+`--transport {stdio,streamable-http,sse}`를 붙여 **같은 서버를 세 방식으로** 띄운다.
+FastMCP 기본 마운트 경로(`/mcp`, `/sse`)는 추측하지 않고 설치본에서 확인했다.
+
+#### 헤더 전달 — dict 단언이 못 보던 곳
+기존 `${ENV_VAR}` 치환 테스트는 `load_config()`가 **돌려주는 dict**만 봤다.
+치환된 헤더가 실제로 전송되지 않아도 통과하는 단언이었고, 인증이 필요한 MCP 서버는
+전부 이 경로를 탄다. echo 서버에 `http_request_headers` 도구를 두어 수신 헤더를 되받는다.
+
+**음성 대조군으로 검출력을 확인했다** — 통과했다는 사실만으로는 아무것도 모른다:
+
+| 설정 | 서버가 관측한 헤더 | 토큰 도달 |
+|---|---|---|
+| `headers` 없음 | `{}` | ❌ |
+| `headers` 있음 | `authorization`, `x-deep-builder-probe` | ✅ |
+
+stdio에서는 HTTP 요청 자체가 없어 `{}`가 나오는 것도 고정했다 —
+이 도구가 상수를 돌려주는 게 아니라 실제 요청을 읽는다는 근거다.
+
+#### 비용
+**LLM 호출 0회.** 외부 계정·네트워크 없이 오프라인에서 상시 돈다.
+포트는 매번 비어 있는 것을 골라(`_free_port`) 개발자 머신에서 충돌하지 않는다.
+
+#### 결과
+테스트 193 → **204건** (HTTP 통합 10건 + stdio 대조군 1건).
+`.py`·`.json`에서 `aibrief`를 전부 걷어냈다(실행 확인: `grep -rn aibrief --include=*.py --include=*.json` → 0건).
+이 문서와 REPORT에는 **무엇을 왜 뺐는지** 남기기 위해 이름이 그대로 있다 — 결정 로그에서까지
+지우면 다음 사람이 같은 항목을 사유 없이 다시 넣는다.
+
 ## 6. 미결 사항 / 알려진 한계
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.
 - ~~**파일 백엔드**: 기본 `StateBackend` — 실제 디스크 접근 필요 여부를 결정한다~~ → 2026-08-10 결정. `FilesystemBackend(root_dir=workspace/, virtual_mode=True)`로 교체 (아래 결정 로그 참조)
 - **모델 최신화**: 현재 기본값 `claude-sonnet-4-6`은 유효하나 상위 모델로 `claude-sonnet-5`·`claude-opus-5`가 존재한다. Phase 4 평가 탭에서 모델별 비교 후 기본값 재검토.
 - ~~**MCP 도구**: `mcp:` 접두사는 스키마 레벨에서만 통과하며 Phase 1에 구현이 없다~~ → Phase 2에서 해소. `registry/mcp.py`가 로드하고 `cli.py`가 `build_agent(extra_tools=...)`로 주입한다. 실서버 검증 완료 (2026-08-10)
+- ~~**HTTP transport 미검증**: `streamable_http`·`sse`는 지원 선언만 있고 설정 파싱만 테스트됐다~~ → 2026-08-10 해소. 세 transport 전부 실서버 왕복 + 헤더 전달까지 검증 (아래 기록)
+- **검증한 것은 커넥터이지 특정 서버가 아니다.** 실연결 상대는 우리가 만든 `examples/echo_mcp_server.py`(FastMCP)뿐이다. 프로토콜·transport·헤더 경로는 덮지만, **다른 구현체와의 상호운용성은 여전히 미검증**이다. 서버마다 다른 인증 방식(OAuth 등), 세션 유지 정책, 스키마 방언은 실제로 붙여봐야 안다. "MCP 검증 완료"를 "임의의 MCP 서버가 붙는다"로 읽으면 안 된다
 - ~~**`task` 도구 노출 평가**~~ → Phase 3에서 해소. general-purpose는 리더 도구를 상속하므로 구멍이 아니다 (위 5-3 참조)
 - **`--spec` 경로는 가드레일 자동 주입을 받지 못한다**: `ensure_guardrail()`은 Builder 루프 안에만 있다. 손으로 쓴 스펙을 `cli.py --spec`으로 넣으면 가드레일 문장 없이도 통과한다. 지금은 템플릿 테스트(`test_templates.py::test_every_prompt_carries_the_guardrail`)로 배포본만 막아 두었다. 스키마 레벨 강제로 올릴지는 Phase 4에서 판단한다
 - **팀 실행 비용 미측정**: 서브에이전트는 그래프를 따로 컴파일하고 위임마다 별도 LLM 호출이 붙는다. 단일 에이전트 대비 토큰·지연 비용을 아직 재지 않았다. 측정 수단은 갖췄다(LangSmith 트레이싱) — 키만 있으면 바로 잰다

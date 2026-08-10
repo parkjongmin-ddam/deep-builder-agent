@@ -36,8 +36,8 @@ def _write(tmp_path, payload):
 
 
 def test_server_key_roundtrip():
-    assert server_key("aibrief") == "mcp:aibrief"
-    assert server_name("mcp:aibrief") == "aibrief"
+    assert server_key("remote_http") == "mcp:remote_http"
+    assert server_name("mcp:remote_http") == "remote_http"
 
 
 def test_server_name_rejects_non_mcp_key():
@@ -55,14 +55,14 @@ def test_missing_config_is_empty_not_error(tmp_path):
 def test_env_reference_is_expanded(tmp_path, monkeypatch):
     """토큰은 설정 파일이 아니라 환경변수에 둔다."""
     monkeypatch.setenv("TEST_MCP_TOKEN", "synthetic-token")
-    config = load_config(_write(tmp_path, {"aibrief": HTTP_SERVER}))
-    assert config["aibrief"]["headers"]["Authorization"] == "Bearer synthetic-token"
+    config = load_config(_write(tmp_path, {"remote_http": HTTP_SERVER}))
+    assert config["remote_http"]["headers"]["Authorization"] == "Bearer synthetic-token"
 
 
 def test_missing_env_reference_raises(tmp_path, monkeypatch):
     monkeypatch.delenv("TEST_MCP_TOKEN", raising=False)
     with pytest.raises(MCPConfigError, match="TEST_MCP_TOKEN"):
-        load_config(_write(tmp_path, {"aibrief": HTTP_SERVER}))
+        load_config(_write(tmp_path, {"remote_http": HTTP_SERVER}))
 
 
 def test_stdio_server_loads(tmp_path):
@@ -92,11 +92,11 @@ def test_comment_keys_are_skipped(tmp_path):
 
 def test_shipped_example_config_is_loadable(monkeypatch):
     """배포하는 example 파일을 그대로 복사해도 로드가 깨지지 않아야 한다."""
-    monkeypatch.setenv("AIBRIEF_TOKEN", "synthetic-token")
+    monkeypatch.setenv("REMOTE_MCP_TOKEN", "synthetic-token")
 
     config = load_config(Path("mcp_servers.example.json"))
 
-    assert "aibrief" in config
+    assert "remote_http" in config
     assert not any(name.startswith("_") for name in config)
 
 

@@ -38,8 +38,8 @@ def test_builtin_fs_keys_are_not_returned_as_custom_tools():
 
 def test_mcp_tools_are_not_resolved_as_custom(monkeypatch):
     """mcp: 키는 registry.mcp 경로가 로드한다. 커스텀 도구 해석 대상이 아니다."""
-    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"aibrief"})
-    assert resolve_tools(_spec(tools=["mcp:aibrief"])) == []
+    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"remote_http"})
+    assert resolve_tools(_spec(tools=["mcp:remote_http"])) == []
 
 
 def test_unimplemented_tool_raises():
@@ -162,19 +162,19 @@ def test_subagent_write_file_requires_explicit_request():
 
 def test_subagent_mcp_reference_without_mapping_is_loud(monkeypatch):
     """팀원의 MCP 참조가 조용히 사라지지 않는다."""
-    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"aibrief"})
-    spec = _spec(subagents=[_sub(tools=["mcp:aibrief"])])
+    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"remote_http"})
+    spec = _spec(subagents=[_sub(tools=["mcp:remote_http"])])
 
     with pytest.raises(LookupError, match="not loaded"):
         resolve_subagents(spec, mcp_tools_by_server={})
 
 
 def test_subagent_mcp_tools_are_injected_when_mapped(monkeypatch):
-    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"aibrief"})
-    spec = _spec(subagents=[_sub(tools=["mcp:aibrief"])])
-    fake = _FakeTool("aibrief_search")
+    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"remote_http"})
+    spec = _spec(subagents=[_sub(tools=["mcp:remote_http"])])
+    fake = _FakeTool("remote_http_search")
 
-    payload = resolve_subagents(spec, mcp_tools_by_server={"aibrief": [fake]})[0]
+    payload = resolve_subagents(spec, mcp_tools_by_server={"remote_http": [fake]})[0]
 
     assert payload["tools"] == [fake]
 

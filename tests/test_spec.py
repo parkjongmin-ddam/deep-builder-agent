@@ -40,9 +40,9 @@ def test_unregistered_tool_rejected():
 
 
 def test_configured_mcp_server_allowed(monkeypatch):
-    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"aibrief"})
-    spec = AgentSpec(**_base(tools=["mcp:aibrief"]))
-    assert "mcp:aibrief" in spec.tools
+    monkeypatch.setattr("runtime.spec.configured_server_names", lambda: {"remote_http"})
+    spec = AgentSpec(**_base(tools=["mcp:remote_http"]))
+    assert "mcp:remote_http" in spec.tools
 
 
 def test_unconfigured_mcp_server_rejected():

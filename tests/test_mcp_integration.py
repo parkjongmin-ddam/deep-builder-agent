@@ -4,7 +4,8 @@
 `examples/echo_mcp_server.py`를 stdio로 기동해서 커넥터가 실제 MCP 서버와
 말이 통하는지 확인한다: 설정 로드 → 프로세스 기동 → 도구 목록 조회 → 도구 호출.
 
-외부 서비스(aibrief 등)에 의존하지 않으므로 오프라인·무자격증명으로 돌아간다.
+외부 서비스에 의존하지 않으므로 오프라인·무자격증명으로 돌아간다.
+HTTP transport(streamable_http·sse)는 `test_mcp_http_integration.py`가 덮는다.
 느리므로 `-m "not integration"`으로 제외할 수 있다.
 """
 
@@ -56,7 +57,18 @@ def echo_tools(echo_config: Path) -> dict[str, object]:
 
 def test_connector_lists_tools_from_a_live_server(echo_tools):
     """서버가 광고하는 도구가 그대로 올라온다."""
-    assert set(echo_tools) == {"echo", "add_numbers"}
+    assert set(echo_tools) == {"echo", "add_numbers", "http_request_headers"}
+
+
+def test_stdio_has_no_http_request(echo_tools):
+    """stdio에는 HTTP 요청이 없으므로 헤더도 없다.
+
+    `http_request_headers`가 상수를 돌려주는 게 아니라 실제 요청을 읽는다는 근거다.
+    HTTP 쪽 헤더 검증(test_mcp_http_integration.py)의 대조군 역할을 한다.
+    """
+    result = asyncio.run(echo_tools["http_request_headers"].ainvoke({}))
+
+    assert "{}" in str(result)
 
 
 def test_connector_invokes_a_live_tool(echo_tools):
