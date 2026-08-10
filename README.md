@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 188건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~4 완료 · 테스트 193건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -53,6 +53,7 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
 - 도구 화이트리스트는 프롬프트 요청이 아니라 Pydantic 밸리데이터가 **거부**한다
 - 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 **코드로 삽입**한다
 - deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다
+  — 단, `python_repl`을 허용한 스펙은 사실상 셸을 허용한 것이다 (아래 「알려진 한계」)
 - **서브에이전트에도 같은 차단을 따로 건다** — 메인의 제한은 팀원에게 전파되지 않아서,
   빠뜨리면 위임 한 번으로 셸이 열린다 (실측 근거: [BUILD_SPEC.md](BUILD_SPEC.md) 5-3)
 - 검증에 실패하면 에러 메시지를 Builder에게 되돌려 **최대 3회까지 시도**한다
@@ -130,7 +131,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 - 기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다
 - 심판 판별력은 실측으로 확인했다: 부실 스펙 1/5, 무관 스펙 1/5, 좋은 스펙 5/5
 - 케이스는 `eval/cases/*.json`에 있다
-- **비용 주의**: 1회 실행 = Builder 호출 9회. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다
+- **비용 주의**: 1회 실행 = Builder 호출 12회(케이스 수). 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다
 
 ---
 
@@ -221,7 +222,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 188건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 193건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 
@@ -234,6 +235,11 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 
 - **제거 불가 도구** — `read_file`과 `task`는 deepagents가 필수 미들웨어로 강제하므로 스펙이 요청하지 않아도 항상 노출된다.
   다만 `task`가 띄우는 general-purpose 서브에이전트는 리더의 제한된 도구를 그대로 물려받으므로 화이트리스트 구멍은 아니다(실측 확인).
+- **`python_repl`은 임의 코드 실행이다 — 샌드박스가 아니다.**
+  임시 디렉터리에서 실행하고 비밀값 환경변수를 넘기지 않으며 30초에 끊지만,
+  `os.system`·`subprocess`·절대경로 파일 접근·네트워크는 여전히 가능하다.
+  **`execute`(deepagents 셸 도구)를 차단해도 `python_repl`을 허용한 스펙은 사실상 셸을 허용한 것**이다.
+  스펙에 이 도구를 넣는 것은 그 권한을 주는 것과 같다.
 - **`workspace/`는 샌드박스가 아니다** — 경로 제한일 뿐 프로세스 격리가 없다. 위 경고 참조.
 - **MCP는 호출당 프로세스를 재기동한다** — 어댑터가 연결을 유지하지 않아 stdio 서버는 호출마다 기동 비용을 낸다.
 - **`--spec` 경로는 가드레일 자동 주입을 받지 못한다** — `ensure_guardrail()`은 Builder 루프 안에만 있다.

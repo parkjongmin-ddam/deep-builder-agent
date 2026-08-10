@@ -23,6 +23,35 @@ from registry.registry import register_tool
 PYTHON_REPL_TIMEOUT_SECONDS = 30
 PYTHON_REPL_MAX_OUTPUT_CHARS = 10_000
 
+# 자식 프로세스에 넘길 환경변수 **화이트리스트**.
+#
+# 예전에는 `{**os.environ, ...}`로 부모 환경을 통째로 물려줬다. 그러면 실행되는
+# 코드가 `os.environ["ANTHROPIC_API_KEY"]`로 키를 그대로 읽는다 — 실측으로 확인했다.
+# python_repl은 임의 파이썬을 실행하므로(`os.system`도 된다) 환경변수는
+# "에이전트가 읽을 수 있는 값"으로 봐야 한다. 필요한 것만 넘긴다.
+#
+# 인터프리터 구동에 필요한 최소 항목만 통과시킨다. 비밀값 이름을 여기에 추가하지 않는다.
+_REPL_ENV_PASSTHROUGH = (
+    "PATH",  # 인터프리터·표준 도구 탐색
+    "SYSTEMROOT",  # Windows: 없으면 socket/ssl 초기화가 깨진다
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+)
+
+
+def _repl_env() -> dict[str, str]:
+    """python_repl 자식 프로세스에 넘길 환경. 비밀값은 넘기지 않는다."""
+    env = {k: os.environ[k] for k in _REPL_ENV_PASSTHROUGH if k in os.environ}
+    # 자식 프로세스 I/O를 UTF-8로 고정한다. text=True의 기본값은 로케일 코덱이라
+    # Windows(cp949)에서 한글 출력이 UnicodeDecodeError로 유실된다.
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+    return env
+
 # web_search 기본 결과 수.
 WEB_SEARCH_MAX_RESULTS = 5
 
@@ -37,15 +66,17 @@ def _truncate(text: str, limit: int) -> str:
 @register_tool("python_repl")
 @tool
 def python_repl(code: str) -> str:
-    """격리된 파이썬 프로세스에서 코드를 실행하고 stdout/stderr를 반환한다.
+    """별도 파이썬 프로세스에서 코드를 실행하고 stdout/stderr를 반환한다.
 
     Args:
         code: 실행할 파이썬 소스 코드. 결과는 print로 출력해야 보인다.
-    """
-    # 자식 프로세스 I/O를 UTF-8로 고정한다. text=True의 기본값은 로케일 코덱이라
-    # Windows(cp949)에서 한글 출력이 UnicodeDecodeError로 유실된다.
-    child_env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
 
+    보안 주의 — 이 도구는 **임의 코드 실행**이다. 샌드박스가 아니다.
+    임시 디렉터리에서 실행하고 비밀값 환경변수를 넘기지 않으며 30초에 끊지만,
+    `os.system`·`subprocess`·절대경로 파일 접근·네트워크는 여전히 가능하다.
+    스펙에 이 도구를 넣는 것은 그 권한을 주는 것과 같다.
+    (deepagents의 `execute`를 차단해도 이 도구가 열려 있으면 셸은 열린 셈이다)
+    """
     with tempfile.TemporaryDirectory(prefix="deep_builder_repl_") as workdir:
         try:
             completed = subprocess.run(
@@ -54,7 +85,7 @@ def python_repl(code: str) -> str:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                env=child_env,
+                env=_repl_env(),
                 timeout=PYTHON_REPL_TIMEOUT_SECONDS,
                 cwd=workdir,
             )
