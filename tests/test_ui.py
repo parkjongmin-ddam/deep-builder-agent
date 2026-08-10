@@ -203,6 +203,27 @@ def test_streamlit_app_renders_without_exceptions(monkeypatch):
 
 
 @pytest.mark.integration
+def test_loading_a_template_opens_the_chat_panel(monkeypatch):
+    """템플릿을 불러오면 대화 패널이 떠야 한다.
+
+    다른 렌더링 테스트는 **키 없는 차단 상태**만 덮는다 — 그 경로에서는
+    agent가 None이라 `render_chat_panel`이 조기 반환하고, 컬럼 안의
+    `st.chat_input`은 한 번도 실행되지 않는다. 사용자가 실제로 밟는 경로다.
+    """
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    pytest.importorskip("deepagents")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=90).run()
+    app.selectbox[0].set_value("data_analysis_team").run()
+    loaded = [b for b in app.button if "불러오기" in b.label][0].click().run()
+
+    assert not loaded.exception, [e.value for e in loaded.exception]
+    assert loaded.chat_input, "대화 입력창이 렌더링되지 않았다"
+    assert any("data_analysis_team" in s.value for s in loaded.success)
+
+
+@pytest.mark.integration
 def test_app_blocks_execution_without_api_key(monkeypatch):
     """키가 없으면 실행을 막고 그 사실을 화면에 알려야 한다.
 
