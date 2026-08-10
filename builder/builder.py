@@ -77,15 +77,32 @@ def extract_json(text: str) -> dict:
     raise ValueError("unterminated JSON object in builder output")
 
 
+def _with_guardrail(prompt):
+    """프롬프트 문자열 끝에 가드레일 문장을 덧붙인다 (이미 있거나 문자열이 아니면 그대로)."""
+    if not isinstance(prompt, str) or GUARDRAIL_SENTENCE in prompt:
+        return prompt
+    return f"{prompt.rstrip()}\n\n{GUARDRAIL_SENTENCE}"
+
+
 def ensure_guardrail(data: dict) -> dict:
-    """system_prompt에 가드레일 문장이 없으면 주입한 새 dict를 반환한다.
+    """리더와 모든 서브에이전트의 system_prompt에 가드레일 문장을 보장한다.
 
     원본을 변경하지 않는다. Builder가 프롬프트 지시를 어겨도 제품 층위에서 보장된다.
+
+    Phase 3부터 서브에이전트까지 훑는다 — 위임된 팀원만 가드레일 없이 도는
+    구멍을 막는다. 팀원 프롬프트는 Builder가 별도로 쓰므로 누락 가능성이 리더보다 높다.
     """
-    system_prompt = data.get("system_prompt")
-    if not isinstance(system_prompt, str) or GUARDRAIL_SENTENCE in system_prompt:
-        return dict(data)
-    return {**data, "system_prompt": f"{system_prompt.rstrip()}\n\n{GUARDRAIL_SENTENCE}"}
+    patched = {**data, "system_prompt": _with_guardrail(data.get("system_prompt"))}
+
+    subagents = data.get("subagents")
+    if isinstance(subagents, list):
+        patched["subagents"] = [
+            {**sub, "system_prompt": _with_guardrail(sub.get("system_prompt"))}
+            if isinstance(sub, dict)
+            else sub
+            for sub in subagents
+        ]
+    return patched
 
 
 def _build_chat_model(model: str):

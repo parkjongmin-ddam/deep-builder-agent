@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from builder.builder import SpecGenerationError, generate_spec, save_spec
 from registry import MCP_PREFIX
 from registry.mcp import MCPConfigError
-from registry.mcp import load_tools as load_mcp_tools
+from registry.mcp import load_tools_by_server as load_mcp_tools_by_server
 from runtime.factory import build_agent, resolve_builtin_fs_tools
 from runtime.spec import AgentSpec
 
@@ -42,17 +42,30 @@ def load_spec(path: Path) -> AgentSpec:
     return AgentSpec(**json.loads(path.read_text(encoding="utf-8")))
 
 
+def all_tool_keys(spec: AgentSpec) -> list[str]:
+    """리더와 모든 팀원이 참조하는 도구 키를 한데 모은다 (중복 제거)."""
+    keys = list(spec.tools)
+    for sub in spec.subagents:
+        keys.extend(sub.tools)
+    return sorted(set(keys))
+
+
 def describe(spec: AgentSpec) -> str:
     """생성 결과를 사람이 확인할 수 있게 요약한다."""
     fs_tools = ", ".join(resolve_builtin_fs_tools(spec))
-    mcp_servers = [t for t in spec.tools if t.startswith(MCP_PREFIX)]
+    mcp_servers = [t for t in all_tool_keys(spec) if t.startswith(MCP_PREFIX)]
+    team = "\n".join(
+        f"                - {sub.name}: {sub.tools or '(no tools)'}"
+        for sub in spec.subagents
+    ) or "                (none — 단일 에이전트)"
     return (
         f"  name        : {spec.name}\n"
         f"  description : {spec.description}\n"
         f"  model       : {spec.model}\n"
         f"  spec tools  : {spec.tools or '(none)'}\n"
         f"  mcp servers : {mcp_servers or '(none)'}\n"
-        f"  builtin fs  : {fs_tools}  (+ task; deepagents가 항상 주입)"
+        f"  builtin fs  : {fs_tools}  (+ task; deepagents가 항상 주입)\n"
+        f"  subagents   :\n{team}"
     )
 
 
@@ -137,14 +150,31 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n[runtime] 에이전트를 생성하는 중...")
     try:
-        mcp_tools = load_mcp_tools(spec.tools)
+        # 리더와 팀원이 서로 다른 서버를 참조할 수 있으므로 서버별로 받아 둔다.
+        mcp_by_server = load_mcp_tools_by_server(all_tool_keys(spec))
     except MCPConfigError as exc:
         print(f"[error] MCP 도구 로드 실패: {exc}", file=sys.stderr)
         return 1
-    if mcp_tools:
-        print(f"[mcp] 도구 {len(mcp_tools)}개 로드: {[t.name for t in mcp_tools]}")
 
-    chat(build_agent(spec, extra_tools=mcp_tools))
+    for server, tools in mcp_by_server.items():
+        print(f"[mcp] {server}: 도구 {len(tools)}개 로드 {[t.name for t in tools]}")
+
+    leader_mcp_tools = [
+        tool
+        for key in spec.tools
+        if key.startswith(MCP_PREFIX)
+        for tool in mcp_by_server.get(key[len(MCP_PREFIX) :], [])
+    ]
+
+    try:
+        agent = build_agent(
+            spec, extra_tools=leader_mcp_tools, mcp_tools_by_server=mcp_by_server
+        )
+    except LookupError as exc:
+        print(f"[error] 도구 해석 실패: {exc}", file=sys.stderr)
+        return 1
+
+    chat(agent)
     return 0
 
 

@@ -130,17 +130,20 @@ def configured_server_names(path: Path = DEFAULT_CONFIG_PATH) -> set[str]:
         return set()
 
 
-async def load_tools_async(
+async def load_tools_by_server_async(
     tool_keys: list[str], *, path: Path = DEFAULT_CONFIG_PATH
-) -> list[Any]:
-    """`mcp:` 도구 키 목록에 해당하는 서버들의 도구를 로드한다.
+) -> dict[str, list[Any]]:
+    """`mcp:` 도구 키 목록을 서버별 도구 목록으로 로드한다.
+
+    Phase 3에서 서버별 매핑이 필요해졌다. 리더와 서브에이전트가 서로 다른 MCP
+    서버를 참조할 수 있으므로, 평평한 목록으로는 누가 무엇을 받아야 하는지 알 수 없다.
 
     Raises:
         MCPConfigError: 스펙이 참조한 서버가 설정에 없을 때.
     """
-    names = [server_name(key) for key in tool_keys if key.startswith(MCP_PREFIX)]
+    names = sorted({server_name(k) for k in tool_keys if k.startswith(MCP_PREFIX)})
     if not names:
-        return []
+        return {}
 
     config = load_config(path)
     missing = [name for name in names if name not in config]
@@ -153,12 +156,28 @@ async def load_tools_async(
 
     client = MultiServerMCPClient({name: config[name] for name in names})
 
-    tools: list[Any] = []
-    for name in names:
-        tools.extend(await client.get_tools(server_name=name))
-    return tools
+    return {name: await client.get_tools(server_name=name) for name in names}
+
+
+async def load_tools_async(
+    tool_keys: list[str], *, path: Path = DEFAULT_CONFIG_PATH
+) -> list[Any]:
+    """`mcp:` 도구 키 목록에 해당하는 서버들의 도구를 평평한 목록으로 로드한다.
+
+    Raises:
+        MCPConfigError: 스펙이 참조한 서버가 설정에 없을 때.
+    """
+    by_server = await load_tools_by_server_async(tool_keys, path=path)
+    return [tool for name in sorted(by_server) for tool in by_server[name]]
 
 
 def load_tools(tool_keys: list[str], *, path: Path = DEFAULT_CONFIG_PATH) -> list[Any]:
     """`load_tools_async`의 동기 래퍼. CLI처럼 이벤트 루프 밖에서 쓴다."""
     return asyncio.run(load_tools_async(tool_keys, path=path))
+
+
+def load_tools_by_server(
+    tool_keys: list[str], *, path: Path = DEFAULT_CONFIG_PATH
+) -> dict[str, list[Any]]:
+    """`load_tools_by_server_async`의 동기 래퍼."""
+    return asyncio.run(load_tools_by_server_async(tool_keys, path=path))

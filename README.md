@@ -3,16 +3,17 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행**하는 빌더. LangChain deepagents 하네스 위에서
 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> 현재 상태: **Phase 1 완료** (단일 에이전트 생성·대화 CLI).
+> 현재 상태: **Phase 3 완료** (단일 에이전트 + 팀(subagents) 생성·대화 CLI, MCP 연동).
 > 모든 설계 결정과 진행 상황은 [BUILD_SPEC.md](BUILD_SPEC.md)에 있다.
 
 ## 동작 방식
 
 ```
 자연어 요구
-   ↓  builder/    LLM 호출 → JSON 파싱 → 가드레일 문장 주입
-   ↓  runtime/    AgentSpec 검증 (도구 화이트리스트 / subagents 게이트)
-   ↓  runtime/    deepagents 인스턴스화 (요청한 도구만 노출)
+   ↓  builder/    LLM 호출 → JSON 파싱 → 가드레일 문장 주입 (리더 + 팀원 전원)
+   ↓  runtime/    AgentSpec 검증 (도구 화이트리스트 / 팀 구성 검증)
+   ↓  registry/   커스텀 도구 + MCP 서버 도구 해석
+   ↓  runtime/    deepagents 인스턴스화 (리더·팀원 각각 요청한 도구만 노출)
 대화
 ```
 
@@ -21,6 +22,8 @@ Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강
 - 도구 화이트리스트는 프롬프트 요청이 아니라 Pydantic 밸리데이터가 거부한다.
 - 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 코드로 삽입한다.
 - deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다.
+- **서브에이전트에도 같은 차단을 따로 건다.** 메인의 제한은 팀원에게 전파되지 않아서,
+  빠뜨리면 위임 한 번으로 셸이 열린다 (실측 근거는 BUILD_SPEC.md 5-3).
 - 검증에 실패하면 에러 메시지를 Builder에게 되돌려 최대 2회 재생성한다.
 
 ## 설치
@@ -54,23 +57,48 @@ python cli.py "..." --no-chat
 
 생성된 스펙은 `specs/<name>.json`에 저장된다.
 
-## AgentSpec v0.1
+## AgentSpec v0.2
 
 ```json
 {
-  "spec_version": "0.1",
-  "name": "news_summarizer",
-  "description": "IT 뉴스를 수집해 핵심만 요약하는 에이전트",
-  "system_prompt": "너는 IT 뉴스 요약 에이전트다. ...",
+  "spec_version": "0.2",
+  "name": "research_team",
+  "description": "주제를 조사해 근거가 붙은 브리핑을 만드는 팀",
+  "system_prompt": "너는 리서치 팀의 리더다. ...",
   "model": "claude-sonnet-4-6",
-  "tools": ["web_search"],
-  "subagents": []
+  "tools": [],
+  "subagents": [
+    {
+      "name": "researcher",
+      "description": "웹 검색으로 사실을 조사해 출처와 함께 돌려준다",
+      "system_prompt": "너는 조사 담당이다. ...",
+      "tools": ["web_search"]
+    }
+  ]
 }
 ```
 
-- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write` (그 외는 거부)
-- `subagents`는 Phase 3까지 빈 배열만 허용 (`spec.py` 밸리데이터가 강제)
-- `mcp:` 접두사는 스키마를 통과하지만 구현은 Phase 2
+- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write` (그 외는 거부).
+  **팀원의 `tools`도 같은 검증을 받는다** — 위임이 화이트리스트 우회 경로가 되지 않는다
+- `mcp:<server>`는 `mcp_servers.json`에 설정된 서버명일 때만 통과한다
+- `subagents`는 최대 5개, 이름 중복 금지, 계층 깊이 1 (팀원은 다시 팀을 못 거느린다)
+
+## 팀 템플릿
+
+`templates/`에 바로 쓸 수 있는 팀 스펙이 있다.
+
+| 템플릿 | 구성 | 쓰임 |
+|---|---|---|
+| `research_team` | researcher(web_search) + writer | 주제 조사 → 출처 붙은 브리핑 |
+| `data_analysis_team` | analyst(python_repl) + reviewer(python_repl) | 계산 후 독립 검산 |
+| `doc_qa_team` | extractor(file_read) + summarizer | 문서 근거를 인용한 질의응답 |
+
+```bash
+python cli.py --spec templates/research_team.json
+```
+
+템플릿은 Builder를 거치지 않으므로 가드레일 문장이 파일에 직접 적혀 있다
+(`tests/test_templates.py`가 강제한다).
 
 ## 개발
 

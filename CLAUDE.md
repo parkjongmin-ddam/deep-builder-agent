@@ -14,7 +14,10 @@
 - builder/  — 메타 에이전트: 자연어 → AgentSpec JSON. 프롬프트의 도구 목록은 registry에서 렌더링
 - registry/ — 도구 레지스트리(registry.py) + 도구 구현(builtin.py) + MCP 커넥터(mcp.py).
               허용 도구 화이트리스트의 단일 진실 원천 — 도구를 늘리려면 여기에만 등록한다
-- runtime/  — AgentSpec 검증(spec.py) → deepagents 인스턴스화(factory.py)
+- runtime/  — AgentSpec 검증(spec.py) → deepagents 인스턴스화(factory.py).
+              서브에이전트 번역·도구 격리도 factory가 담당한다
+- templates/ — 손으로 쓴 팀 스펙 JSON. `cli.py --spec`으로 바로 실행된다.
+              Builder를 거치지 않으므로 가드레일 문장을 파일에 직접 써야 한다
 - ui/       — Streamlit 2패널 (Phase 4)
 - eval/     — LangSmith + LLM-as-judge (Phase 4)
 
@@ -30,5 +33,7 @@
 - 커밋 메시지: `phase{N}: <변경 요약>`
 
 ## 금지
-- Phase 1~2에서 subagents 활성화 금지 (spec.py 밸리데이터가 강제)
+- 서브에이전트에 FilesystemMiddleware 없이 도구를 붙이지 않는다. 메인의 도구 화이트리스트는
+  서브에이전트에 전파되지 않으며, 빠뜨리면 위임 한 번으로 셸(execute)이 열린다
+  (실측 근거는 BUILD_SPEC.md 5-3)
 - CLAUDE.md/훅/커스텀 커맨드 등 개발 하네스 개선에 반나절 이상 쓰지 않는다

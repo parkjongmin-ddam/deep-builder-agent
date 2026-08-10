@@ -2,7 +2,7 @@
 
 ## 1. 프로젝트 개요
 - 명칭: **deep_builder_agent** (2026-08-08 확정. 가칭 mini-agent-builder 폐기)
-- 현재 상태: **Phase 2 완료 (2026-08-10)** — registry/ 이관 + Builder 도구 자동 선택 + MCP 커넥터 실연결 검증, 테스트 73건 통과. aibrief 실연결만 외부 의존으로 보류
+- 현재 상태: **Phase 3 완료 (2026-08-10)** — subagents 활성화(AgentSpec v0.2) + 팀 템플릿 3종 + 서브에이전트 도구 격리, 테스트 106건 통과. aibrief 실연결과 LLM 실대화 데모만 외부 의존으로 보류
 - 진입점: `cli.py` (`python cli.py "<자연어 요구>"`)
 - 기술 스택 (설치본 검증 완료): deepagents 0.7.5(하네스), LangGraph 1.2.10(런타임), langchain-anthropic 1.5.4, Pydantic v2, Python 3.13. 개발은 Claude Code
 - 실행 환경: 프로젝트 전용 venv(`.venv/`). 전역 파이썬의 langchain 버전과 충돌하므로 격리한다
@@ -33,11 +33,19 @@
 - 2026-08-10 (Phase 2): **MCP 검증을 외부 서비스에서 분리**. aibrief 접속 정보가 없어 커넥터가 미검증으로 남는 상황을 피하려고, 로컬 stdio 서버(`examples/echo_mcp_server.py`)를 검증 픽스처로 채택했다. 외부 계정·네트워크 없이 커넥터 회귀를 상시 검증할 수 있고, aibrief는 설정 한 줄로 붙는 문제로 축소된다
 - 2026-08-10 (Phase 2): 느린 검증은 `integration` 마커로 분리. 기본 실행은 전부 돌리고, 빠른 피드백이 필요하면 `-m "not integration"` (68건 0.6초 vs 73건 6초)
 - 2026-08-10 (Phase 2): `mcp_servers.json` 최상위의 `_` 접두사 키는 설명문으로 취급해 건너뛴다. JSON에 주석이 없어 생긴 문제 — 이 규칙이 없으면 주석 달린 템플릿을 복사하는 순간 로드가 깨진다
+- 2026-08-10 (Phase 3): **AgentSpec v0.2 — subagents 게이트 해제**. `subagents_disabled_before_phase3` 밸리데이터를 제거했다(2026-08-06 결정대로 Phase 3 착수 시 제거·기록). 스키마 의미가 바뀌었으므로 SPEC_VERSION 0.1 → 0.2
+- 2026-08-10 (Phase 3): **서브에이전트마다 `FilesystemMiddleware`를 명시적으로 붙인다**. 실측 결과 메인의 FilesystemMiddleware는 서브에이전트에 전파되지 않는다 — 메인을 read_file로 묶어도 선언된 팀원은 기본 스택을 새로 받아 `execute`(셸) 포함 8종을 전부 갖는다. 위임 한 번이면 도구 화이트리스트가 무의미해졌다. Phase 3에서 가장 중요한 결정
+- 2026-08-10 (Phase 3): `SubAgentSpec.prompt` → **`system_prompt`로 개명**. AgentSpec과 용어를 맞추고 deepagents `SubAgent` TypedDict 키와 1:1 대응시켜 번역 실수 여지를 없앤다
+- 2026-08-10 (Phase 3): **서브에이전트 도구도 메인과 같은 밸리데이터를 탄다**(`validate_tool_keys` 공용화). 위임 경로에만 느슨한 검증이 걸리면 화이트리스트가 우회된다
+- 2026-08-10 (Phase 3): 팀 규모 상한 `MAX_SUBAGENTS = 5`, 이름 중복 금지. 리더는 이름으로 위임하므로 중복 시 어느 쪽이 불릴지 알 수 없다. 계층 깊이는 1로 고정 — SubAgentSpec에 subagents 필드를 두지 않아 구조적으로 강제한다
+- 2026-08-10 (Phase 3): 가드레일 주입을 **서브에이전트까지 확장**(`ensure_guardrail`). 팀원 프롬프트는 Builder가 따로 쓰므로 누락 가능성이 리더보다 높다
+- 2026-08-10 (Phase 3): MCP 도구 로드를 **서버별 매핑**(`load_tools_by_server`)으로 확장. 리더와 팀원이 서로 다른 서버를 참조할 수 있어 평평한 목록으로는 누구에게 무엇을 줄지 알 수 없다. 팀원이 참조한 서버가 매핑에 없으면 `LookupError` — 조용히 사라지지 않는다
+- 2026-08-10 (Phase 3): 팀 템플릿은 `templates/*.json`에 커밋한다(`specs/`는 생성물이라 gitignore 대상이므로 부적합). `cli.py --spec templates/<name>.json`으로 바로 실행된다
 
 ## 4. Phase 로드맵
 - Phase 1 (8월, 1~3주차): CLI — 자연어 → AgentSpec → 단일 에이전트 생성·대화 ✅ **완료 (2026-08-08)**
 - Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터, Builder 도구 자동 선택 ✅ **완료 (2026-08-10)** — 커넥터는 로컬 실서버로 검증. aibrief 실연결은 접속 정보 확보 시 설정만 추가하면 되므로 게이트를 막지 않는다
-- Phase 3 (9월 말~10월 중): subagents 활성화, 팀 템플릿 2~3개, 멀티에이전트 검증
+- Phase 3 (9월 말~10월 중): subagents 활성화, 팀 템플릿 2~3개, 멀티에이전트 검증 ✅ **완료 (2026-08-10)**
 - Phase 4 (10월 말): Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭
 - 11월 초: 보고서(개조식)·README·데모 영상 마무리. 2주 버퍼
 
@@ -115,9 +123,47 @@
   가리킬 방법이 없다(테스트는 `runtime.spec`의 이름을 patch해서 우회). CLI에
   `--mcp-config` 옵션이 필요해지면 이 지점을 손봐야 한다
 
+## 5-3. Phase 3 체크리스트
+- [x] subagents 게이트 해제 — 밸리데이터 제거 + SPEC_VERSION 0.2
+- [x] `SubAgentSpec.prompt` → `system_prompt` 개명 (deepagents 키와 1:1)
+- [x] 서브에이전트 도구 화이트리스트 검증 (메인과 공용 밸리데이터)
+- [x] **서브에이전트 도구 격리** — 팀원마다 FilesystemMiddleware 주입, 셸 유출 차단
+- [x] 팀 구성 검증 — 이름 중복 금지, MAX_SUBAGENTS=5, 깊이 1 고정
+- [x] 가드레일 주입을 팀원까지 확장
+- [x] Builder 프롬프트에 팀 설계 기준 추가 (기본은 단일 에이전트)
+- [x] MCP 서버별 매핑 → 팀원도 MCP 도구 사용 가능
+- [x] 팀 템플릿 3종 (`templates/`) + 템플릿 검증 테스트
+- [x] Phase 2 미결이던 `task` 노출 평가 완료
+- [ ] **LLM 실대화 데모** — 🚧 `ANTHROPIC_API_KEY` 미설정으로 보류. 키 확보 시 바로 가능
+
+### Phase 3 검증 기록 (2026-08-10)
+- 테스트 **106 passed** (Phase 2 73건 → spec 6건, factory 10건, templates 17건 추가)
+- CLI 실행: `python cli.py --spec templates/research_team.json --no-chat` → 팀 구성 정상 표시
+  (`researcher: ['web_search']`, `writer: (no tools)`)
+
+#### 서브에이전트 도구 격리 — 실측
+`FilesystemMiddleware`를 팀원에 붙이기 전/후를 같은 방식으로 측정했다.
+
+| 구성 | 메인 도구 | 서브에이전트 `researcher` 도구 |
+|---|---|---|
+| 팀원 middleware 없음 | `read_file`, `task` | `delete, edit_file, **execute**, glob, grep, ls, read_file, write_file` |
+| 팀원 middleware 명시 | `read_file`, `task` | `read_file` |
+
+메인을 아무리 좁혀도 팀원은 기본 스택을 새로 받는다. **위임 한 번으로 셸이 열린다.**
+회귀 테스트: `test_factory.py::test_shell_does_not_leak_into_subagents`
+
+#### `task` 노출 평가 (Phase 2 미결 항목 해소)
+`subagents=[]`이어도 deepagents는 `task`와 `general-purpose` 서브에이전트를 남긴다.
+다만 그 general-purpose는 **리더의 제한된 도구를 그대로 물려받는다** — `execute`가 없다.
+즉 `task` 노출 자체는 화이트리스트 구멍이 아니다. 위험한 것은 *선언된* 서브에이전트 쪽이었다.
+회귀 테스트: `test_factory.py::test_solo_agent_exposes_only_general_purpose_with_leader_tools`
+
 ## 6. 미결 사항 / 알려진 한계
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.
 - **파일 백엔드**: 기본 `StateBackend` — file_read/file_write는 실제 디스크가 아니라 에이전트 상태 내 가상 FS를 대상으로 한다. Phase 2에서 실제 디스크 접근 필요 여부를 결정한다.
 - **모델 최신화**: 현재 기본값 `claude-sonnet-4-6`은 유효하나 상위 모델로 `claude-sonnet-5`·`claude-opus-5`가 존재한다. Phase 4 평가 탭에서 모델별 비교 후 기본값 재검토.
 - ~~**MCP 도구**: `mcp:` 접두사는 스키마 레벨에서만 통과하며 Phase 1에 구현이 없다~~ → Phase 2에서 해소. `registry/mcp.py`가 로드하고 `cli.py`가 `build_agent(extra_tools=...)`로 주입한다. 실서버 검증 완료 (2026-08-10)
-- **`task` 도구 노출 평가**: Phase 2 미결로 남긴 항목. `subagents=[]` 상태에서 `task`가 실제로 무엇을 띄우는지 아직 측정하지 않았다. Phase 3에서 subagents를 켜면서 함께 확인한다
+- ~~**`task` 도구 노출 평가**~~ → Phase 3에서 해소. general-purpose는 리더 도구를 상속하므로 구멍이 아니다 (위 5-3 참조)
+- **`--spec` 경로는 가드레일 자동 주입을 받지 못한다**: `ensure_guardrail()`은 Builder 루프 안에만 있다. 손으로 쓴 스펙을 `cli.py --spec`으로 넣으면 가드레일 문장 없이도 통과한다. 지금은 템플릿 테스트(`test_templates.py::test_every_prompt_carries_the_guardrail`)로 배포본만 막아 두었다. 스키마 레벨 강제로 올릴지는 Phase 4에서 판단한다
+- **팀 실행 비용 미측정**: 서브에이전트는 그래프를 따로 컴파일하고 위임마다 별도 LLM 호출이 붙는다. 단일 에이전트 대비 토큰·지연 비용을 아직 재지 않았다 (API 키 확보 후 Phase 4 평가 탭에서 측정)
+- **팀원 모델 고정**: 현재 모든 팀원이 리더와 같은 모델을 쓴다(`factory._subagent_payload`). deepagents는 팀원별 모델 오버라이드를 지원하므로, 값싼 모델로 조사시키고 비싼 모델로 종합하는 구성이 가능하다 — Phase 4 평가 후 열지 판단한다
