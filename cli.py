@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from runtime.config import load_env
+from runtime.console import force_utf8_stdio
 
 from builder.builder import SpecGenerationError, generate_spec, save_spec
 from registry import MCP_PREFIX
@@ -25,18 +26,6 @@ from runtime.spec import AgentSpec
 from runtime.tracing import TracingConfigError, configure_tracing
 
 EXIT_COMMANDS = frozenset({"exit", "quit", ":q"})
-
-
-def _force_utf8_stdio() -> None:
-    """표준 입출력을 UTF-8로 고정한다.
-
-    Windows 기본 콘솔 코덱(cp949)에서는 출력 시 이모지가 UnicodeEncodeError를 내고,
-    파이프 입력 시 한글이 서로게이트로 디코딩되어 이후 인코딩이 실패한다.
-    """
-    for stream in (sys.stdin, sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is not None:
-            reconfigure(encoding="utf-8", errors="replace")
 
 
 def load_spec(path: Path) -> AgentSpec:
@@ -98,7 +87,7 @@ def chat(agent) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    _force_utf8_stdio()
+    force_utf8_stdio()
     load_env()
 
     parser = argparse.ArgumentParser(prog="deep_builder_agent", description=__doc__)

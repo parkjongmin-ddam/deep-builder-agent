@@ -35,6 +35,10 @@ class EvalCase(BaseModel):
     expect_team: bool = Field(
         default=False, description="팀(subagents)을 만들어야 하는 요구인가"
     )
+    expect_subagent_tools: list[str] = Field(
+        default_factory=list,
+        description="팀원 중 누군가는 반드시 들고 있어야 하는 도구 키",
+    )
 
     # 사람 판단 -------------------------------------------------------------
     rubric: str = Field(

@@ -77,6 +77,31 @@ def check_team_shape(spec: AgentSpec, case: EvalCase) -> CheckResult:
     return CheckResult(name="team_shape", passed=False, detail=detail)
 
 
+def check_subagent_tools(spec: AgentSpec, case: EvalCase) -> CheckResult:
+    """팀원 중 누군가는 그 일에 필요한 도구를 실제로 들고 있는가.
+
+    **왜 따로 필요한가**: `check_expected_tools`는 리더의 `tools`만 본다. 팀 케이스는
+    도구가 팀원에게 붙으므로 리더는 대개 비어 있고, 그래서 팀 케이스들이
+    `expect_tools=[]`로 적혀 **도구에 대해 아무것도 단언하지 않는 상태**였다 —
+    조사 팀에 아무도 `web_search`가 없어도 통과했다. 실패할 수 없는 단언이었다.
+
+    "누구에게" 붙었는지는 묻지 않는다. 역할 배분은 Builder의 재량이고,
+    여기서 확정 판정할 수 있는 것은 "팀 전체가 그 일을 할 수단을 갖췄는가"까지다.
+    """
+    available = {tool for sub in spec.subagents for tool in sub.tools}
+    missing = [t for t in case.expect_subagent_tools if t not in available]
+
+    return CheckResult(
+        name="subagent_tools",
+        passed=not missing,
+        detail=(
+            f"팀원 누구도 갖지 않은 도구: {missing}"
+            if missing
+            else f"팀 전체 도구: {sorted(available)}"
+        ),
+    )
+
+
 def check_guardrail(spec: AgentSpec, case: EvalCase) -> CheckResult:
     """리더와 팀원 전원의 프롬프트에 가드레일 문장이 있는가.
 
@@ -103,6 +128,7 @@ ALL_CHECKS = (
     check_expected_tools,
     check_forbidden_tools,
     check_team_shape,
+    check_subagent_tools,
     check_guardrail,
 )
 

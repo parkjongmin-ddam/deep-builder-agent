@@ -21,6 +21,7 @@ from eval.checks import CheckResult, run_checks
 from eval.dataset import EvalCase, load_cases
 from eval.judge import JudgeError, JudgeVerdict, judge_spec
 from runtime.config import load_env
+from runtime.console import force_utf8_stdio
 from runtime.spec import AgentSpec
 
 SpecGenerator = Callable[[str], AgentSpec]
@@ -188,7 +189,12 @@ def format_report(report: EvalReport) -> str:
 
 
 def main() -> int:
-    """`python -m eval.runner` — 기본 케이스로 평가를 돌린다 (심판 포함)."""
+    """`python -m eval.runner` — 기본 케이스로 평가를 돌린다 (심판 포함).
+
+    인코딩 고정이 **평가를 돌리기 전에** 와야 한다. 리포트에 `—` 같은 문자가 있어
+    출력 단계에서 죽으면 이미 지불한 LLM 호출 결과가 통째로 사라진다(실제로 겪었다).
+    """
+    force_utf8_stdio()
     load_env()
 
     report = run_evaluation(judge=judge_spec)

@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 204건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~4 완료 · 테스트 215건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -223,7 +223,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 204건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 215건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 

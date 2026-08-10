@@ -91,6 +91,32 @@ class JudgeVerdict:
         return self.score >= PASS_THRESHOLD
 
 
+def _render_subagents(spec: AgentSpec) -> str:
+    """팀원을 이름만이 아니라 **도구와 프롬프트까지** 펼쳐 보여준다.
+
+    예전에는 이름 목록만 넘겼다. 두 가지가 깨져 있었다:
+
+    1. 팀원 프롬프트를 심판이 한 번도 못 봤다. 그런데 BUILD_SPEC이 기록했듯
+       팀원 프롬프트는 Builder가 따로 쓰므로 **리더보다 빈틈이 생기기 쉽다** —
+       가장 위험한 쪽을 채점에서 빼놓고 있었다.
+    2. 팀 케이스의 rubric이 도구 배분을 물으면, 심판은 보이지도 않는 것을
+       근거로 감점했다(실측: "각 subagent의 도구가 명세에 명시되지 않아" 4/5).
+       **채점 기준이 묻는 것은 심판이 볼 수 있어야 한다.**
+    """
+    if not spec.subagents:
+        return "(none)"
+
+    blocks = []
+    for sub in spec.subagents:
+        blocks.append(
+            f"\n- name: {sub.name}"
+            f"\n  description: {sub.description}"
+            f"\n  tools: {sub.tools or '(none)'}"
+            f"\n  system_prompt: {sub.system_prompt}"
+        )
+    return "".join(blocks)
+
+
 def build_judge_prompt(spec: AgentSpec, case: EvalCase) -> str:
     """심판에게 보여줄 사용자 메시지를 만든다."""
     return _JUDGE_USER_TEMPLATE.format(
@@ -99,7 +125,7 @@ def build_judge_prompt(spec: AgentSpec, case: EvalCase) -> str:
         name=spec.name,
         description=spec.description,
         tools=spec.tools or "(none)",
-        subagents=[s.name for s in spec.subagents] or "(none)",
+        subagents=_render_subagents(spec),
         system_prompt=spec.system_prompt,
     )
 

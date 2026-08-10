@@ -120,6 +120,117 @@ def test_unnecessary_team_fails_team_shape():
     assert not results["team_shape"].passed
 
 
+def test_toolless_research_team_is_caught():
+    """조사 팀에 아무도 검색 도구가 없으면 실패해야 한다.
+
+    `expect_subagent_tools`가 생기기 전에는 이 상황이 **전부 통과**했다.
+    도구는 리더가 아니라 팀원에게 붙으므로 `expect_tools`로는 잡히지 않고,
+    팀 케이스들이 `expect_tools=[]`로 적혀 도구에 대해 아무 단언도 하지 않았다.
+    """
+    spec = _spec(
+        tools=[],
+        subagents=[
+            {
+                "name": "researcher",
+                "description": "조사 담당",
+                "system_prompt": GUARDED,
+                "tools": [],
+            }
+        ],
+    )
+    case = _case(
+        expect_tools=[],
+        forbid_tools=[],
+        expect_team=True,
+        expect_subagent_tools=["web_search"],
+    )
+
+    results = {r.name: r for r in run_checks(spec, case)}
+
+    assert not results["subagent_tools"].passed
+    assert "web_search" in results["subagent_tools"].detail
+
+
+def test_subagent_tools_satisfied_by_any_member():
+    """어느 팀원이 들고 있는지는 묻지 않는다 — 역할 배분은 Builder 재량이다."""
+    spec = _spec(
+        tools=[],
+        subagents=[
+            {
+                "name": "searcher",
+                "description": "조사 담당",
+                "system_prompt": GUARDED,
+                "tools": ["web_search"],
+            },
+            {
+                "name": "writer",
+                "description": "집필 담당",
+                "system_prompt": GUARDED,
+                "tools": [],
+            },
+        ],
+    )
+    case = _case(
+        expect_tools=[],
+        forbid_tools=[],
+        expect_team=True,
+        expect_subagent_tools=["web_search"],
+    )
+
+    results = {r.name: r for r in run_checks(spec, case)}
+
+    assert results["subagent_tools"].passed
+
+
+def test_leader_tools_do_not_satisfy_subagent_expectation():
+    """리더가 들고 있어도 팀원 기대를 채우지 못한다 — 위임받는 쪽이 못 쓴다.
+
+    대조군이다. 이게 없으면 `check_subagent_tools`가 리더 도구까지 세는
+    구현으로 바뀌어도 위 두 테스트는 그대로 통과한다.
+    """
+    spec = _spec(
+        tools=["web_search"],
+        subagents=[
+            {
+                "name": "writer",
+                "description": "집필 담당",
+                "system_prompt": GUARDED,
+                "tools": [],
+            }
+        ],
+    )
+    case = _case(
+        expect_tools=[],
+        forbid_tools=[],
+        expect_team=True,
+        expect_subagent_tools=["web_search"],
+    )
+
+    results = {r.name: r for r in run_checks(spec, case)}
+
+    assert not results["subagent_tools"].passed
+
+
+def test_team_cases_declare_the_tools_their_members_need():
+    """배포 케이스에서 도구가 필요한 팀 요구는 팀원 도구를 단언해야 한다.
+
+    팀 케이스를 늘릴 때 `expect_subagent_tools`를 빠뜨리면 도구에 대해
+    아무것도 확인하지 않는 케이스가 조용히 다시 생긴다. 도구 이름이
+    요구문에 드러나는 케이스만 대상으로 한다.
+    """
+    tool_words = {"web_search": ("웹", "검색", "web", "search")}
+
+    undeclared = [
+        case.id
+        for case in load_cases()
+        if case.expect_team
+        and not case.expect_subagent_tools
+        and any(w in case.request.lower() for w in tool_words["web_search"])
+    ]
+
+    assert not undeclared, f"팀원 도구를 단언하지 않은 팀 케이스: {undeclared}"
+
+
 def test_missing_guardrail_is_caught():
     results = {
         r.name: r for r in run_checks(_spec(system_prompt="가드레일 없음"), _case())
@@ -186,6 +297,44 @@ def test_judge_prompt_carries_request_and_rubric():
 
     assert "웹 검색으로 뉴스를 요약해줘" in prompt
     assert "검색과 요약 절차가 있는가" in prompt
+
+
+def test_judge_prompt_shows_subagent_tools_and_prompts():
+    """심판은 팀원의 도구와 프롬프트까지 봐야 한다.
+
+    예전에는 팀원 **이름만** 넘겼다. 그래서 (1) 팀원 프롬프트가 채점 대상에서
+    통째로 빠져 있었고 — 리더보다 빈틈이 생기기 쉬운 쪽인데도 — (2) 도구 배분을
+    묻는 rubric에 대해 심판이 보이지 않는 것을 근거로 감점했다.
+    """
+    spec = _spec(
+        tools=[],
+        subagents=[
+            {
+                "name": "searcher",
+                "description": "웹 조사 담당",
+                "system_prompt": f"너는 조사 담당이다. 출처를 반드시 남긴다. {GUARDRAIL_SENTENCE}",
+                "tools": ["web_search"],
+            }
+        ],
+    )
+
+    prompt = build_judge_prompt(spec, _case(expect_team=True))
+
+    assert "searcher" in prompt
+    assert "web_search" in prompt, "팀원 도구가 심판에게 보이지 않는다"
+    assert "출처를 반드시 남긴다" in prompt, "팀원 프롬프트가 심판에게 보이지 않는다"
+    assert "웹 조사 담당" in prompt
+
+
+def test_judge_prompt_marks_absent_team_explicitly():
+    """팀이 없을 때 빈 값이 아니라 (none)으로 보여준다 — 대조군.
+
+    이게 없으면 `_render_subagents`가 항상 빈 문자열을 돌려주는 구현으로 바뀌어도
+    위 테스트만 통과하는 상태를 못 잡는다.
+    """
+    prompt = build_judge_prompt(_spec(), _case())
+
+    assert "(none)" in prompt
 
 
 # --- 실행 ------------------------------------------------------------------

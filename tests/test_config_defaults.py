@@ -148,3 +148,51 @@ def test_entry_point_does_not_call_load_dotenv_directly(relative_path):
     assert "load_dotenv()" not in source, (
         f"{relative_path}가 load_dotenv를 직접 부른다 — load_env()를 쓸 것"
     )
+
+
+# --- 진입점의 콘솔 인코딩 배선 ---------------------------------------------
+
+# 콘솔에 직접 찍을 때는 멀쩡하고 **리다이렉트·파이프일 때만** 깨진다.
+# 그래서 손으로 돌려보면 안 잡히고, 로그로 저장하는 순간 죽는다.
+# `eval/runner.py`가 정확히 그렇게 깨졌다 — 평가 21건을 다 돌린 뒤
+# 리포트 출력에서 UnicodeEncodeError로 죽어 지불한 결과가 통째로 날아갔다.
+CONSOLE_ENTRY_POINTS = ["cli.py", "eval/runner.py"]
+
+
+@pytest.mark.parametrize("relative_path", CONSOLE_ENTRY_POINTS)
+def test_console_entry_point_forces_utf8(relative_path):
+    """콘솔에 출력하는 진입점은 표준 입출력을 UTF-8로 고정해야 한다."""
+    source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+    assert "force_utf8_stdio()" in source, (
+        f"{relative_path}가 표준 입출력 인코딩을 고정하지 않는다 — "
+        "리다이렉트 시 cp949로 죽는다"
+    )
+
+
+@pytest.mark.parametrize("relative_path", CONSOLE_ENTRY_POINTS)
+def test_console_entry_point_uses_the_shared_helper(relative_path):
+    """진입점마다 복사하지 않는다 — 복사하면 다음 진입점에서 또 빠진다."""
+    source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+    assert "from runtime.console import force_utf8_stdio" in source, (
+        f"{relative_path}가 공용 헬퍼를 쓰지 않는다"
+    )
+
+
+def test_forcing_utf8_survives_streams_without_reconfigure(monkeypatch):
+    """`reconfigure`가 없는 스트림에서 죽지 않는다 (대조군).
+
+    이 방어가 없으면 스트림을 갈아끼운 환경에서 진입점이 시작하자마자 죽는다.
+    """
+    import io
+    import sys as sys_mod
+
+    from runtime.console import force_utf8_stdio
+
+    class _NoReconfigure(io.StringIO):
+        reconfigure = None
+
+    monkeypatch.setattr(sys_mod, "stdout", _NoReconfigure())
+
+    force_utf8_stdio()  # 예외가 나면 실패다
