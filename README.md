@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 215건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~4 완료 · 테스트 226건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -51,7 +51,8 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
 핵심은 **LLM의 준수를 신뢰하지 않는 것**이다.
 
 - 도구 화이트리스트는 프롬프트 요청이 아니라 Pydantic 밸리데이터가 **거부**한다
-- 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 **코드로 삽입**한다
+- 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 **코드로 삽입**한다.
+  `--spec`으로 넣는 손으로 쓴 스펙과 UI 템플릿 로드도 같은 보장을 받는다(`load_spec_file()`)
 - deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다
   — 단, `python_repl`을 허용한 스펙은 사실상 셸을 허용한 것이다 (아래 「알려진 한계」)
 - **서브에이전트에도 같은 차단을 따로 건다** — 메인의 제한은 팀원에게 전파되지 않아서,
@@ -131,7 +132,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 - 기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다
 - 심판 판별력은 실측으로 확인했다: 부실 스펙 1/5, 무관 스펙 1/5, 좋은 스펙 5/5
 - 케이스는 `eval/cases/*.json`에 있다
-- **비용 주의**: 1회 실행 = Builder 호출 12회(케이스 수). 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다.
+- **비용 주의**: 1회 실행 = Builder 호출 21회(케이스 수) + 심판 호출. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다.
   Builder 시스템 프롬프트에는 프롬프트 캐시를 걸어 두 번째 호출부터 정가의 10%로 읽는다(실측 확인)
 
 ---
@@ -223,7 +224,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 215건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 226건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 
@@ -246,8 +247,11 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 - **MCP 검증 대상은 커넥터이지 임의의 서버가 아니다** — `stdio`·`streamable_http`·`sse` 세 transport를
   실서버로 왕복시켰지만, 상대는 우리가 만든 `examples/echo_mcp_server.py` 하나다.
   다른 구현체의 인증 방식(OAuth 등)·세션 정책·스키마 방언과의 상호운용성은 미검증이다.
-- **`--spec` 경로는 가드레일 자동 주입을 받지 못한다** — `ensure_guardrail()`은 Builder 루프 안에만 있다.
-  손으로 쓴 스펙을 직접 넣으면 가드레일 문장 없이도 통과한다(배포 템플릿은 테스트로 방어).
 - **평가 케이스가 현재 전부 통과한다** — 지금 이 스위트는 이미 고친 결함의 재발만 감지한다.
+- **Builder는 결정적이지 않다** — 같은 요구에 한 번은 단일 에이전트, 한 번은 4인 팀이 나온 적이 있다.
+  평가는 케이스당 1회만 돌리므로 **"21/21"은 단일 표본**이다.
+  안정성을 봐야 할 때는 `run_evaluation(repeats=N)`으로 올린다(그만큼 비용이 는다).
+- **팀은 비싸다** — 실측상 2인 팀은 같은 답에 **LLM 호출 3배, 출력 토큰 10배 이상, 지연 5배**를 쓴다.
+  Builder가 근거 없이 팀을 만들지 않도록 프롬프트에 이 수치를 넣었지만, 강제가 아니라 지침이다.
 
 전체 목록과 실측 근거는 [BUILD_SPEC.md](BUILD_SPEC.md) 6절에 있다.

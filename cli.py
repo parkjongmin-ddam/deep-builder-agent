@@ -22,15 +22,15 @@ from registry.mcp import MCPConfigError
 from registry.mcp import load_tools_by_server as load_mcp_tools_by_server
 from runtime.factory import build_agent, resolve_builtin_fs_tools
 from runtime.messages import last_text
-from runtime.spec import AgentSpec
+from runtime.spec import AgentSpec, load_spec_file
 from runtime.tracing import TracingConfigError, configure_tracing
 
 EXIT_COMMANDS = frozenset({"exit", "quit", ":q"})
 
 
 def load_spec(path: Path) -> AgentSpec:
-    """JSON 파일을 읽어 검증된 AgentSpec으로 변환한다."""
-    return AgentSpec(**json.loads(path.read_text(encoding="utf-8")))
+    """JSON 파일을 읽어 검증된 AgentSpec으로 변환한다 (가드레일 보장 포함)."""
+    return load_spec_file(path)
 
 
 def all_tool_keys(spec: AgentSpec) -> list[str]:

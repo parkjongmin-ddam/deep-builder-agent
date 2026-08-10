@@ -352,6 +352,47 @@ def test_generation_failure_becomes_a_result_not_an_exception():
     assert "모델이 죽었다" in result.error
 
 
+def test_repeats_surface_an_intermittent_failure():
+    """간헐적 실패는 통과로 뭉개지 않는다.
+
+    Builder는 결정적이지 않다 — 실측에서 같은 케이스가 같은 모델로 한 번은
+    단일 에이전트, 한 번은 4인 팀을 냈다. 1회만 돌리고 "통과"라 하면
+    **간헐적 실패를 통과로 착각한다.**
+    """
+    attempts = iter([_spec(), _spec(tools=[]), _spec()])  # 2번째만 도구 누락
+
+    report = run_evaluation([_case()], spec_generator=lambda r: next(attempts), repeats=3)
+
+    assert not report.results[0].passed, "실패한 실행이 통과에 가려졌다"
+    assert report.passed == 0
+
+
+def test_repeats_default_runs_each_case_once():
+    """기본값은 1 — 평소 평가 비용이 조용히 늘지 않는다 (대조군)."""
+    calls = []
+
+    def generator(request):
+        calls.append(request)
+        return _spec()
+
+    run_evaluation([_case()], spec_generator=generator)
+
+    assert len(calls) == 1
+
+
+def test_repeats_all_passing_stays_passing():
+    """전부 통과하면 통과다 — 반복이 거짓 실패를 만들지 않는다."""
+    report = run_evaluation([_case()], spec_generator=lambda r: _spec(), repeats=3)
+
+    assert report.passed == 1
+
+
+def test_repeats_below_one_is_rejected():
+    """0회 반복은 '전부 통과'로 보이는 무의미한 리포트를 만든다."""
+    with pytest.raises(ValueError, match="repeats"):
+        run_evaluation([_case()], spec_generator=lambda r: _spec(), repeats=0)
+
+
 def test_judge_is_skipped_when_checks_fail():
     """도구를 잘못 고른 명세의 문장력을 채점하는 것은 돈 낭비다."""
     calls = []

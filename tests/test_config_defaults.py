@@ -180,6 +180,38 @@ def test_console_entry_point_uses_the_shared_helper(relative_path):
     )
 
 
+# --- 진입점의 스펙 로드 배선 -----------------------------------------------
+
+# 스펙 파일을 읽는 진입점. 각자 `AgentSpec(**json.loads(...))`를 복제하고 있었고,
+# 그래서 손으로 쓴 스펙이 가드레일 없이 통과했다. 로드 코드가 복제되면
+# 가드레일뿐 아니라 앞으로 붙는 어떤 보장도 한쪽에만 걸린다.
+SPEC_LOADING_ENTRY_POINTS = ["cli.py", "ui/app.py"]
+
+
+@pytest.mark.parametrize("relative_path", SPEC_LOADING_ENTRY_POINTS)
+def test_spec_loading_entry_point_uses_the_shared_loader(relative_path):
+    """스펙 파일을 읽는 진입점은 공용 로더를 써야 한다."""
+    source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+    assert "load_spec_file" in source, (
+        f"{relative_path}가 공용 스펙 로더를 쓰지 않는다 — 가드레일 보장이 빠진다"
+    )
+
+
+@pytest.mark.parametrize("relative_path", SPEC_LOADING_ENTRY_POINTS)
+def test_spec_loading_entry_point_does_not_build_spec_inline(relative_path):
+    """`AgentSpec(**json.loads(...))`를 직접 조립하지 않는다 (대조군).
+
+    위 테스트만으로는 부족하다 — 한 곳에서 `load_spec_file`을 쓰면서
+    다른 곳에서 인라인 조립을 남겨두면 그대로 통과한다.
+    """
+    source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+
+    assert "AgentSpec(**json.loads" not in source, (
+        f"{relative_path}가 스펙을 직접 조립한다 — load_spec_file()을 쓸 것"
+    )
+
+
 def test_forcing_utf8_survives_streams_without_reconfigure(monkeypatch):
     """`reconfigure`가 없는 스트림에서 죽지 않는다 (대조군).
 

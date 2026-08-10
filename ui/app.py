@@ -29,7 +29,7 @@ from registry import MCP_PREFIX  # noqa: E402
 from registry.mcp import MCPConfigError, load_tools_by_server  # noqa: E402
 from runtime.config import load_env  # noqa: E402
 from runtime.factory import build_agent  # noqa: E402
-from runtime.spec import AgentSpec  # noqa: E402
+from runtime.spec import AgentSpec, load_spec_file  # noqa: E402
 from runtime.tracing import TracingConfigError, configure_tracing  # noqa: E402
 from ui.state import (  # noqa: E402
     agent_reply,
@@ -143,7 +143,7 @@ def render_builder_panel(blocked: bool) -> None:
         choice = st.selectbox("템플릿", [p.stem for p in templates])
         if st.button("템플릿 불러오기", disabled=blocked):
             path = TEMPLATES_DIR / f"{choice}.json"
-            activate(AgentSpec(**json.loads(path.read_text(encoding="utf-8"))))
+            activate(load_spec_file(path))
             st.success(f"{choice} 를 불러왔습니다")
 
     spec = st.session_state.get("spec")

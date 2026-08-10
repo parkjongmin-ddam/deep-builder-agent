@@ -16,10 +16,14 @@ v0.2 (Phase 3, 2026-08-10):
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from pydantic import BaseModel, Field, field_validator
 
 from registry import MCP_PREFIX, allowed_tool_keys
 from registry.mcp import configured_server_names
+from runtime.guardrail import ensure_guardrail
 
 SPEC_VERSION = "0.2"
 
@@ -108,3 +112,16 @@ class AgentSpec(BaseModel):
             raise ValueError(f"duplicate subagent names: {duplicates}")
 
         return v
+
+
+def load_spec_file(path: Path) -> AgentSpec:
+    """스펙 JSON 파일을 읽어 **가드레일이 보장된** AgentSpec으로 만든다.
+
+    Builder 루프는 `ensure_guardrail()`을 거치지만, 손으로 쓴 스펙을 넣는
+    `cli.py --spec`과 UI 템플릿 로드는 그 경로를 타지 않아 가드레일 없는 스펙이
+    그대로 통과했다. 게다가 두 진입점이 로드 코드를 각자 복제하고 있었다 —
+    `.env` 로드·콘솔 인코딩과 같은 실패 방식이다.
+
+    주입은 멱등이다. 문장이 이미 있으면 파일 내용이 그대로 쓰인다.
+    """
+    return AgentSpec(**ensure_guardrail(json.loads(path.read_text(encoding="utf-8"))))

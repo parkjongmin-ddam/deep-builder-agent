@@ -155,6 +155,7 @@ def run_evaluation(
     *,
     spec_generator: SpecGenerator | None = None,
     judge: Judge | None = None,
+    repeats: int = 1,
 ) -> EvalReport:
     """케이스 전체를 평가해 리포트를 만든다.
 
@@ -162,13 +163,32 @@ def run_evaluation(
         cases: 평가할 케이스. 생략하면 `eval/cases/*.json` 전체.
         spec_generator: 자연어 → AgentSpec. 기본값은 Builder.
         judge: 심판. None이면 기계적 검사만 돈다.
+        repeats: 케이스당 반복 횟수. **한 번이라도 실패하면 그 실패가 리포트에 남는다.**
+
+    **`repeats`가 왜 필요한가**: Builder는 결정적이지 않다. 실측에서 같은 케이스가
+    같은 모델로 한 번은 단일 에이전트, 한 번은 4인 팀을 냈다. 1회 실행 결과를
+    "통과"로 보고하면 **간헐적 실패를 통과로 착각한다.** 기본값은 1이라 평소
+    비용은 그대로고, 프롬프트를 고친 뒤처럼 안정성을 확인해야 할 때만 올린다.
+
+    Raises:
+        ValueError: repeats가 1 미만일 때.
     """
+    if repeats < 1:
+        raise ValueError(f"repeats must be >= 1, got {repeats}")
+
     cases = load_cases() if cases is None else cases
-    return EvalReport(
-        results=[
-            run_case(case, spec_generator=spec_generator, judge=judge) for case in cases
+
+    results: list[CaseResult] = []
+    for case in cases:
+        attempts = [
+            run_case(case, spec_generator=spec_generator, judge=judge)
+            for _ in range(repeats)
         ]
-    )
+        # 실패가 하나라도 있으면 그것을 대표로 남긴다 — 성공한 실행이 실패를 가리면
+        # 반복해서 돌린 의미가 없다.
+        results.append(next((a for a in attempts if not a.passed), attempts[0]))
+
+    return EvalReport(results=results)
 
 
 def format_report(report: EvalReport) -> str:

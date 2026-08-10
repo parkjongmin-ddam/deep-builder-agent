@@ -18,12 +18,13 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from builder.prompts import (
-    GUARDRAIL_SENTENCE,
-    RETRY_FEEDBACK_TEMPLATE,
-    build_system_prompt,
-)
+from builder.prompts import RETRY_FEEDBACK_TEMPLATE, build_system_prompt
 from runtime.config import env_or_default
+
+# 가드레일은 runtime/에 산다 — Builder 루프뿐 아니라 `--spec`·UI 경로도 같은 보장을
+# 받아야 하기 때문이다. 여기서 재수출해 기존 임포터(`from builder.builder import
+# ensure_guardrail`)를 깨뜨리지 않는다.
+from runtime.guardrail import ensure_guardrail
 from runtime.spec import AgentSpec
 
 # Builder용 모델. 생성되는 에이전트의 모델(AgentSpec.model)과 분리한다.
@@ -77,34 +78,6 @@ def extract_json(text: str) -> dict:
                 return json.loads(stripped[start : index + 1])
 
     raise ValueError("unterminated JSON object in builder output")
-
-
-def _with_guardrail(prompt):
-    """프롬프트 문자열 끝에 가드레일 문장을 덧붙인다 (이미 있거나 문자열이 아니면 그대로)."""
-    if not isinstance(prompt, str) or GUARDRAIL_SENTENCE in prompt:
-        return prompt
-    return f"{prompt.rstrip()}\n\n{GUARDRAIL_SENTENCE}"
-
-
-def ensure_guardrail(data: dict) -> dict:
-    """리더와 모든 서브에이전트의 system_prompt에 가드레일 문장을 보장한다.
-
-    원본을 변경하지 않는다. Builder가 프롬프트 지시를 어겨도 제품 층위에서 보장된다.
-
-    Phase 3부터 서브에이전트까지 훑는다 — 위임된 팀원만 가드레일 없이 도는
-    구멍을 막는다. 팀원 프롬프트는 Builder가 별도로 쓰므로 누락 가능성이 리더보다 높다.
-    """
-    patched = {**data, "system_prompt": _with_guardrail(data.get("system_prompt"))}
-
-    subagents = data.get("subagents")
-    if isinstance(subagents, list):
-        patched["subagents"] = [
-            {**sub, "system_prompt": _with_guardrail(sub.get("system_prompt"))}
-            if isinstance(sub, dict)
-            else sub
-            for sub in subagents
-        ]
-    return patched
 
 
 def _cached_system_message():
