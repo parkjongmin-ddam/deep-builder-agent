@@ -18,6 +18,7 @@ import tempfile
 from langchain_core.tools import tool
 
 from registry.registry import register_tool
+from registry.safe_eval import CalculationError, evaluate
 
 # python_repl 실행 제한. 무한 루프/폭주 스크립트를 차단한다.
 PYTHON_REPL_TIMEOUT_SECONDS = 30
@@ -61,6 +62,27 @@ def _truncate(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + f"\n...[truncated, {len(text) - limit} chars omitted]"
+
+
+@register_tool("calculate")
+@tool
+def calculate(expression: str) -> str:
+    """수식을 계산한다. 코드를 실행하지 않으므로 계산 용도에는 이쪽이 안전하다.
+
+    Args:
+        expression: 파이썬 수식 한 줄. 예) `(120*3+45)/7`,
+            `sum(x for x in range(1,201) if x%3==0 and x%5!=0)`
+
+    사칙연산·비교·조건식과 `range`·컴프리헨션, 그리고 abs/round/min/max/sum/len/
+    sorted/int/float/sqrt/floor/ceil/log/log10/exp를 쓸 수 있다.
+    변수 대입·임포트·속성 접근·파일·네트워크는 되지 않는다 — 그런 일이 필요하면
+    `python_repl`을 쓰되, 그것은 임의 코드 실행이라는 점을 감수하는 것이다.
+    """
+    try:
+        return str(evaluate(expression))
+    except CalculationError as exc:
+        # 실패를 모델에게 문자열로 돌려준다. 무엇이 막혔는지 알아야 고쳐 쓴다.
+        return f"Error: {exc}"
 
 
 @register_tool("python_repl")

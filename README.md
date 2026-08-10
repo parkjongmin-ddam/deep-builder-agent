@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~4 완료 · 테스트 235건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~4 완료 · 테스트 284건 통과 · 전 경로 실호출 검증 완료
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -54,7 +54,9 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
 - 가드레일 문장은 LLM이 빠뜨리면 `ensure_guardrail()`이 **코드로 삽입**한다.
   `--spec`으로 넣는 손으로 쓴 스펙과 UI 템플릿 로드도 같은 보장을 받는다(`load_spec_file()`)
 - deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다
-  — 단, `python_repl`을 허용한 스펙은 사실상 셸을 허용한 것이다 (아래 「알려진 한계」)
+- **계산에는 코드를 실행하지 않는다** — `calculate`가 AST를 직접 평가한다.
+  `python_repl`(임의 코드 실행)은 표준 라이브러리·다단계 가공이 실제로 필요할 때만 붙는다
+  (평가 21케이스 실측: `python_repl` 선택 **0건**)
 - **서브에이전트에도 같은 차단을 따로 건다** — 메인의 제한은 팀원에게 전파되지 않아서,
   빠뜨리면 위임 한 번으로 셸이 열린다 (실측 근거: [BUILD_SPEC.md](BUILD_SPEC.md) 5-3)
 - 검증에 실패하면 에러 메시지를 Builder에게 되돌려 **최대 3회까지 시도**한다
@@ -132,7 +134,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 - 기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다
 - 심판 판별력은 실측으로 확인했다: 부실 스펙 1/5, 무관 스펙 1/5, 좋은 스펙 5/5
 - 케이스는 `eval/cases/*.json`에 있다
-- **비용 주의**: 1회 실행 = Builder 호출 21회(케이스 수) + 심판 호출. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다.
+- **비용 주의**: 1회 실행 = Builder 호출 21회(케이스 수) + 심판 호출. `repeats=N`이면 그만큼 곱해진다. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다.
   Builder 시스템 프롬프트에는 프롬프트 캐시를 걸어 두 번째 호출부터 정가의 10%로 읽는다(실측 확인)
 
 ---
@@ -159,7 +161,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 }
 ```
 
-- `tools` 허용값: `web_search`, `python_repl`, `file_read`, `file_write`, `file_list` (그 외는 거부)
+- `tools` 허용값: `web_search`, `calculate`, `python_repl`, `file_read`, `file_write`, `file_list` (그 외는 거부)
   - **팀원의 `tools`도 같은 검증을 받는다** — 위임이 화이트리스트 우회 경로가 되지 않는다
 - `mcp:<server>`는 `mcp_servers.json`에 **설정된 서버명일 때만** 통과한다 (오타가 런타임까지 흘러가지 않는다)
 - `subagents`는 최대 5개, 이름 중복 금지, 계층 깊이 1 (팀원은 다시 팀을 거느릴 수 없다)
@@ -190,7 +192,7 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 | 템플릿 | 구성 | 쓰임 | 필요한 키 |
 |---|---|---|---|
 | `research_team` | researcher(`web_search`) + writer | 주제 조사 → 출처 붙은 브리핑 | Anthropic + Tavily |
-| `data_analysis_team` | analyst(`python_repl`) + reviewer(`python_repl`) | 계산 후 **독립 검산** | Anthropic |
+| `data_analysis_team` | analyst(`calculate`) + reviewer(`calculate`) | 계산 후 **독립 검산** | Anthropic |
 | `doc_qa_team` | extractor(`file_read`, **haiku**) + summarizer | 문서 근거를 인용한 질의응답 | Anthropic |
 
 ```bash
@@ -240,7 +242,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 235건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 284건
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 
@@ -253,11 +255,14 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 
 - **제거 불가 도구** — `read_file`과 `task`는 deepagents가 필수 미들웨어로 강제하므로 스펙이 요청하지 않아도 항상 노출된다.
   다만 `task`가 띄우는 general-purpose 서브에이전트는 리더의 제한된 도구를 그대로 물려받으므로 화이트리스트 구멍은 아니다(실측 확인).
-- **`python_repl`은 임의 코드 실행이다 — 샌드박스가 아니다.**
+- **`python_repl`은 여전히 임의 코드 실행이다 — 샌드박스가 아니다.**
   임시 디렉터리에서 실행하고 비밀값 환경변수를 넘기지 않으며 30초에 끊지만,
   `os.system`·`subprocess`·절대경로 파일 접근·네트워크는 여전히 가능하다.
-  **`execute`(deepagents 셸 도구)를 차단해도 `python_repl`을 허용한 스펙은 사실상 셸을 허용한 것**이다.
-  스펙에 이 도구를 넣는 것은 그 권한을 주는 것과 같다.
+  **스펙에 이 도구를 넣는 것은 셸에 준하는 권한을 주는 것과 같다.**
+  Phase 5-1에서 `calculate`를 분리해 **기본으로는 붙지 않게** 만들었지만
+  (평가 21케이스 실측 0건), 도구 자체를 없애지는 않았다 —
+  진짜 필요한 요구가 있고 그때는 의식적으로 그 권한을 주는 것이 맞다.
+  진짜 격리가 필요하면 컨테이너 같은 별도 수단이 필요하다.
 - **`workspace/`는 샌드박스가 아니다** — 경로 제한일 뿐 프로세스 격리가 없다. 위 경고 참조.
 - **MCP는 호출당 프로세스를 재기동한다** — 어댑터가 연결을 유지하지 않아 stdio 서버는 호출마다 기동 비용을 낸다.
 - **MCP 검증 대상은 커넥터이지 임의의 서버가 아니다** — `stdio`·`streamable_http`·`sse` 세 transport를

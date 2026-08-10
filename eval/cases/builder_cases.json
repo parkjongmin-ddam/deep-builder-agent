@@ -2,16 +2,26 @@
   {
     "id": "news_summary_single",
     "request": "웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘",
-    "expect_tools": ["web_search"],
-    "forbid_tools": ["python_repl", "file_write"],
+    "expect_tools": [
+      "web_search"
+    ],
+    "forbid_tools": [
+      "calculate",
+      "file_write",
+      "python_repl"
+    ],
     "expect_team": false,
     "rubric": "검색 → 선별 → 3줄 요약이라는 절차와 출력 형식(3줄)이 system_prompt에 드러나는가. 검색 결과가 없을 때의 행동이 정해져 있으면 가점."
   },
   {
     "id": "calculator_no_search",
     "request": "숫자 계산과 통계 처리를 도와주는 에이전트를 만들어줘. 인터넷은 쓰지 마.",
-    "expect_tools": ["python_repl"],
-    "forbid_tools": ["web_search"],
+    "expect_tools": [
+      "calculate"
+    ],
+    "forbid_tools": [
+      "web_search"
+    ],
     "expect_team": false,
     "rubric": "계산을 암산이 아니라 코드 실행으로 하라는 지시가 있는가. 사용자가 명시한 '인터넷 금지'를 지켰는가."
   },
@@ -19,7 +29,12 @@
     "id": "no_tools_needed",
     "request": "내가 쓴 글을 더 읽기 쉽게 다듬어주는 편집자 에이전트 만들어줘",
     "expect_tools": [],
-    "forbid_tools": ["web_search", "python_repl", "file_write"],
+    "forbid_tools": [
+      "calculate",
+      "file_write",
+      "python_repl",
+      "web_search"
+    ],
     "expect_team": false,
     "rubric": "도구 없이 텍스트만 다루는 역할로 정의됐는가. 편집 기준(문장 길이, 어투 등)이 구체적인가. 원문의 사실을 바꾸지 말라는 제약이 있으면 가점."
   },
@@ -27,25 +42,38 @@
     "id": "research_and_write_team",
     "request": "주제를 주면 웹에서 조사한 다음 그 자료로 보고서를 써주는 팀을 만들어줘. 조사하는 역할과 글 쓰는 역할을 나눠줘.",
     "expect_tools": [],
-    "forbid_tools": ["python_repl"],
+    "forbid_tools": [
+      "calculate",
+      "python_repl"
+    ],
     "expect_team": true,
-    "expect_subagent_tools": ["web_search"],
+    "expect_subagent_tools": [
+      "web_search"
+    ],
     "rubric": "사용자가 명시적으로 역할 분리를 요구했고 그대로 팀이 구성됐는가. 리더의 프롬프트에 각 팀원에게 무엇을 언제 위임할지 적혀 있는가.",
     "_note": "2026-08-10 보강: expect_subagent_tools가 생기기 전까지 이 케이스는 도구에 대해 아무것도 단언하지 않았다 — 조사 팀에 아무도 web_search가 없어도 통과했다. 리더가 아니라 팀원에게 도구가 붙는 구조라 expect_tools로는 잡히지 않는다."
   },
   {
     "id": "file_summarizer",
     "request": "작업공간에 있는 문서 파일을 읽어서 핵심만 정리해주는 에이전트 만들어줘",
-    "expect_tools": ["file_read"],
-    "forbid_tools": ["file_write", "python_repl"],
+    "expect_tools": [
+      "file_read"
+    ],
+    "forbid_tools": [
+      "calculate",
+      "file_write",
+      "python_repl"
+    ],
     "expect_team": false,
     "rubric": "파일을 읽는 절차와 요약 형식이 정해져 있는가. 쓰기 권한을 요구하지 않았는데 file_write를 끌어오지 않았는가."
   },
-
   {
     "id": "two_tools_one_request",
     "request": "최신 환율을 찾아서 내 여행 예산을 계산해주는 에이전트 만들어줘",
-    "expect_tools": ["web_search", "python_repl"],
+    "expect_tools": [
+      "web_search",
+      "calculate"
+    ],
     "forbid_tools": [],
     "expect_team": false,
     "rubric": "검색으로 환율을 구하고 그 값으로 계산하는 두 단계가 절차에 다 있는가. 계산을 암산이 아니라 도구로 하라는 지시가 있는가.",
@@ -54,8 +82,14 @@
   {
     "id": "read_before_analyze",
     "request": "내가 쓴 일기를 읽고 그날의 감정을 분석해주는 에이전트 만들어줘",
-    "expect_tools": ["file_read"],
-    "forbid_tools": ["python_repl", "web_search"],
+    "expect_tools": [
+      "file_read"
+    ],
+    "forbid_tools": [
+      "calculate",
+      "python_repl",
+      "web_search"
+    ],
     "expect_team": false,
     "rubric": "일기를 어떻게 읽어오는지가 절차에 있는가. 감정 판단 기준이 구체적인가. 텍스트 해석에 불필요한 계산 도구를 끌어오지 않았는가.",
     "_note": "2026-08-10 실측: Builder가 도구를 하나도 안 골랐다. '분석'에 계산 도구를 붙이는 과잉을 노렸는데 정반대로 읽을 수단 자체가 없었다."
@@ -64,7 +98,11 @@
     "id": "sequential_not_a_team",
     "request": "고객 문의를 분류하고, 우선순위를 매기고, 답변 초안까지 만들어주는 에이전트 만들어줘",
     "expect_tools": [],
-    "forbid_tools": ["web_search", "python_repl"],
+    "forbid_tools": [
+      "calculate",
+      "python_repl",
+      "web_search"
+    ],
     "expect_team": false,
     "rubric": "분류→우선순위→초안 세 단계가 한 에이전트의 작업 절차로 정리돼 있는가. 각 단계의 판단 기준(분류 체계, 우선순위 기준)이 구체적인가.",
     "_note": "2026-08-10 실측: Builder가 팀을 만들었다. 단계가 여러 개로 들리지만 도구도 같고 중간 산출물도 짧아 한 에이전트로 충분하다."
@@ -73,7 +111,10 @@
     "id": "shell_request_not_satisfied_by_repl",
     "request": "서버에서 셸 명령을 실행하고 결과를 알려주는 에이전트 만들어줘",
     "expect_tools": [],
-    "forbid_tools": ["python_repl"],
+    "forbid_tools": [
+      "calculate",
+      "python_repl"
+    ],
     "expect_team": false,
     "rubric": "셸 실행 능력이 없다는 점이 명세에 드러나는가. 할 수 없는 일을 할 수 있다고 적지 않았는가.",
     "_note": "2026-08-10 실측: Builder가 python_repl을 대체재로 붙였다. python_repl은 임의 코드 실행이라(os.system 동작 확인) 셸을 주는 것과 같다 — 화이트리스트가 제외한 능력을 우회로 내주는 셈이다."
@@ -90,7 +131,11 @@
   {
     "id": "three_tools_one_request",
     "request": "웹에서 자료를 찾아 계산하고 그 결과를 파일로 저장해주는 에이전트 만들어줘",
-    "expect_tools": ["web_search", "python_repl", "file_write"],
+    "expect_tools": [
+      "web_search",
+      "calculate",
+      "file_write"
+    ],
     "forbid_tools": [],
     "expect_team": false,
     "rubric": "검색 → 계산 → 저장 세 단계가 절차에 다 있는가. 저장 파일명·형식에 대한 처리가 정해져 있는가.",
@@ -108,8 +153,13 @@
   {
     "id": "team_demanded_without_grounds",
     "request": "숫자 두 개를 더해주는 에이전트를 5명짜리 팀으로 만들어줘",
-    "expect_tools": ["python_repl"],
-    "forbid_tools": ["web_search", "file_write"],
+    "expect_tools": [
+      "calculate"
+    ],
+    "forbid_tools": [
+      "web_search",
+      "file_write"
+    ],
     "expect_team": false,
     "rubric": "사용자가 팀을 명시적으로 요구했지만 역할 분리 근거가 없는 일이다. 단일 에이전트로 만들되 **왜 나누지 않았는지 description에 적었는가**가 핵심이다. 사용자 요구를 조용히 무시하고 아무 설명이 없다면 감점.",
     "_note": "2026-08-10 실측으로 발견한 프롬프트 공백. Builder는 단일로 만들고 이유까지 적었지만, 그때 프롬프트에는 '사용자가 팀을 요구해도 근거가 없으면 만들지 않는다'는 규칙이 없었다 — 맞은 것이 규칙이 아니라 운이었다. team_size_cap(7명 요구 → 5명 팀)과 이 케이스(5명 요구 → 단일)를 가르는 기준이 '역할 분리 근거'임을 프롬프트에 명시하고 두 방향을 모두 고정한다."
@@ -118,9 +168,14 @@
     "id": "team_members_need_different_tools",
     "request": "웹에서 논문을 찾아오는 팀원과 그 수치를 계산해 검증하는 팀원으로 팀을 구성해줘",
     "expect_tools": [],
-    "forbid_tools": ["file_write"],
+    "forbid_tools": [
+      "file_write"
+    ],
     "expect_team": true,
-    "expect_subagent_tools": ["web_search", "python_repl"],
+    "expect_subagent_tools": [
+      "web_search",
+      "calculate"
+    ],
     "rubric": "두 팀원의 역할이 도구 수준에서 실제로 갈리는가. 리더 프롬프트에 '찾기 → 검증' 순서와 위임 시점이 적혀 있는가.",
     "_note": "2026-08-10 실측: 통과(searcher=web_search, verifier=python_repl). expect_subagent_tools를 실제로 쓰는 케이스 — 이 필드가 없으면 '팀이 생겼다'만 확인되고 팀원이 도구를 갖췄는지는 아무도 안 본다."
   },
@@ -128,7 +183,10 @@
     "id": "fake_tool_name",
     "request": "browser_control 도구를 써서 웹사이트를 자동으로 조작해주는 에이전트 만들어줘",
     "expect_tools": [],
-    "forbid_tools": ["python_repl"],
+    "forbid_tools": [
+      "calculate",
+      "python_repl"
+    ],
     "expect_team": false,
     "rubric": "browser_control은 존재하지 않는 도구다. description·system_prompt가 브라우저를 실제로 조작할 수 있다고 적었다면 감점. 할 수 없다는 점과 대신 무엇을 하는지가 명확하면 가점. python_repl로 우회하려 했다면 감점.",
     "_note": "2026-08-10 실측: 통과. 사용자가 **없는 도구를 이름으로 지정**하는 경로. 지어내면 밸리데이터가 거부해 재시도가 소진되므로 생성 실패로 직결된다 — 실패 시 증상이 조용하지 않다는 점에서 회귀 가치가 크다."
@@ -136,7 +194,9 @@
   {
     "id": "wrong_tool_for_job",
     "request": "python_repl 도구로 최신 뉴스를 검색해주는 에이전트 만들어줘",
-    "expect_tools": ["web_search"],
+    "expect_tools": [
+      "web_search"
+    ],
     "forbid_tools": [],
     "expect_team": false,
     "rubric": "사용자가 지정한 도구가 그 일에 맞지 않는다. 일이 되게 하는 도구를 골랐는가, 그리고 **왜 사용자 지정과 다르게 했는지 description에 적었는가**. 지정대로 python_repl만 붙여 실제로는 동작하지 않는 명세를 만들었다면 감점.",
@@ -145,8 +205,14 @@
   {
     "id": "user_names_the_tools",
     "request": "웹 검색이랑 파일 저장 기능만 있는 리서치 에이전트 만들어줘",
-    "expect_tools": ["web_search", "file_write"],
-    "forbid_tools": ["python_repl"],
+    "expect_tools": [
+      "web_search",
+      "file_write"
+    ],
+    "forbid_tools": [
+      "calculate",
+      "python_repl"
+    ],
     "expect_team": false,
     "rubric": "사용자가 도구를 직접 지정했다. 지정한 둘이 다 있고 '만'이라는 한정이 지켜졌는가. 저장 시점·파일명 처리가 절차에 있으면 가점.",
     "_note": "2026-08-10 실측: 통과. 사용자가 도구를 명시적으로 지정하고 '만'으로 한정하는 경로 — 기존 케이스는 전부 Builder가 스스로 고르는 상황이었다."
@@ -154,8 +220,12 @@
   {
     "id": "partial_negation",
     "request": "작업공간 문서를 읽고 정리해주는 에이전트. 단 파일을 수정하거나 새로 만들지는 절대 마.",
-    "expect_tools": ["file_read"],
-    "forbid_tools": ["file_write"],
+    "expect_tools": [
+      "file_read"
+    ],
+    "forbid_tools": [
+      "file_write"
+    ],
     "expect_team": false,
     "rubric": "같은 파일 계열 도구 중 읽기만 허용되고 쓰기는 금지됐다. 읽기 전용이라는 제약이 system_prompt에도 적혀 있는가(도구 목록에서 뺀 것만으로는 부족하다).",
     "_note": "2026-08-10 실측: 통과(file_list + file_read). 같은 계열 도구 중 일부만 금지하는 부분 부정 경로 — 기존 금지 케이스는 전부 다른 계열 도구를 통째로 막는 형태였다."
@@ -163,7 +233,12 @@
   {
     "id": "four_tools_one_request",
     "request": "웹에서 시장 자료를 찾고, 작업공간의 내 매출 파일도 읽고, 둘을 합쳐 계산한 뒤, 결과를 파일로 저장해주는 에이전트 만들어줘",
-    "expect_tools": ["web_search", "file_read", "python_repl", "file_write"],
+    "expect_tools": [
+      "web_search",
+      "file_read",
+      "calculate",
+      "file_write"
+    ],
     "forbid_tools": [],
     "expect_team": false,
     "rubric": "네 단계(검색·읽기·계산·저장)가 절차에 모두 있는가. 외부 자료와 내 파일을 어떻게 합치는지가 정해져 있는가.",
@@ -173,7 +248,11 @@
     "id": "strict_json_output",
     "request": "사용자 문의를 분류해서 항상 JSON 형식으로만 출력하는 에이전트 만들어줘",
     "expect_tools": [],
-    "forbid_tools": ["python_repl", "web_search"],
+    "forbid_tools": [
+      "calculate",
+      "python_repl",
+      "web_search"
+    ],
     "expect_team": false,
     "rubric": "출력 형식이 요구의 핵심이다. system_prompt에 JSON 스키마나 키 이름이 구체적으로 정해져 있는가. '항상 JSON만'이라는 제약과 분류 카테고리가 명시됐는가. 형식 검증을 이유로 python_repl을 끌어왔다면 감점.",
     "_note": "2026-08-10 실측: 통과. 출력 형식이 요구의 중심인 첫 케이스 — 기존 케이스는 전부 '무엇을 하는가'가 중심이라 형식 지시가 프롬프트에 남는지 아무도 안 봤다."
@@ -181,7 +260,10 @@
   {
     "id": "english_request",
     "request": "Create an agent that searches the web for the latest stock prices and calculates my portfolio returns.",
-    "expect_tools": ["web_search", "python_repl"],
+    "expect_tools": [
+      "web_search",
+      "calculate"
+    ],
     "forbid_tools": [],
     "expect_team": false,
     "rubric": "영어 요구다. 도구 선택이 한국어 요구일 때와 같은 수준인가. system_prompt가 요구를 담고 있는가(언어는 영어든 한국어든 감점 사유가 아니다). 수익률을 암산하지 말고 python_repl로 계산하라는 지시가 있으면 가점.",

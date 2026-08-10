@@ -17,7 +17,7 @@ from runtime.spec import AgentSpec
 
 
 def test_custom_tools_are_registered():
-    assert set(custom_tool_keys()) == {"web_search", "python_repl"}
+    assert set(custom_tool_keys()) == {"web_search", "python_repl", "calculate"}
 
 
 def test_allowed_keys_are_registry_derived():
