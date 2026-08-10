@@ -2,7 +2,8 @@
 
 ## 1. 프로젝트 개요
 - 명칭: **deep_builder_agent** (2026-08-08 확정. 가칭 mini-agent-builder 폐기)
-- 현재 상태: **Phase 4 완료 (2026-08-10)** — Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭(기계적 검사 + LLM-as-judge), 테스트 154건 통과. aibrief 실연결과 LLM 실호출 데모만 외부 의존(키·접속정보)으로 보류
+- 현재 상태: **Phase 1~4 완료 (2026-08-10)** — CLI·Streamlit UI, 팀(subagents), MCP 연동, LangSmith 트레이싱, 평가 레이어. **테스트 188건 통과, 전 경로 실호출 검증 완료.** 남은 외부 의존은 aibrief 접속 정보 하나뿐
+- 보고서: [REPORT.md](REPORT.md)
 - 진입점: `cli.py` (`python cli.py "<자연어 요구>"`)
 - 기술 스택 (설치본 검증 완료): deepagents 0.7.5(하네스), LangGraph 1.2.10(런타임), langchain-anthropic 1.5.4, Pydantic v2, Python 3.13. 개발은 Claude Code
 - 실행 환경: 프로젝트 전용 venv(`.venv/`). 전역 파이썬의 langchain 버전과 충돌하므로 격리한다
