@@ -107,6 +107,30 @@ def ensure_guardrail(data: dict) -> dict:
     return patched
 
 
+def _cached_system_message():
+    """시스템 프롬프트를 **프롬프트 캐시 대상**으로 표시해 만든다.
+
+    Builder 프롬프트는 약 2,800토큰이고 호출마다 통째로 다시 전송된다.
+    평가는 케이스 수만큼 Builder를 연속 호출하므로(현재 12회) 같은 프롬프트가
+    12번 청구된다. 캐시를 걸면 2번째 호출부터 정가의 10%로 읽는다.
+
+    재시도로 덧붙는 user/assistant 메시지는 튜플 형식을 그대로 둔다 —
+    캐시 breakpoint는 프리픽스(system)에만 있으면 되고, 뒤쪽이 바뀌어도
+    앞쪽 캐시는 유효하다.
+    """
+    from langchain_core.messages import SystemMessage
+
+    return SystemMessage(
+        content=[
+            {
+                "type": "text",
+                "text": build_system_prompt(),
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+    )
+
+
 def _build_chat_model(model: str):
     """Builder용 채팅 모델을 생성한다. 지연 임포트로 테스트 부담을 줄인다."""
     from langchain.chat_models import init_chat_model
@@ -148,7 +172,7 @@ def generate_spec(
     llm = chat_model if chat_model is not None else _build_chat_model(model)
 
     messages: list = [
-        ("system", build_system_prompt()),
+        _cached_system_message(),
         ("user", request),
     ]
 
