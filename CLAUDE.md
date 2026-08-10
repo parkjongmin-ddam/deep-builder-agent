@@ -18,8 +18,9 @@
               서브에이전트 번역·도구 격리도 factory가 담당한다
 - templates/ — 손으로 쓴 팀 스펙 JSON. `cli.py --spec`으로 바로 실행된다.
               Builder를 거치지 않으므로 가드레일 문장을 파일에 직접 써야 한다
-- ui/       — Streamlit 2패널 (Phase 4)
-- eval/     — LangSmith + LLM-as-judge (Phase 4)
+- ui/       — Streamlit 2패널. app.py는 그리기만, 판단은 state.py의 순수 함수에 둔다
+- eval/     — Builder 회귀 평가. checks.py(기계적 판정) + judge.py(LLM 심판) + runner.py(집계).
+              `import eval`은 내장 함수를 가린다 — 항상 `from eval.x import y` 형태로 쓴다
 
 ## 코딩 규칙
 - Python 3.11+, Pydantic v2, 타입 힌트 필수
@@ -29,6 +30,9 @@
 
 ## 검증 루프
 - 모든 runtime/ 변경은 `./.venv/Scripts/python.exe -m pytest tests/ -q` 통과 후 커밋
+- 빠른 피드백이 필요하면 `-m "not integration"` (프로세스·앱을 띄우는 느린 검증 제외)
+- UI 변경은 단위 테스트만으로 부족하다. `AppTest`가 도는 `-m integration`까지 돌린다
+- Builder 프롬프트·도구 레지스트리를 건드리면 `python -m eval.runner`로 회귀를 본다 (API 키 필요)
 - Phase 완료 조건: 동작 데모 성공 + 테스트 통과 + BUILD_SPEC.md 갱신 + 커밋
 - 커밋 메시지: `phase{N}: <변경 요약>`
 

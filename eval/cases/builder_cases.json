@@ -1,0 +1,42 @@
+[
+  {
+    "id": "news_summary_single",
+    "request": "웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘",
+    "expect_tools": ["web_search"],
+    "forbid_tools": ["python_repl", "file_write"],
+    "expect_team": false,
+    "rubric": "검색 → 선별 → 3줄 요약이라는 절차와 출력 형식(3줄)이 system_prompt에 드러나는가. 검색 결과가 없을 때의 행동이 정해져 있으면 가점."
+  },
+  {
+    "id": "calculator_no_search",
+    "request": "숫자 계산과 통계 처리를 도와주는 에이전트를 만들어줘. 인터넷은 쓰지 마.",
+    "expect_tools": ["python_repl"],
+    "forbid_tools": ["web_search"],
+    "expect_team": false,
+    "rubric": "계산을 암산이 아니라 코드 실행으로 하라는 지시가 있는가. 사용자가 명시한 '인터넷 금지'를 지켰는가."
+  },
+  {
+    "id": "no_tools_needed",
+    "request": "내가 쓴 글을 더 읽기 쉽게 다듬어주는 편집자 에이전트 만들어줘",
+    "expect_tools": [],
+    "forbid_tools": ["web_search", "python_repl", "file_write"],
+    "expect_team": false,
+    "rubric": "도구 없이 텍스트만 다루는 역할로 정의됐는가. 편집 기준(문장 길이, 어투 등)이 구체적인가. 원문의 사실을 바꾸지 말라는 제약이 있으면 가점."
+  },
+  {
+    "id": "research_and_write_team",
+    "request": "주제를 주면 웹에서 조사한 다음 그 자료로 보고서를 써주는 팀을 만들어줘. 조사하는 역할과 글 쓰는 역할을 나눠줘.",
+    "expect_tools": [],
+    "forbid_tools": ["python_repl"],
+    "expect_team": true,
+    "rubric": "사용자가 명시적으로 역할 분리를 요구했고 그대로 팀이 구성됐는가. 리더의 프롬프트에 각 팀원에게 무엇을 언제 위임할지 적혀 있는가."
+  },
+  {
+    "id": "file_summarizer",
+    "request": "작업공간에 있는 문서 파일을 읽어서 핵심만 정리해주는 에이전트 만들어줘",
+    "expect_tools": ["file_read"],
+    "forbid_tools": ["file_write", "python_repl"],
+    "expect_team": false,
+    "rubric": "파일을 읽는 절차와 요약 형식이 정해져 있는가. 쓰기 권한을 요구하지 않았는데 file_write를 끌어오지 않았는가."
+  }
+]

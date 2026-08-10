@@ -2,7 +2,7 @@
 
 ## 1. 프로젝트 개요
 - 명칭: **deep_builder_agent** (2026-08-08 확정. 가칭 mini-agent-builder 폐기)
-- 현재 상태: **Phase 3 완료 (2026-08-10)** — subagents 활성화(AgentSpec v0.2) + 팀 템플릿 3종 + 서브에이전트 도구 격리, 테스트 106건 통과. aibrief 실연결과 LLM 실대화 데모만 외부 의존으로 보류
+- 현재 상태: **Phase 4 완료 (2026-08-10)** — Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭(기계적 검사 + LLM-as-judge), 테스트 154건 통과. aibrief 실연결과 LLM 실호출 데모만 외부 의존(키·접속정보)으로 보류
 - 진입점: `cli.py` (`python cli.py "<자연어 요구>"`)
 - 기술 스택 (설치본 검증 완료): deepagents 0.7.5(하네스), LangGraph 1.2.10(런타임), langchain-anthropic 1.5.4, Pydantic v2, Python 3.13. 개발은 Claude Code
 - 실행 환경: 프로젝트 전용 venv(`.venv/`). 전역 파이썬의 langchain 버전과 충돌하므로 격리한다
@@ -41,12 +41,21 @@
 - 2026-08-10 (Phase 3): 가드레일 주입을 **서브에이전트까지 확장**(`ensure_guardrail`). 팀원 프롬프트는 Builder가 따로 쓰므로 누락 가능성이 리더보다 높다
 - 2026-08-10 (Phase 3): MCP 도구 로드를 **서버별 매핑**(`load_tools_by_server`)으로 확장. 리더와 팀원이 서로 다른 서버를 참조할 수 있어 평평한 목록으로는 누구에게 무엇을 줄지 알 수 없다. 팀원이 참조한 서버가 매핑에 없으면 `LookupError` — 조용히 사라지지 않는다
 - 2026-08-10 (Phase 3): 팀 템플릿은 `templates/*.json`에 커밋한다(`specs/`는 생성물이라 gitignore 대상이므로 부적합). `cli.py --spec templates/<name>.json`으로 바로 실행된다
+- 2026-08-10 (Phase 4): **평가 대상은 Builder의 번역 품질**로 못박는다. "생성된 에이전트의 답변이 좋은가"는 도구·모델·프롬프트가 뒤섞인 결과라 회귀 신호로 못 쓴다. "자연어 요구 → 옳은 AgentSpec인가"가 이 프로젝트가 직접 책임지는 부분이다
+- 2026-08-10 (Phase 4): **기계적 검사와 LLM 심판을 분리**한다. 도구 선택·팀 구성·가드레일은 판단이 필요 없으므로 코드로 확정 판정하고(`eval/checks.py`), 프롬프트가 요구를 담았는지만 심판에게 묻는다(`eval/judge.py`). 기계적 검사가 깨지면 심판을 아예 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다
+- 2026-08-10 (Phase 4): 심판 모델을 Builder 모델과 분리(`DEEP_BUILDER_JUDGE_MODEL`). 같은 모델이 자기 출력을 채점하면 점수가 후해진다. 통과선은 5점 만점에 4점 — 3점("요구는 담았으나 빈틈")은 통과시키지 않는다
+- 2026-08-10 (Phase 4): 심판에게 **점수와 이유를 함께** 받고, 파싱 실패를 0점으로 뭉개지 않는다(`JudgeError`). 채점 실패와 낮은 점수는 다른 사건이다
+- 2026-08-10 (Phase 4): 평가 실행은 **케이스 하나가 죽어도 계속 돈다**. 생성 실패도 `CaseResult.error`에 담아 리포트에 남긴다 — 10개 중 3번째에서 멈춰 나머지를 못 보는 것이 최악이다
+- 2026-08-10 (Phase 4): 트레이싱은 **조용히 꺼지지 않는다**. `LANGSMITH_TRACING=true`인데 키가 없으면 실행 전에 막는다(`TracingConfigError`). TAVILY_API_KEY 없을 때 web_search가 결과를 지어내지 않고 에러를 반환하는 것과 같은 원칙
+- 2026-08-10 (Phase 4): UI는 **그리기(`ui/app.py`)와 판단(`ui/state.py`)을 분리**한다. Streamlit 앱은 단위 테스트가 어렵지만 순수 함수는 그대로 테스트된다. 앱이 실제로 뜨는지는 `streamlit.testing.v1.AppTest`로 따로 검증한다
+- 2026-08-10 (Phase 4): `last_text`를 `cli.py`에서 `runtime/messages.py`로 옮겼다. UI도 같은 추출이 필요한데 `ui`가 `cli`를 임포트하는 것은 레이어가 거꾸로다
+- 2026-08-10 (Phase 4): UI는 비밀값을 **존재 여부만** 표시한다(`check_readiness`). 값이 화면에 새지 않는지 테스트로 고정했다
 
 ## 4. Phase 로드맵
 - Phase 1 (8월, 1~3주차): CLI — 자연어 → AgentSpec → 단일 에이전트 생성·대화 ✅ **완료 (2026-08-08)**
 - Phase 2 (8월 말~9월 중): registry/ 구현, 내장 도구 + MCP 커넥터, Builder 도구 자동 선택 ✅ **완료 (2026-08-10)** — 커넥터는 로컬 실서버로 검증. aibrief 실연결은 접속 정보 확보 시 설정만 추가하면 되므로 게이트를 막지 않는다
 - Phase 3 (9월 말~10월 중): subagents 활성화, 팀 템플릿 2~3개, 멀티에이전트 검증 ✅ **완료 (2026-08-10)**
-- Phase 4 (10월 말): Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭
+- Phase 4 (10월 말): Streamlit 2패널 UI + LangSmith 트레이싱 + 평가 탭 ✅ **완료 (2026-08-10)**
 - 11월 초: 보고서(개조식)·README·데모 영상 마무리. 2주 버퍼
 
 ## 5. Phase 1 체크리스트
@@ -158,6 +167,38 @@
 즉 `task` 노출 자체는 화이트리스트 구멍이 아니다. 위험한 것은 *선언된* 서브에이전트 쪽이었다.
 회귀 테스트: `test_factory.py::test_solo_agent_exposes_only_general_purpose_with_leader_tools`
 
+## 5-4. Phase 4 체크리스트
+- [x] LangSmith 트레이싱 (`runtime/tracing.py`) — 키 없이 켜라고 하면 실행 전에 차단
+- [x] `eval/` 평가 레이어 — 케이스 데이터셋, 기계적 검사 4종, LLM 심판, 실행·집계
+- [x] 평가 케이스 5건 (`eval/cases/builder_cases.json`)
+- [x] Streamlit 2패널 UI (`ui/app.py`) — 좌 빌더 / 우 대화 + 평가 탭 + 환경 사이드바
+- [x] UI 판단 로직 분리 (`ui/state.py`) + 앱 렌더링 검증 (`AppTest`)
+- [x] `last_text`를 `runtime/messages.py`로 이관 (ui → cli 역방향 임포트 제거)
+- [x] `.env.example`에 심판 모델·LangSmith 변수 추가
+- [ ] **LLM 실호출 데모** — 🚧 `ANTHROPIC_API_KEY` 미설정으로 보류.
+      Builder 생성·대화·심판 채점 모두 키가 있어야 실측된다
+
+### Phase 4 검증 기록 (2026-08-10)
+- 테스트 **154 passed** (Phase 3 106건 → 트레이싱 9건, 평가 21건, UI 18건 추가)
+- 평가 파이프라인 실측: 스텁 생성기(항상 `web_search`만 선택)로 5케이스 실행 →
+  `1/5 통과 (20%)`. 실패 케이스마다 원인이 정확히 찍혔다 —
+  `calculator_no_search`는 "누락된 도구: ['python_repl']" + "불필요한 도구: ['web_search']",
+  `research_and_write_team`은 "팀이 필요한데 단일 에이전트로 만들었다".
+  즉 검사기가 실제로 판별력을 갖는다(전부 통과시키는 검사가 아니다)
+- UI 렌더링 실측: `AppTest.from_file('ui/app.py').run()` → 예외 0건,
+  제목·탭 2개 정상, 키 없는 상태에서 사이드바가 `실행 불가: ANTHROPIC_API_KEY 미설정` 표시
+- `streamlit run ui/app.py --server.headless true` 기동 확인 (포트 바인딩까지)
+
+#### 이 과정에서 잡은 버그
+- **`render_history`가 사용자 발화를 못 읽었다.** 단일 메시지에 `last_text()`를 썼는데
+  그 함수는 `type=="ai"`만 처리한다 — human 메시지는 전부 "(응답 없음)"으로 떨어졌다.
+  → `message_text(message)`(종류 무관 텍스트 추출)를 분리하고 `last_text`를 그 위에 재구성.
+  회귀 테스트: `test_ui.py::test_render_history_reads_human_messages`
+
+#### 의존성 변경 주의
+- `streamlit` 설치가 `starlette`를 1.4.1 → 1.3.1로 내렸다. MCP(stdio 서버)가 starlette를
+  쓰므로 회귀를 확인했고, MCP 실연결 테스트 포함 전체 통과했다
+
 ## 6. 미결 사항 / 알려진 한계
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.
 - **파일 백엔드**: 기본 `StateBackend` — file_read/file_write는 실제 디스크가 아니라 에이전트 상태 내 가상 FS를 대상으로 한다. Phase 2에서 실제 디스크 접근 필요 여부를 결정한다.
@@ -165,5 +206,8 @@
 - ~~**MCP 도구**: `mcp:` 접두사는 스키마 레벨에서만 통과하며 Phase 1에 구현이 없다~~ → Phase 2에서 해소. `registry/mcp.py`가 로드하고 `cli.py`가 `build_agent(extra_tools=...)`로 주입한다. 실서버 검증 완료 (2026-08-10)
 - ~~**`task` 도구 노출 평가**~~ → Phase 3에서 해소. general-purpose는 리더 도구를 상속하므로 구멍이 아니다 (위 5-3 참조)
 - **`--spec` 경로는 가드레일 자동 주입을 받지 못한다**: `ensure_guardrail()`은 Builder 루프 안에만 있다. 손으로 쓴 스펙을 `cli.py --spec`으로 넣으면 가드레일 문장 없이도 통과한다. 지금은 템플릿 테스트(`test_templates.py::test_every_prompt_carries_the_guardrail`)로 배포본만 막아 두었다. 스키마 레벨 강제로 올릴지는 Phase 4에서 판단한다
-- **팀 실행 비용 미측정**: 서브에이전트는 그래프를 따로 컴파일하고 위임마다 별도 LLM 호출이 붙는다. 단일 에이전트 대비 토큰·지연 비용을 아직 재지 않았다 (API 키 확보 후 Phase 4 평가 탭에서 측정)
+- **팀 실행 비용 미측정**: 서브에이전트는 그래프를 따로 컴파일하고 위임마다 별도 LLM 호출이 붙는다. 단일 에이전트 대비 토큰·지연 비용을 아직 재지 않았다. 측정 수단은 갖췄다(LangSmith 트레이싱) — 키만 있으면 바로 잰다
+- **평가 케이스 5건은 적다**: 현재 케이스는 도구 선택·팀 판단의 대표적인 갈림길만 덮는다. 실제 회귀를 잡으려면 실호출로 한 번 돌려 본 뒤, 틀린 사례를 케이스로 추가하는 방식이 맞다 (지금은 정답을 추측해 적은 상태다)
+- **심판 신뢰도 미검증**: LLM-as-judge가 사람 판단과 얼마나 맞는지 대조하지 않았다. 최소한 몇 건은 손으로 채점해 교차 확인해야 점수를 신뢰할 수 있다
+- **`eval` 패키지 이름**: 내장 함수 `eval`과 겹친다. `from eval.x import y` 형태만 쓰면 안전하지만 `import eval`은 그 네임스페이스에서 내장을 가린다 (BUILD_SPEC이 지정한 이름이라 유지)
 - **팀원 모델 고정**: 현재 모든 팀원이 리더와 같은 모델을 쓴다(`factory._subagent_payload`). deepagents는 팀원별 모델 오버라이드를 지원하므로, 값싼 모델로 조사시키고 비싼 모델로 종합하는 구성이 가능하다 — Phase 4 평가 후 열지 판단한다

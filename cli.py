@@ -20,7 +20,9 @@ from registry import MCP_PREFIX
 from registry.mcp import MCPConfigError
 from registry.mcp import load_tools_by_server as load_mcp_tools_by_server
 from runtime.factory import build_agent, resolve_builtin_fs_tools
+from runtime.messages import last_text
 from runtime.spec import AgentSpec
+from runtime.tracing import TracingConfigError, configure_tracing
 
 EXIT_COMMANDS = frozenset({"exit", "quit", ":q"})
 
@@ -67,25 +69,6 @@ def describe(spec: AgentSpec) -> str:
         f"  builtin fs  : {fs_tools}  (+ task; deepagents가 항상 주입)\n"
         f"  subagents   :\n{team}"
     )
-
-
-def last_text(messages: list) -> str:
-    """에이전트 응답 메시지 목록에서 마지막 텍스트 응답을 뽑는다."""
-    for message in reversed(messages):
-        if getattr(message, "type", None) != "ai":
-            continue
-        content = message.content
-        if isinstance(content, str) and content.strip():
-            return content
-        if isinstance(content, list):
-            text = "".join(
-                block.get("text", "")
-                for block in content
-                if isinstance(block, dict) and block.get("type") == "text"
-            )
-            if text.strip():
-                return text
-    return "(에이전트가 텍스트 응답을 내지 않았습니다)"
 
 
 def chat(agent) -> None:
@@ -147,6 +130,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.no_chat:
         return 0
+
+    try:
+        status = configure_tracing()
+    except TracingConfigError as exc:
+        print(f"[error] 트레이싱 설정 오류: {exc}", file=sys.stderr)
+        return 1
+    print(f"[trace] LangSmith {status}")
 
     print("\n[runtime] 에이전트를 생성하는 중...")
     try:

@@ -5,3 +5,5 @@ python-dotenv
 pytest
 langchain-mcp-adapters==0.3.2
 mcp
+streamlit
+langsmith

@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행**하는 빌더. LangChain deepagents 하네스 위에서
 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> 현재 상태: **Phase 3 완료** (단일 에이전트 + 팀(subagents) 생성·대화 CLI, MCP 연동).
+> 현재 상태: **Phase 4 완료** (CLI + Streamlit UI, 팀 구성, MCP 연동, LangSmith 트레이싱, 평가).
 > 모든 설계 결정과 진행 상황은 [BUILD_SPEC.md](BUILD_SPEC.md)에 있다.
 
 ## 동작 방식
@@ -41,6 +41,9 @@ cp .env.example .env    # ANTHROPIC_API_KEY를 채운다
 | `ANTHROPIC_API_KEY` | ✅ | Builder와 생성된 에이전트 |
 | `TAVILY_API_KEY` | — | `web_search` 도구. 없으면 도구가 명확한 에러를 반환한다 |
 | `DEEP_BUILDER_MODEL` | — | Builder LLM 모델 (기본 `claude-sonnet-4-6`) |
+| `DEEP_BUILDER_JUDGE_MODEL` | — | 평가 심판 모델. Builder와 분리한다 |
+| `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 실행 전에 막는다 |
+| `LANGSMITH_API_KEY` | — | 트레이싱을 켤 때 필수 |
 
 ## 사용법
 
@@ -56,6 +59,34 @@ python cli.py "..." --no-chat
 ```
 
 생성된 스펙은 `specs/<name>.json`에 저장된다.
+
+### Streamlit UI
+
+```bash
+streamlit run ui/app.py
+```
+
+- 사이드바: 환경 점검 (키·트레이싱·MCP). 비밀값은 **존재 여부만** 표시한다
+- 탭 **빌더**: 왼쪽에서 자연어로 만들거나 템플릿을 불러오고, 오른쪽에서 바로 대화
+- 탭 **평가**: 케이스를 돌려 Builder 회귀를 확인
+
+### 평가
+
+```bash
+python -m eval.runner          # 기계적 검사 + LLM 심판
+```
+
+무엇을 재는가: **Builder가 자연어 요구를 옳은 AgentSpec으로 옮기는가.**
+생성된 에이전트의 답변 품질이 아니다 — 그건 도구·모델·프롬프트가 뒤섞인 결과라
+회귀 신호로 쓰기 어렵다.
+
+| 단계 | 방법 | 대상 |
+|---|---|---|
+| 기계적 검사 | 코드로 확정 판정 | 도구 선택, 과잉 선택, 팀 구성, 가드레일 |
+| LLM 심판 | 5점 척도 + 이유 | system_prompt가 요구를 담았는가 |
+
+기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다.
+케이스는 `eval/cases/*.json`에 있다.
 
 ## AgentSpec v0.2
 
