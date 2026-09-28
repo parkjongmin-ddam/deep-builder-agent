@@ -115,7 +115,18 @@
   - [x] `resolve_identity` — 이메일/그룹 클레임 → 역할, 매핑 없으면 거부 ✅
   - [x] `.streamlit/secrets.toml.example` 템플릿 + gitignore ✅
   - [x] 테스트 338 → **347건** 전건 통과 (신원 해석 6 + OIDC 헬퍼 3) ✅
-  - [ ] 🚧 **Okta 실계정 왕복 검증** — developer.okta.com 앱 생성 후 로그인→그룹 클레임→역할 매핑을 실측하고 여기 기록한다. 코드 경로는 단위 테스트로 덮였지만 **IdP 실연결은 아직 실측 전이다**
+  - [x] **Okta 실계정 왕복 검증** ✅ **완료 (2026-09-28)** — Okta Integrator 조직에서 4개 경로 전부 실측:
+    1. **정상 경로**: builder 그룹 계정 로그인 → `역할 builder` 매핑 → 템플릿 실행 → 감사 로그에 `principal=<검증된 이메일>, role=builder, decision=allow` 기록 확인 (데모 모드의 "선택한 이름"이 아니라 IdP가 보증한 신원)
+    2. **deny-by-default**: 매핑에 없는 그룹(오타 `agent-viewer`)으로 로그인 → 거부 + 사용자 그룹/매핑 그룹 대조 메시지 표시 확인
+    3. **viewer 제한**: `agent-viewers` 그룹 계정 → `역할 viewer · 행위 view · 도구 (없음)`, 생성·실행·평가 위젯 전부 게이팅 확인
+    4. **IdP 레벨 차단**: 앱에 미할당 그룹 계정 → 인증(MFA) 성공 후에도 Okta가 `access_denied` 반환, 앱 도달 전 차단 (완전 차단 정책은 이 레이어로, 앱 IAM은 2차 방어선)
+
+    **재현 시 함정 3가지** (secrets.toml.example 주석에도 반영):
+    - scope에 `groups`를 넣으면 default 인가 서버에 커스텀 스코프가 없어 `invalid_scope` 400 — 클레임을 Always/Any scope로 설정하고 scope는 `openid profile email`만
+    - default 인가 서버에 Access Policy가 없으면 MFA 통과 후에도 `no_matching_policy`로 토큰 발급 거부 — 정책+규칙 1개 필수
+    - Okta 그룹 이름 오타(3회 발생) — iam.json에서 복사해 붙여넣을 것
+
+    **발견된 개선 후보** (미수정): ① `resolve_identity` 매핑 실패 거부가 감사 로그에 남지 않는다 — 거부된 접근 시도야말로 감사 대상. ② UI가 viewer 위젯을 선제 게이팅해 거부 '시도' 자체가 없어 deny 기록이 없다 — 설계상 허용 가능하나 기록 정책 결정 필요
 - 11월 초 마무리 (2주 버퍼)
   - [x] 보고서(개조식) — [REPORT.md](REPORT.md)
   - [x] README 정비 — 빠른 시작 5분 경로, 기능별 필요 키, 자기모순 수정
