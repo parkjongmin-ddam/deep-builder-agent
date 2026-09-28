@@ -31,12 +31,15 @@
     "expect_tools": [],
     "forbid_tools": [
       "calculate",
+      "file_read",
+      "file_list",
       "file_write",
       "python_repl",
       "web_search"
     ],
     "expect_team": false,
-    "rubric": "도구 없이 텍스트만 다루는 역할로 정의됐는가. 편집 기준(문장 길이, 어투 등)이 구체적인가. 원문의 사실을 바꾸지 말라는 제약이 있으면 가점."
+    "rubric": "도구 없이 텍스트만 다루는 역할로 정의됐는가. 편집 기준(문장 길이, 어투 등)이 구체적인가. 원문의 사실을 바꾸지 말라는 제약이 있으면 가점.",
+    "_note": "2026-09-28 4차 실측: Builder가 간헐적으로 file_read/file_list를 붙였는데 forbid에 없어 기계 검사가 놓치고 심판이 잡았다(2/5). 대화로 제공되는 텍스트 vs 저장된 파일을 가르는 기준을 프롬프트에 명시하고, 두 도구를 forbid에 추가해 기계적으로 고정했다."
   },
   {
     "id": "research_and_write_team",
@@ -268,5 +271,109 @@
     "expect_team": false,
     "rubric": "영어 요구다. 도구 선택이 한국어 요구일 때와 같은 수준인가. system_prompt가 요구를 담고 있는가(언어는 영어든 한국어든 감점 사유가 아니다). 수익률을 암산하지 말고 python_repl로 계산하라는 지시가 있으면 가점.",
     "_note": "2026-08-10 실측: 통과(web_search + python_repl, description도 영어). 비한국어 요구를 다루는 첫 케이스 — 프롬프트가 한국어로만 쓰여 있어 언어가 바뀌면 지침이 약해질 수 있다."
+  },
+  {
+    "id": "long_scattered_request",
+    "request": "우리 회사는 온라인으로 수제 가구를 파는 작은 쇼핑몰이야. 요즘 고객 리뷰가 많이 쌓였는데, 좋은 리뷰도 있지만 배송이나 마감 품질에 대한 불만도 꽤 보여. 경쟁사들은 리뷰 분석을 전문 업체에 맡긴다던데 우리는 그럴 예산이 없어.\n\n그래서 작업공간에 리뷰를 모아둔 텍스트 파일이 있어. reviews.txt라는 파일인데, 한 줄에 리뷰 하나씩 들어 있고 맨 앞에 별점(1~5)이 붙어 있어. 이 파일이 매주 갱신돼.\n\n이 파일을 읽어서 별점 평균과 분포를 계산하고, 불만 유형별로 몇 건인지 세서 정리해주는 에이전트를 만들어줘. 결과는 화면에 보여주기만 하면 돼.",
+    "expect_tools": [
+      "file_read",
+      "calculate"
+    ],
+    "forbid_tools": [
+      "web_search",
+      "file_write",
+      "python_repl"
+    ],
+    "expect_team": false,
+    "rubric": "3문단 배경 속 실제 요구(별점 평균·분포, 불만 유형 집계)가 절차에 있는가. 배경 문단의 '경쟁사/온라인' 언급에 이끌려 검색을 넣지 않았는가. '화면에 보여주기만'을 지켰는가(저장 없음).",
+    "_note": "2026-09-28 4차 실측: 통과(file_read + calculate). 장문(3문단) 요구의 첫 케이스 — 배경 서사에 섞인 미끼 단어(경쟁사·온라인·매주 갱신)를 무시하는지 본다."
+  },
+  {
+    "id": "long_request_with_reversal",
+    "request": "다음 분기 마케팅 계획을 준비 중이야. 처음에는 웹에서 업계 트렌드를 검색해서 반영하려고 했어. 최신 소셜 미디어 동향이나 광고 단가 같은 걸 찾아보면 좋을 것 같았거든.\n\n그런데 어제 보안팀 공지가 내려왔어. 외부 네트워크 접근이 있는 도구는 당분간 승인 없이 못 쓴대. 그래서 방향을 바꿨어.\n\n작업공간에 있는 지난 분기 캠페인 결과 파일들을 읽고, 채널별 성과를 비교 정리해주는 에이전트로 만들어줘. 아까 말한 웹 검색은 넣지 마.",
+    "expect_tools": [
+      "file_read"
+    ],
+    "forbid_tools": [
+      "web_search"
+    ],
+    "expect_team": false,
+    "rubric": "마지막 문단의 번복(웹 검색 금지)을 지켰는가. 파일을 읽고 채널별 성과를 비교하는 절차가 있는가. 1문단의 검색 계획이 프롬프트에 흔적으로 남아 있으면 감점.",
+    "_note": "2026-09-28 4차 실측: 통과(calculate + file_list + file_read). partial_negation의 장문판 — 앞 문단이 요청했던 것을 마지막 문단이 취소하는 구조."
+  },
+  {
+    "id": "jargon_heavy_finance",
+    "request": "보유 종목의 일별 수익률로 변동성(표준편차), 샤프 비율, 종목 간 상관계수를 계산해서 리밸런싱 판단을 도와주는 에이전트가 필요해. 데이터는 작업공간의 prices.csv에 있어.",
+    "expect_tools": [
+      "file_read",
+      "calculate"
+    ],
+    "forbid_tools": [
+      "web_search",
+      "python_repl",
+      "file_write"
+    ],
+    "expect_team": false,
+    "rubric": "수익률→변동성/샤프 비율/상관계수로 이어지는 계산 절차가 구체적인가. 계산을 암산이 아니라 도구로 하라는 지시가 있는가. '리밸런싱 판단'을 이유로 실시간 시세 검색을 끌어오지 않았는가.",
+    "_note": "2026-09-28 4차 실측: 통과(calculate + file_list + file_read). 도메인 용어가 많은 요구의 첫 케이스 — 전문 용어가 python_repl 과잉 선택을 유발하는지 본다."
+  },
+  {
+    "id": "jargon_heavy_no_tools",
+    "request": "간호 인수인계용으로, 내가 붙여넣는 SOAP 노트를 SBAR 형식으로 재구성해주는 에이전트 만들어줘. 용어는 원문 그대로 유지해.",
+    "expect_tools": [],
+    "forbid_tools": [
+      "web_search",
+      "file_read",
+      "calculate",
+      "python_repl",
+      "file_write"
+    ],
+    "expect_team": false,
+    "rubric": "SOAP→SBAR 변환 규칙이 구체적인가(각 섹션이 어디로 가는지). 용어를 원문 그대로 유지하라는 제약이 있는가. 낯선 의료 용어를 이유로 검색을 끌어오지 않았는가.",
+    "_note": "2026-09-28 4차 실측: 통과(도구 0개). no_tools_needed의 도메인 용어판 — 용어가 낯설수록 '검색해서 확인'하려는 과잉이 나기 쉽다."
+  },
+  {
+    "id": "revise_adds_a_tool",
+    "request": "요약 결과를 작업공간에 파일로도 저장해줘",
+    "revise_base": {
+      "name": "news_summarizer",
+      "description": "웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약하는 에이전트",
+      "system_prompt": "너는 IT 뉴스 요약 에이전트다. web_search로 최신 IT 뉴스를 검색하고, 가장 중요한 기사를 골라 정확히 3줄로 요약한다. 각 줄은 한 문장이다. 검색 결과가 없으면 그 사실을 말하고 멈춘다.",
+      "tools": [
+        "web_search"
+      ],
+      "subagents": []
+    },
+    "expect_tools": [
+      "web_search",
+      "file_write"
+    ],
+    "forbid_tools": [
+      "calculate",
+      "python_repl"
+    ],
+    "expect_team": false,
+    "rubric": "수정 평가다 — 기존 에이전트(웹 검색→3줄 요약)에 저장 기능을 추가하는 요구. 기존 기능(검색, 3줄 형식, 결과 없을 때의 행동)이 보존됐는가. 저장 단계가 절차에 추가됐는가.",
+    "_note": "2026-09-28 4차 실측: 통과(web_search 유지 + file_write 추가, 기존 프롬프트 보존). revise_spec 경로를 덮는 첫 케이스 — 이전까지 회귀 스위트는 생성 경로만 봤다."
+  },
+  {
+    "id": "revise_removes_a_tool",
+    "request": "보안 정책 때문에 인터넷 검색을 못 쓰게 됐어. 검색 없이 내가 주는 기사 텍스트를 요약하는 걸로 바꿔줘",
+    "revise_base": {
+      "name": "news_summarizer",
+      "description": "웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약하는 에이전트",
+      "system_prompt": "너는 IT 뉴스 요약 에이전트다. web_search로 최신 IT 뉴스를 검색하고, 가장 중요한 기사를 골라 정확히 3줄로 요약한다. 각 줄은 한 문장이다. 검색 결과가 없으면 그 사실을 말하고 멈춘다.",
+      "tools": [
+        "web_search"
+      ],
+      "subagents": []
+    },
+    "expect_tools": [],
+    "forbid_tools": [
+      "web_search"
+    ],
+    "expect_team": false,
+    "rubric": "수정 평가다 — 검색 기능을 제거하고 사용자가 주는 텍스트를 요약하도록 바꾸는 요구. 검색 절차가 프롬프트에서 지워졌는가(도구만 빼고 문장이 남으면 감점). 텍스트를 받는 흐름으로 바뀌었는가. 3줄 요약 형식은 보존됐는가.",
+    "_note": "2026-09-28 4차 실측: 통과(도구 0개, 검색 문장 제거, 텍스트 미제공 시 요청하는 행동까지 갱신). 기능 축소 방향의 수정 — 추가보다 제거가 프롬프트 흔적을 남기기 쉽다."
   }
 ]

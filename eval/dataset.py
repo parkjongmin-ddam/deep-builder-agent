@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 CASES_DIR = Path(__file__).resolve().parent / "cases"
 
@@ -39,6 +39,25 @@ class EvalCase(BaseModel):
         default_factory=list,
         description="팀원 중 누군가는 반드시 들고 있어야 하는 도구 키",
     )
+    revise_base: dict | None = Field(
+        default=None,
+        description=(
+            "있으면 이 케이스는 생성이 아니라 **수정** 평가다 (4차 확장) — "
+            "이 AgentSpec을 기반으로 request대로 revise_spec을 돌린 결과를 "
+            "채점한다. 기반 스펙은 Builder 변동을 제거하려고 손으로 쓴다."
+        ),
+    )
+
+    @field_validator("revise_base")
+    @classmethod
+    def revise_base_must_be_a_valid_spec(cls, v: dict | None) -> dict | None:
+        """깨진 기반 스펙은 로드 시점에 실패시킨다 — 평가 도중(LLM 호출 뒤)
+        죽으면 이미 지불한 호출 결과가 유실된다 (3차 확장의 인코딩 교훈과 동일)."""
+        if v is not None:
+            from runtime.spec import AgentSpec
+
+            AgentSpec(**v)
+        return v
 
     # 사람 판단 -------------------------------------------------------------
     rubric: str = Field(

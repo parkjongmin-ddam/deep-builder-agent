@@ -25,6 +25,7 @@ from runtime.console import force_utf8_stdio
 from runtime.spec import AgentSpec
 
 SpecGenerator = Callable[[str], AgentSpec]
+SpecReviser = Callable[[AgentSpec, str], AgentSpec]
 Judge = Callable[[AgentSpec, EvalCase], JudgeVerdict]
 
 
@@ -98,23 +99,36 @@ def _default_spec_generator(request: str) -> AgentSpec:
     return generate_spec(request)
 
 
+def _default_spec_reviser(base: AgentSpec, request: str) -> AgentSpec:
+    """지연 임포트 — `_default_spec_generator`와 같은 이유."""
+    from builder.builder import revise_spec
+
+    return revise_spec(base, request)
+
+
 def run_case(
     case: EvalCase,
     *,
     spec_generator: SpecGenerator | None = None,
     judge: Judge | None = None,
+    spec_reviser: SpecReviser | None = None,
 ) -> CaseResult:
     """케이스 하나를 평가한다. 예외를 밖으로 내보내지 않는다.
 
     Args:
-        case: 평가 케이스.
+        case: 평가 케이스. `revise_base`가 있으면 생성이 아니라 **수정** 평가다.
         spec_generator: 자연어 → AgentSpec. 기본값은 Builder.
         judge: 심판. None이면 심판 단계를 건너뛴다(기계적 검사만).
+        spec_reviser: (기반 스펙, 요구) → AgentSpec. 기본값은 Builder의 revise_spec.
     """
     generate = spec_generator or _default_spec_generator
+    revise = spec_reviser or _default_spec_reviser
 
     try:
-        spec = generate(case.request)
+        if case.revise_base is not None:
+            spec = revise(AgentSpec(**case.revise_base), case.request)
+        else:
+            spec = generate(case.request)
     except Exception as exc:  # 생성 실패도 결과로 남긴다
         return CaseResult(
             case_id=case.id,
@@ -155,6 +169,7 @@ def run_evaluation(
     *,
     spec_generator: SpecGenerator | None = None,
     judge: Judge | None = None,
+    spec_reviser: SpecReviser | None = None,
     repeats: int = 1,
 ) -> EvalReport:
     """케이스 전체를 평가해 리포트를 만든다.
@@ -181,7 +196,12 @@ def run_evaluation(
     results: list[CaseResult] = []
     for case in cases:
         attempts = [
-            run_case(case, spec_generator=spec_generator, judge=judge)
+            run_case(
+                case,
+                spec_generator=spec_generator,
+                judge=judge,
+                spec_reviser=spec_reviser,
+            )
             for _ in range(repeats)
         ]
         # 실패가 하나라도 있으면 그것을 대표로 남긴다 — 성공한 실행이 실패를 가리면

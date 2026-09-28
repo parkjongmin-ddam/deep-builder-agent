@@ -68,6 +68,70 @@ def test_case_id_pattern_enforced():
         _case(id="Bad Id With Spaces")
 
 
+# --- 수정(revise) 케이스 (4차 확장) ------------------------------------------
+
+
+def _revise_case(**over) -> EvalCase:
+    d = dict(
+        id="revise_case",
+        request="요약 결과를 파일로도 저장해줘",
+        expect_tools=["web_search", "file_write"],
+        forbid_tools=["python_repl"],
+        expect_team=False,
+        rubric="기존 기능이 보존되고 저장 단계만 추가됐는가",
+        revise_base={
+            "name": "news_agent",
+            "description": "뉴스 요약",
+            "system_prompt": GUARDED,
+            "tools": ["web_search"],
+        },
+    )
+    d.update(over)
+    return EvalCase(**d)
+
+
+def test_revise_case_uses_the_reviser_not_the_generator():
+    """revise_base가 있는 케이스는 생성기가 아니라 수정기를 타야 한다.
+
+    Builder의 revise_spec 경로는 4차 확장 전까지 회귀 스위트가 전혀 못 덮던
+    영역이다 — 케이스가 generate 경로로 잘못 흐르면 덮은 척만 하게 된다.
+    """
+    seen = {}
+
+    def fake_reviser(base: AgentSpec, request: str) -> AgentSpec:
+        seen["base_name"] = base.name
+        seen["request"] = request
+        return _spec(tools=["web_search", "file_write"])
+
+    def exploding_generator(request: str) -> AgentSpec:
+        raise AssertionError("수정 케이스가 생성기를 불렀다")
+
+    result = run_case(
+        _revise_case(), spec_generator=exploding_generator, spec_reviser=fake_reviser
+    )
+
+    assert result.passed, [c.detail for c in result.failed_checks] or result.error
+    assert seen == {"base_name": "news_agent", "request": "요약 결과를 파일로도 저장해줘"}
+
+
+def test_generate_case_never_calls_the_reviser():
+    def exploding_reviser(base: AgentSpec, request: str) -> AgentSpec:
+        raise AssertionError("생성 케이스가 수정기를 불렀다")
+
+    result = run_case(
+        _case(), spec_generator=lambda r: _spec(), spec_reviser=exploding_reviser
+    )
+
+    assert result.passed
+
+
+def test_revise_base_must_be_a_valid_spec():
+    """깨진 기반 스펙은 로드 시점에 실패해야 한다 — 평가 도중(LLM 호출 후)
+    죽으면 이미 지불한 호출이 유실된다."""
+    with pytest.raises(ValidationError):
+        _revise_case(revise_base={"name": "missing_required_fields"})
+
+
 # --- 기계적 검사 -----------------------------------------------------------
 
 
