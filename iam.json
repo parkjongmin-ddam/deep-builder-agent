@@ -1,0 +1,26 @@
+{
+  "roles": {
+    "admin": {
+      "actions": ["*"],
+      "tools": ["*"]
+    },
+    "builder": {
+      "actions": ["create_agent", "revise_agent", "run_agent", "view"],
+      "tools": ["web_search", "calculate", "file_read", "file_write", "file_list"]
+    },
+    "operator": {
+      "actions": ["run_agent", "view"],
+      "tools": []
+    },
+    "viewer": {
+      "actions": ["view"],
+      "tools": []
+    }
+  },
+  "principals": {
+    "admin": "admin",
+    "demo_builder": "builder",
+    "demo_operator": "operator",
+    "demo_viewer": "viewer"
+  }
+}

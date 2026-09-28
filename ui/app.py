@@ -38,10 +38,19 @@ from runtime.spec import AgentSpec, load_spec_file  # noqa: E402
 from runtime.spec_diff import diff_specs, format_diff  # noqa: E402
 from runtime.tracing import TracingConfigError, configure_tracing  # noqa: E402
 from ui.state import (  # noqa: E402
+    ACTION_CREATE,
+    ACTION_REVISE,
+    ACTION_RUN,
+    PermissionDeniedError,
+    Principal,
     agent_reply,
     append_turn,
+    authorize_action,
     blocking_problems,
     check_readiness,
+    is_allowed,
+    load_iam_config,
+    principal_names,
     render_history,
     spec_overview,
     team_rows,
@@ -59,8 +68,21 @@ st.set_page_config(page_title="deep_builder_agent", layout="wide")
 # --- 사이드바: 환경 점검 ---------------------------------------------------
 
 
-def render_sidebar() -> list[str]:
-    """환경 상태를 그리고, 실행을 막는 항목 목록을 돌려준다."""
+def render_sidebar(iam_config) -> tuple[list[str], Principal]:
+    """주체 선택 + 환경 상태를 그리고, (실행 차단 목록, 주체)를 돌려준다.
+
+    UI에는 로그인(인증)이 없다 — 여기서 다루는 것은 인가(authorization)다.
+    선택된 주체의 역할이 위젯 활성/비활성과 실제 인가 판정을 모두 결정한다.
+    """
+    st.sidebar.header("사용자 (IAM)")
+    choice = st.sidebar.selectbox("주체", principal_names(iam_config))
+    principal = iam_config.resolve(choice)
+    st.sidebar.caption(
+        f"역할 **{principal.role_name}** · "
+        f"행위: {', '.join(sorted(principal.role.actions))} · "
+        f"도구 경계: {', '.join(sorted(principal.role.tools)) or '(없음)'}"
+    )
+
     st.sidebar.header("환경")
 
     items = check_readiness()
@@ -78,7 +100,7 @@ def render_sidebar() -> list[str]:
     except TracingConfigError as exc:
         st.sidebar.error(str(exc))
 
-    return blockers
+    return blockers, principal
 
 
 # --- 에이전트 생성 ---------------------------------------------------------
@@ -119,8 +141,12 @@ def activate(spec: AgentSpec) -> None:
 # --- 탭 1: 빌더 ------------------------------------------------------------
 
 
-def render_builder_panel(blocked: bool) -> None:
+def render_builder_panel(blocked: bool, principal: Principal) -> None:
     st.subheader("① 에이전트 만들기")
+
+    can_create = is_allowed(principal, ACTION_CREATE)
+    if not can_create:
+        st.info(f"역할 {principal.role_name} 은 에이전트를 생성할 수 없습니다.")
 
     with st.form("build"):
         request = st.text_area(
@@ -128,12 +154,20 @@ def render_builder_panel(blocked: bool) -> None:
             placeholder="웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘",
             height=110,
         )
-        submitted = st.form_submit_button("생성", disabled=blocked)
+        submitted = st.form_submit_button("생성", disabled=blocked or not can_create)
 
     if submitted and request.strip():
+        # 위젯 비활성은 UX일 뿐이다 — 인가는 여기서 다시 판정하고 감사에 남긴다.
+        try:
+            authorize_action(principal, ACTION_CREATE)
+        except PermissionDeniedError as exc:
+            st.error(f"IAM 거부: {exc}")
+            return
         with st.spinner("명세를 생성하는 중..."):
             try:
-                spec = generate_spec(request.strip())
+                spec = generate_spec(
+                    request.strip(), allowed_tools=principal.role.tools
+                )
             except SpecGenerationError as exc:
                 st.error(f"명세 생성 실패: {exc}\n\n마지막 원인: {exc.__cause__}")
                 return
@@ -144,10 +178,18 @@ def render_builder_panel(blocked: bool) -> None:
     st.divider()
     st.caption("또는 준비된 팀 템플릿으로 시작하기")
 
+    can_run = is_allowed(principal, ACTION_RUN)
     templates = sorted(TEMPLATES_DIR.glob("*.json"))
     if templates:
         choice = st.selectbox("템플릿", [p.stem for p in templates])
-        if st.button("템플릿 불러오기", disabled=blocked):
+        # 템플릿 활성화는 '기존 에이전트 실행'이다 — 경계는 부여(생성) 시점에만
+        # 적용되므로 run_agent 행위 검사만 받는다 (runtime/iam.py 의미론 참조).
+        if st.button("템플릿 불러오기", disabled=blocked or not can_run):
+            try:
+                authorize_action(principal, ACTION_RUN, resource=choice)
+            except PermissionDeniedError as exc:
+                st.error(f"IAM 거부: {exc}")
+                return
             path = TEMPLATES_DIR / f"{choice}.json"
             activate(load_spec_file(path))
             st.success(f"{choice} 를 불러왔습니다")
@@ -165,10 +207,10 @@ def render_builder_panel(blocked: bool) -> None:
         st.markdown("**팀 구성**")
         st.table(rows)
 
-    render_revision_form(spec, blocked)
+    render_revision_form(spec, blocked, principal)
 
 
-def render_revision_form(spec: AgentSpec, blocked: bool) -> None:
+def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -> None:
     """현재 명세를 자연어로 고친다.
 
     **변경 내역을 반드시 함께 보여준다.** 전체 명세를 다시 받는 방식이라
@@ -178,20 +220,29 @@ def render_revision_form(spec: AgentSpec, blocked: bool) -> None:
     st.divider()
     st.markdown("**② 명세 고치기**")
 
+    can_revise = is_allowed(principal, ACTION_REVISE)
     with st.form("revise"):
         request = st.text_area(
             "무엇을 바꿀까요?",
             placeholder="결과를 파일로 저장하는 기능도 넣어줘",
             height=80,
         )
-        submitted = st.form_submit_button("수정", disabled=blocked)
+        submitted = st.form_submit_button("수정", disabled=blocked or not can_revise)
 
     if not (submitted and request.strip()):
         return
 
+    try:
+        authorize_action(principal, ACTION_REVISE, resource=spec.name)
+    except PermissionDeniedError as exc:
+        st.error(f"IAM 거부: {exc}")
+        return
+
     with st.spinner("명세를 수정하는 중..."):
         try:
-            revised = revise_spec(spec, request.strip())
+            revised = revise_spec(
+                spec, request.strip(), allowed_tools=principal.role.tools
+            )
         except SpecGenerationError as exc:
             st.error(f"수정 실패: {exc}\n\n마지막 원인: {exc.__cause__}")
             return
@@ -215,7 +266,7 @@ def render_revision_form(spec: AgentSpec, blocked: bool) -> None:
             st.code(sub.system_prompt, language="markdown")
 
 
-def render_chat_panel(blocked: bool) -> None:
+def render_chat_panel(blocked: bool, principal: Principal) -> None:
     st.subheader("② 대화하기")
 
     agent = st.session_state.get("agent")
@@ -223,11 +274,15 @@ def render_chat_panel(blocked: bool) -> None:
         st.info("왼쪽에서 에이전트를 만들거나 템플릿을 불러오세요.")
         return
 
+    can_run = is_allowed(principal, ACTION_RUN)
+    if not can_run:
+        st.info(f"역할 {principal.role_name} 은 에이전트를 실행할 수 없습니다.")
+
     for role, text in render_history(st.session_state.get("history", [])):
         with st.chat_message(role):
             st.markdown(text)
 
-    user_input = st.chat_input("메시지를 입력하세요", disabled=blocked)
+    user_input = st.chat_input("메시지를 입력하세요", disabled=blocked or not can_run)
     if not user_input:
         return
 
@@ -246,7 +301,7 @@ def render_chat_panel(blocked: bool) -> None:
 # --- 탭 2: 평가 ------------------------------------------------------------
 
 
-def render_eval_tab(blocked: bool) -> None:
+def render_eval_tab(blocked: bool, principal: Principal) -> None:
     st.subheader("평가 — Builder 회귀 검사")
     st.caption(
         "케이스마다 자연어 요구로 명세를 생성한 뒤, 도구·팀·가드레일을 기계적으로 "
@@ -273,8 +328,13 @@ def render_eval_tab(blocked: bool) -> None:
             ]
         )
 
+    # 평가는 케이스마다 Builder(create_agent)를 호출하므로 같은 인가를 받는다.
+    can_eval = is_allowed(principal, ACTION_CREATE)
+    if not can_eval:
+        st.info(f"역할 {principal.role_name} 은 평가(Builder 호출)를 실행할 수 없습니다.")
+
     use_judge = st.checkbox("LLM 심판 사용 (비용 발생)", value=False)
-    if not st.button("평가 실행", disabled=blocked):
+    if not st.button("평가 실행", disabled=blocked or not can_eval):
         return
 
     with st.spinner("평가를 실행하는 중... 케이스마다 LLM을 호출합니다"):
@@ -308,7 +368,14 @@ def main() -> None:
     st.title("deep_builder_agent")
     st.caption("자연어로 AI 에이전트를 만들고, 실행하고, 평가한다")
 
-    blockers = render_sidebar()
+    # 정책 파일이 깨졌으면 여기서 멈춘다 — 기본 정책으로 조용히 넘어가지 않는다.
+    try:
+        iam_config = load_iam_config()
+    except (ValueError, OSError) as exc:
+        st.error(f"IAM 정책 오류: {exc}")
+        st.stop()
+
+    blockers, principal = render_sidebar(iam_config)
     blocked = bool(blockers)
 
     build_tab, eval_tab = st.tabs(["빌더", "평가"])
@@ -316,12 +383,12 @@ def main() -> None:
     with build_tab:
         left, right = st.columns(2, gap="large")
         with left:
-            render_builder_panel(blocked)
+            render_builder_panel(blocked, principal)
         with right:
-            render_chat_panel(blocked)
+            render_chat_panel(blocked, principal)
 
     with eval_tab:
-        render_eval_tab(blocked)
+        render_eval_tab(blocked, principal)
 
 
 main()

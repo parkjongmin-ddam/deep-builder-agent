@@ -16,7 +16,35 @@ from runtime.readiness import (  # noqa: F401
     blocking_problems,
     check_readiness,
 )
+
+# IAM도 같은 이유로 runtime/에 산다 — CLI와 UI가 같은 판정을 써야 한다.
+from runtime.iam import (  # noqa: F401
+    ACTION_CREATE,
+    ACTION_REVISE,
+    ACTION_RUN,
+    ACTION_VIEW,
+    DEFAULT_PRINCIPAL,
+    IamConfig,
+    PermissionDeniedError,
+    Principal,
+    authorize_action,
+    is_allowed,
+    load_iam_config,
+)
 from runtime.spec import AgentSpec
+
+
+def principal_names(config: IamConfig) -> list[str]:
+    """사이드바 selectbox에 올릴 주체 목록.
+
+    기본 주체(admin)를 맨 앞에 둔다 — selectbox의 기본 선택이 첫 항목이라,
+    주체를 고르지 않은 사용자는 CLI와 똑같이 admin으로 동작해야 한다.
+    """
+    names = sorted(config.principals)
+    if DEFAULT_PRINCIPAL in names:
+        names.remove(DEFAULT_PRINCIPAL)
+        names.insert(0, DEFAULT_PRINCIPAL)
+    return names
 
 
 def spec_overview(spec: AgentSpec) -> dict[str, str]:

@@ -64,6 +64,37 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
 
 ---
 
+## IAM — 누가 무엇을 만들 수 있는가 (Phase 6)
+
+도구 화이트리스트는 "등록된 도구인가"만 답한다. IAM 레이어는 그 위에서
+**"누가 그 도구를 부여할 수 있는가"**를 강제한다.
+
+```bash
+python cli.py --as demo_builder "코드 실행으로 소수를 찾는 에이전트 만들어줘"
+# → builder 역할의 경계에 python_repl이 없으므로 Builder가 경계 위반 피드백을
+#   받고 calculate 등 허용 도구로 다시 생성한다. 판정은 logs/audit.jsonl에 남는다.
+```
+
+| 역할 | 행위 | 도구 경계 |
+|---|---|---|
+| `admin` | 전부 (`*`) | 전부 (`*`) |
+| `builder` | 생성·수정·실행·조회 | `web_search`, `calculate`, 파일 I/O — **`python_repl`·MCP 제외** |
+| `operator` | 실행·조회 | (부여 불가) |
+| `viewer` | 조회 | (부여 불가) |
+
+- **권한 경계 (permissions boundary)**: 생성·수정되는 에이전트의 도구는 리더·팀원
+  전원이 **생성자의 경계를 초과할 수 없다** — 위임이 권한 상승 경로가 되지 않는다.
+  경계 위반은 프롬프트 부탁이 아니라 Builder 재시도 루프의 검증 실패로 처리된다
+- 경계는 **부여 시점**에 적용된다. 기존 스펙 실행은 run_agent 행위 검사만 받는다
+  (에이전트 자신의 권한을 쓰는 것 — assume-role 의미론)
+- 주체 미지정 시 `admin`으로 동작해 기존 흐름이 그대로 돌아간다.
+  **미등록 주체는 거부**한다 — 기본 역할로 조용히 격하하지 않는다
+- 정책은 [iam.json](iam.json)에서 수정한다. 오타난 행위·도구명은 로드 시점에 실패한다
+- UI에서는 사이드바에서 주체를 고른다 (인증은 범위 밖 — 이 레이어는 인가다)
+- 허용·거부 **모두** `logs/audit.jsonl`에 기록된다 (UTC, JSONL)
+
+---
+
 ## 환경변수
 
 | 변수 | 필수 | 용도 |
@@ -73,6 +104,9 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
 | `DEEP_BUILDER_MODEL` | — | Builder 모델 (기본 `claude-sonnet-4-6`) |
 | `DEEP_BUILDER_JUDGE_MODEL` | — | 평가 심판 모델 (기본 `claude-haiku-4-5`) — Builder와 **다른 모델이 기본값**이라 자기 채점 편향이 없다 |
 | `DEEP_BUILDER_WORKSPACE` | — | 에이전트가 파일을 읽고 쓰는 디렉터리 (기본 `workspace`) |
+| `DEEP_BUILDER_PRINCIPAL` | — | IAM 주체 이름 (기본 `admin`). CLI `--as`가 우선한다 |
+| `DEEP_BUILDER_IAM_FILE` | — | IAM 정책 파일 경로 (기본 `iam.json`, 없으면 내장 기본 정책) |
+| `DEEP_BUILDER_AUDIT_LOG` | — | 감사 로그 경로 (기본 `logs/audit.jsonl`) |
 | `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 **실행 전에** 막는다 |
 | `LANGSMITH_API_KEY` | — | 트레이싱을 켤 때 필수 |
 

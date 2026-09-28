@@ -215,6 +215,8 @@ def test_loading_a_template_opens_the_chat_panel(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
 
     app = AppTest.from_file(str(APP_PATH), default_timeout=90).run()
+    # AppTest는 본문 요소를 사이드바보다 먼저 인덱싱한다 —
+    # selectbox[0]이 템플릿, 사이드바 IAM 주체는 app.sidebar.selectbox[0]이다.
     app.selectbox[0].set_value("data_analysis_team").run()
     loaded = [b for b in app.button if "불러오기" in b.label][0].click().run()
 
@@ -243,6 +245,34 @@ def test_revision_form_appears_once_a_spec_is_active(monkeypatch):
 
     assert not loaded.exception, [e.value for e in loaded.exception]
     assert [b for b in loaded.button if "수정" in b.label], "수정 폼이 렌더링되지 않았다"
+
+
+@pytest.mark.integration
+def test_viewer_principal_disables_creation_in_the_ui(monkeypatch, tmp_path):
+    """viewer를 고르면 생성이 비활성화되고 그 이유가 화면에 보인다 (Phase 6).
+
+    위젯 비활성은 UX이고 강제는 authorize_action이 맡지만, 사용자가 '왜 안
+    되는지'를 화면에서 알 수 없으면 그것대로 결함이다.
+    """
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=60).run()
+    app.sidebar.selectbox[0].set_value("demo_viewer").run()
+
+    assert not app.exception, [e.value for e in app.exception]
+    infos = [i.value for i in app.info]
+    assert any("생성할 수 없습니다" in m for m in infos), infos
+
+
+def test_principal_names_puts_the_default_first():
+    """selectbox 기본 선택(첫 항목)이 admin이어야 CLI와 기본 동작이 같다."""
+    from ui.state import load_iam_config, principal_names
+
+    names = principal_names(load_iam_config())
+    assert names[0] == "admin"
+    assert set(names) == {"admin", "demo_builder", "demo_operator", "demo_viewer"}
 
 
 @pytest.mark.integration

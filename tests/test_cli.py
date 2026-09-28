@@ -125,9 +125,58 @@ def test_main_rejects_neither():
         main([])
 
 
-def test_main_no_chat_validates_only(tmp_path, capsys):
+def test_main_no_chat_validates_only(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
     path = tmp_path / "spec.json"
     path.write_text(json.dumps(SPEC_DATA), encoding="utf-8")
 
     assert main(["--spec", str(path), "--no-chat"]) == 0
     assert "news_summarizer" in capsys.readouterr().out
+
+
+# --- IAM (Phase 6) ----------------------------------------------------------
+
+
+def test_main_viewer_can_validate_a_spec(tmp_path, capsys, monkeypatch):
+    """대조군 — viewer의 허용 행위(view)는 실제로 통과한다."""
+    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(SPEC_DATA), encoding="utf-8")
+
+    assert main(["--spec", str(path), "--no-chat", "--as", "demo_viewer"]) == 0
+    assert "역할 viewer" in capsys.readouterr().out
+
+
+def test_main_operator_cannot_create(tmp_path, capsys, monkeypatch):
+    """create_agent가 없는 역할은 **LLM 호출 전에** 거부된다 — 비용이 나가면 안 된다."""
+    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-dummy")  # readiness 통과용
+
+    assert main(["요약 에이전트 만들어줘", "--as", "demo_operator"]) == 1
+    assert "IAM 거부" in capsys.readouterr().err
+
+
+def test_main_unknown_principal_fails_fast(tmp_path, capsys, monkeypatch):
+    """미등록 주체는 기본 역할로 조용히 격하되지 않는다."""
+    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(SPEC_DATA), encoding="utf-8")
+
+    assert main(["--spec", str(path), "--no-chat", "--as", "intruder"]) == 1
+    assert "IAM 정책 오류" in capsys.readouterr().err
+
+
+def test_main_denied_action_is_audited(tmp_path, monkeypatch):
+    """거부는 감사 로그에 남아야 한다 — 로그 없는 거부는 재구성이 불가능하다."""
+    audit = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(audit))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-dummy")
+
+    main(["요약 에이전트 만들어줘", "--as", "demo_operator"])
+
+    records = [
+        json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(
+        r["decision"] == "deny" and r["action"] == "create_agent" for r in records
+    )

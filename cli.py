@@ -5,9 +5,14 @@
     python cli.py --spec specs/news_summarizer.json  # 저장된 스펙으로 바로 대화
     python cli.py --spec specs/x.json --no-chat      # 생성/검증만 하고 종료
     python cli.py --spec specs/x.json --revise "파일 저장 기능도 넣어줘"
+    python cli.py --as demo_builder "계산 에이전트 만들어줘"  # IAM 주체로 실행
 
 대화 중에도 `/revise <바꾸고 싶은 내용>`으로 명세를 고칠 수 있다.
 고치면 변경 내역을 보여주고 에이전트를 다시 만든다.
+
+IAM (Phase 6): `--as`로 주체를 지정하면 역할(iam.json)이 허용하는 행위만
+실행되고, 생성·수정되는 에이전트의 도구는 주체의 권한 경계를 초과할 수 없다.
+판정은 허용·거부 모두 logs/audit.jsonl 에 남는다.
 """
 
 from __future__ import annotations
@@ -30,6 +35,16 @@ from registry import MCP_PREFIX
 from registry.mcp import MCPConfigError
 from registry.mcp import load_tools_by_server as load_mcp_tools_by_server
 from runtime.factory import build_agent, resolve_builtin_fs_tools
+from runtime.iam import (
+    ACTION_CREATE,
+    ACTION_REVISE,
+    ACTION_RUN,
+    ACTION_VIEW,
+    PermissionDeniedError,
+    Principal,
+    authorize_action,
+    load_iam_config,
+)
 from runtime.messages import last_text
 from runtime.readiness import blocking_problems, check_readiness, readiness_error
 from runtime.spec import AgentSpec, load_spec_file
@@ -99,15 +114,20 @@ def build_runtime(spec: AgentSpec):
     )
 
 
-def apply_revision(spec: AgentSpec, request: str) -> AgentSpec | None:
+def apply_revision(
+    spec: AgentSpec, request: str, *, allowed_tools=None
+) -> AgentSpec | None:
     """수정 요구를 반영한 새 스펙을 만들고 **무엇이 바뀌었는지 보여준다**.
 
     실패하면 None을 돌려주고 호출자는 기존 스펙을 그대로 쓴다 —
     수정에 실패했다고 대화가 끊기면 안 된다.
+
+    `allowed_tools`는 주체의 IAM 권한 경계다 — 수정 경로에만 경계가 빠지면
+    /revise가 권한 상승 통로가 된다 (None = 경계 없음).
     """
     print("\n[builder] 명세를 수정하는 중...")
     try:
-        revised = revise_spec(spec, request)
+        revised = revise_spec(spec, request, allowed_tools=allowed_tools)
     except SpecGenerationError as exc:
         print(f"[error] 수정 실패: {exc}")
         print(f"        마지막 원인: {exc.__cause__}\n")
@@ -128,12 +148,15 @@ def apply_revision(spec: AgentSpec, request: str) -> AgentSpec | None:
     return revised
 
 
-def chat(agent, spec: AgentSpec) -> None:
+def chat(agent, spec: AgentSpec, principal: Principal) -> None:
     """생성된 에이전트와 멀티턴 대화를 진행한다.
 
     `/revise <요구>`로 대화 중에 명세를 고칠 수 있다. 고치면 에이전트를 다시
     만들고 **대화 이력은 초기화한다** — 도구가 바뀐 에이전트에게 이전 도구
     호출 기록을 넘기면 맞지 않는다.
+
+    /revise는 매번 인가를 다시 받는다 — run_agent만 허용된 주체(operator)가
+    대화 중 수정으로 권한을 넓히면 안 된다.
     """
     print("\n대화를 시작합니다. 종료하려면 exit / quit / :q 를 입력하세요.")
     print("명세를 고치려면: /revise <바꾸고 싶은 내용>\n")
@@ -155,7 +178,15 @@ def chat(agent, spec: AgentSpec) -> None:
                 print("사용법: /revise <바꾸고 싶은 내용>\n")
                 continue
 
-            revised = apply_revision(spec, request)
+            try:
+                authorize_action(principal, ACTION_REVISE, resource=spec.name)
+            except PermissionDeniedError as exc:
+                print(f"[iam] 거부: {exc}\n")
+                continue
+
+            revised = apply_revision(
+                spec, request, allowed_tools=principal.role.tools
+            )
             if revised is None:
                 continue
             try:
@@ -196,6 +227,13 @@ def main(argv: list[str] | None = None) -> int:
         metavar="요구",
         help="기존 명세를 자연어로 고친다 (--spec과 함께 쓴다)",
     )
+    parser.add_argument(
+        "--as",
+        dest="principal",
+        metavar="주체",
+        help="IAM 주체 이름 (iam.json의 principals 키). 미지정 시 "
+        "DEEP_BUILDER_PRINCIPAL, 그것도 없으면 admin",
+    )
     args = parser.parse_args(argv)
 
     if bool(args.request) == bool(args.spec):
@@ -212,30 +250,52 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[error] {readiness_error(missing)}", file=sys.stderr)
         return 1
 
-    if args.spec:
-        spec = load_spec(args.spec)
-        print(f"[spec] {args.spec} 로드 완료")
-    else:
-        print("[builder] 명세를 생성하는 중...")
-        try:
-            spec = generate_spec(args.request)
-        except SpecGenerationError as exc:
-            print(f"[error] 명세 생성 실패: {exc}", file=sys.stderr)
-            print(f"        마지막 원인: {exc.__cause__}", file=sys.stderr)
-            return 1
-        saved = save_spec(spec)
-        print(f"[spec] {saved} 에 저장했습니다")
+    # IAM 주체 해석 — LLM을 부르기 전에 막는다 (키 점검과 같은 이유).
+    # 정책 파일이 깨졌거나 미등록 주체면 여기서 끝나야 비용이 나가지 않는다.
+    try:
+        principal = load_iam_config().resolve(args.principal)
+    except (PermissionDeniedError, ValueError, OSError) as exc:
+        print(f"[error] IAM 정책 오류: {exc}", file=sys.stderr)
+        return 1
+    print(f"[iam] 주체 {principal.name} (역할 {principal.role_name})")
 
-    print(describe(spec))
+    try:
+        if args.spec:
+            authorize_action(principal, ACTION_VIEW, resource=str(args.spec))
+            spec = load_spec(args.spec)
+            print(f"[spec] {args.spec} 로드 완료")
+        else:
+            authorize_action(principal, ACTION_CREATE)
+            print("[builder] 명세를 생성하는 중...")
+            try:
+                spec = generate_spec(
+                    args.request, allowed_tools=principal.role.tools
+                )
+            except SpecGenerationError as exc:
+                print(f"[error] 명세 생성 실패: {exc}", file=sys.stderr)
+                print(f"        마지막 원인: {exc.__cause__}", file=sys.stderr)
+                return 1
+            saved = save_spec(spec)
+            print(f"[spec] {saved} 에 저장했습니다")
 
-    if args.revise:
-        revised = apply_revision(spec, args.revise)
-        if revised is None:
-            return 1
-        spec = revised
+        print(describe(spec))
 
-    if args.no_chat:
-        return 0
+        if args.revise:
+            authorize_action(principal, ACTION_REVISE, resource=spec.name)
+            revised = apply_revision(
+                spec, args.revise, allowed_tools=principal.role.tools
+            )
+            if revised is None:
+                return 1
+            spec = revised
+
+        if args.no_chat:
+            return 0
+
+        authorize_action(principal, ACTION_RUN, resource=spec.name)
+    except PermissionDeniedError as exc:
+        print(f"[error] IAM 거부: {exc}", file=sys.stderr)
+        return 1
 
     try:
         status = configure_tracing()
@@ -254,7 +314,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[error] 도구 해석 실패: {exc}", file=sys.stderr)
         return 1
 
-    chat(agent, spec)
+    chat(agent, spec, principal)
     return 0
 
 

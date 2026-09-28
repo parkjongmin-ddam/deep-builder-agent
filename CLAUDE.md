@@ -15,7 +15,9 @@
 - registry/ — 도구 레지스트리(registry.py) + 도구 구현(builtin.py) + MCP 커넥터(mcp.py).
               허용 도구 화이트리스트의 단일 진실 원천 — 도구를 늘리려면 여기에만 등록한다
 - runtime/  — AgentSpec 검증(spec.py) → deepagents 인스턴스화(factory.py).
-              서브에이전트 번역·도구 격리도 factory가 담당한다
+              서브에이전트 번역·도구 격리도 factory가 담당한다.
+              IAM(사용자 RBAC + 에이전트 권한 경계 + 감사 로그)은 iam.py —
+              정책은 iam.json, 감사 로그는 logs/audit.jsonl (workspace/ 금지)
 - templates/ — 손으로 쓴 팀 스펙 JSON. `cli.py --spec`으로 바로 실행된다.
               Builder를 거치지 않으므로 가드레일 문장을 파일에 직접 써야 한다
 - workspace/ — 에이전트가 실제 디스크를 읽고 쓸 수 있는 **유일한** 디렉터리.

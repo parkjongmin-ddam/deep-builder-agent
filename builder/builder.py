@@ -29,6 +29,7 @@ from runtime.config import env_or_default
 # 받아야 하기 때문이다. 여기서 재수출해 기존 임포터(`from builder.builder import
 # ensure_guardrail`)를 깨뜨리지 않는다.
 from runtime.guardrail import ensure_guardrail
+from runtime.iam import boundary_error_message, boundary_violations, spec_tool_keys
 from runtime.spec import AgentSpec
 
 # Builder용 모델. 생성되는 에이전트의 모델(AgentSpec.model)과 분리한다.
@@ -134,12 +135,18 @@ def _produce_spec(
     model: str,
     max_retries: int,
     chat_model,
+    allowed_tools=None,
 ) -> AgentSpec:
     """사용자 메시지 하나로 검증된 AgentSpec을 얻는다 (재시도 포함).
 
     생성과 수정이 **같은 시스템 프롬프트·같은 검증·같은 재시도**를 쓰도록 공용화했다.
     수정 경로에만 느슨한 검증이 걸리면 화이트리스트가 우회된다 —
     서브에이전트 도구 검증을 공용화한 것과 같은 이유다.
+
+    `allowed_tools`가 주어지면 **권한 경계(IAM boundary)도 같은 재시도 루프에서
+    강제한다** — 경계 밖 도구를 요청한 스펙은 검증 실패와 똑같이 에러 피드백을
+    받고 재생성된다. LLM이 정책을 지키리라 신뢰하지 않는다 (하네스 원칙).
+    None이면 경계 없음(기존 동작 유지 — 호출자가 admin일 때).
 
     Raises:
         SpecGenerationError: 모든 시도가 실패한 경우. 마지막 원인을 __cause__로 전달한다.
@@ -157,7 +164,14 @@ def _produce_spec(
         raw = _message_text(response)
 
         try:
-            return AgentSpec(**ensure_guardrail(extract_json(raw)))
+            spec = AgentSpec(**ensure_guardrail(extract_json(raw)))
+            if allowed_tools is not None:
+                violations = boundary_violations(spec_tool_keys(spec), allowed_tools)
+                if violations:
+                    raise ValueError(
+                        boundary_error_message(violations, allowed_tools)
+                    )
+            return spec
         except (ValueError, ValidationError) as exc:
             last_error = exc
             if attempt == max_retries:
@@ -179,6 +193,7 @@ def generate_spec(
     model: str = DEFAULT_BUILDER_MODEL,
     max_retries: int = DEFAULT_MAX_RETRIES,
     chat_model=None,
+    allowed_tools=None,
 ) -> AgentSpec:
     """자연어 요구로부터 검증된 AgentSpec을 생성한다.
 
@@ -187,12 +202,18 @@ def generate_spec(
         model: Builder LLM 모델 ID. `chat_model`이 주어지면 무시된다.
         max_retries: 검증 실패 시 추가 재시도 횟수.
         chat_model: 테스트용 주입 지점. LangChain BaseChatModel 호환 객체.
+        allowed_tools: IAM 권한 경계. 주어지면 리더·팀원 도구가 이 집합을
+            초과할 수 없다 (None = 경계 없음).
 
     Raises:
         SpecGenerationError: 모든 시도가 실패한 경우.
     """
     return _produce_spec(
-        request, model=model, max_retries=max_retries, chat_model=chat_model
+        request,
+        model=model,
+        max_retries=max_retries,
+        chat_model=chat_model,
+        allowed_tools=allowed_tools,
     )
 
 
@@ -203,6 +224,7 @@ def revise_spec(
     model: str = DEFAULT_BUILDER_MODEL,
     max_retries: int = DEFAULT_MAX_RETRIES,
     chat_model=None,
+    allowed_tools=None,
 ) -> AgentSpec:
     """기존 명세를 자연어 요구대로 고친 새 명세를 만든다.
 
@@ -219,6 +241,8 @@ def revise_spec(
         model: Builder LLM 모델 ID. `chat_model`이 주어지면 무시된다.
         max_retries: 검증 실패 시 추가 재시도 횟수.
         chat_model: 테스트용 주입 지점.
+        allowed_tools: IAM 권한 경계 (generate_spec과 동일 의미) —
+            수정 경로에만 경계가 빠지면 /revise가 권한 상승 통로가 된다.
 
     Raises:
         SpecGenerationError: 모든 시도가 실패한 경우.
@@ -227,7 +251,11 @@ def revise_spec(
         current=spec.model_dump_json(indent=2), request=request
     )
     return _produce_spec(
-        message, model=model, max_retries=max_retries, chat_model=chat_model
+        message,
+        model=model,
+        max_retries=max_retries,
+        chat_model=chat_model,
+        allowed_tools=allowed_tools,
     )
 
 

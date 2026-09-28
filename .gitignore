@@ -6,6 +6,12 @@ __pycache__/
 specs/
 mcp_servers.json
 
+# IAM 감사 로그: 실행 기록이라 커밋하지 않는다 (workspace/ 밖에 두는 이유는 runtime/iam.py 참조)
+logs/
+
+# OIDC 클라이언트 비밀값: .env와 같은 규칙 — example만 추적한다
+.streamlit/secrets.toml
+
 # 에이전트 작업공간: 사용자가 넣은 문서는 커밋하지 않는다.
 # (안내문만 추적 — 여기 무엇을 두면 안 되는지 적혀 있다)
 workspace/*

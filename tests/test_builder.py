@@ -212,6 +212,68 @@ def test_revise_spec_rejects_a_tool_outside_the_whitelist():
         revise_spec(before, "셸 도구 붙여줘", chat_model=llm, max_retries=2)
 
 
+# --- IAM 권한 경계 (Phase 6) ------------------------------------------------
+
+
+def test_generate_spec_retries_when_boundary_is_exceeded():
+    """경계 밖 도구는 검증 실패와 같은 재시도 피드백을 받는다.
+
+    LLM이 정책을 지키리라 신뢰하지 않는다 — 첫 시도가 python_repl을 요청하면
+    에러 피드백을 받고, 두 번째 시도에서 허용 도구로 대체해야 통과한다.
+    """
+    over = {**VALID_SPEC, "tools": ["python_repl"]}
+    llm = FakeChatModel([json.dumps(over), json.dumps(VALID_SPEC)])
+
+    spec = generate_spec("계산 에이전트", chat_model=llm, allowed_tools=["web_search"])
+
+    assert spec.tools == ["web_search"]
+    assert len(llm.calls) == 2
+    feedback = llm.calls[1][-1][1]
+    assert "permissions boundary" in feedback
+    assert "python_repl" in feedback, "무엇이 거부됐는지 알려줘야 대체할 수 있다"
+    assert "web_search" in feedback, "무엇이 허용되는지 알려줘야 대체할 수 있다"
+
+
+def test_generate_spec_without_boundary_keeps_old_behavior():
+    """allowed_tools=None(기본값)이면 경계 검사가 없다 — 기존 호출자 무영향."""
+    over = {**VALID_SPEC, "tools": ["python_repl"]}
+    llm = FakeChatModel([json.dumps(over)])
+    assert generate_spec("...", chat_model=llm).tools == ["python_repl"]
+
+
+def test_generate_spec_boundary_covers_subagent_tools():
+    """팀원 도구도 경계를 받는다 — 위임이 권한 상승 통로가 되면 안 된다."""
+    team = {
+        **VALID_SPEC,
+        "tools": [],
+        "subagents": [
+            {
+                "name": "coder",
+                "description": "코드 실행 담당",
+                "system_prompt": "너는 코더다.",
+                "tools": ["python_repl"],
+            }
+        ],
+    }
+    llm = FakeChatModel([json.dumps(team)] * 3)
+
+    with pytest.raises(SpecGenerationError):
+        generate_spec("...", chat_model=llm, allowed_tools=["web_search"], max_retries=2)
+
+
+def test_revise_spec_enforces_the_same_boundary():
+    """수정 경로에만 경계가 빠지면 /revise가 우회로가 된다."""
+    before = AgentSpec(**VALID_SPEC)
+    over = json.dumps({**VALID_SPEC, "tools": ["web_search", "python_repl"]})
+    llm = FakeChatModel([over, over, over])
+
+    with pytest.raises(SpecGenerationError):
+        revise_spec(
+            before, "코드 실행 붙여줘", chat_model=llm,
+            allowed_tools=["web_search"], max_retries=2,
+        )
+
+
 # --- save_spec ------------------------------------------------------------
 
 
