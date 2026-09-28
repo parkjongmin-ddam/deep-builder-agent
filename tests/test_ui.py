@@ -185,6 +185,20 @@ def test_render_history_reads_human_messages():
 # --- 앱 렌더링 -------------------------------------------------------------
 
 
+def demo_mode_apptest(AppTest, timeout: int = 60):
+    """개발자 로컬 `.streamlit/secrets.toml`(OIDC 설정)에 오염되지 않는 AppTest.
+
+    AppTest는 secrets가 **비어 있으면** 실제 secrets 파일을 그대로 읽는다
+    (설치본 streamlit/testing/v1/app_test.py의 `if self.secrets:` 분기 실측).
+    Phase 7 실측 후 실제 secrets.toml이 생기자 UI 테스트 전건이 OIDC 로그인
+    게이트를 렌더링하며 깨졌다 — 비어 있지 않은 더미를 넣어 st.secrets를
+    대체시키면 [auth]가 없으므로 앱은 데모 모드로 뜬다.
+    """
+    app = AppTest.from_file(str(APP_PATH), default_timeout=timeout)
+    app.secrets["_isolated_from_local_secrets"] = True
+    return app
+
+
 @pytest.mark.integration
 def test_streamlit_app_renders_without_exceptions(monkeypatch):
     """`streamlit run ui/app.py`가 실제로 뜨는지 확인한다.
@@ -195,7 +209,7 @@ def test_streamlit_app_renders_without_exceptions(monkeypatch):
     AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    app = AppTest.from_file(str(APP_PATH), default_timeout=60).run()
+    app = demo_mode_apptest(AppTest).run()
 
     assert not app.exception, [e.value for e in app.exception]
     assert app.title[0].value == "deep_builder_agent"
@@ -214,7 +228,7 @@ def test_loading_a_template_opens_the_chat_panel(monkeypatch):
     pytest.importorskip("deepagents")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
 
-    app = AppTest.from_file(str(APP_PATH), default_timeout=90).run()
+    app = demo_mode_apptest(AppTest, timeout=90).run()
     # AppTest는 본문 요소를 사이드바보다 먼저 인덱싱한다 —
     # selectbox[0]이 템플릿, 사이드바 IAM 주체는 app.sidebar.selectbox[0]이다.
     app.selectbox[0].set_value("data_analysis_team").run()
@@ -236,7 +250,7 @@ def test_revision_form_appears_once_a_spec_is_active(monkeypatch):
     pytest.importorskip("deepagents")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
 
-    app = AppTest.from_file(str(APP_PATH), default_timeout=90).run()
+    app = demo_mode_apptest(AppTest, timeout=90).run()
     before = [b for b in app.button if "수정" in b.label]
     assert not before, "명세가 없는데 수정 폼이 떠 있다"
 
@@ -258,7 +272,7 @@ def test_viewer_principal_disables_creation_in_the_ui(monkeypatch, tmp_path):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
     monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
 
-    app = AppTest.from_file(str(APP_PATH), default_timeout=60).run()
+    app = demo_mode_apptest(AppTest).run()
     app.sidebar.selectbox[0].set_value("demo_viewer").run()
 
     assert not app.exception, [e.value for e in app.exception]
@@ -322,7 +336,7 @@ def test_app_blocks_execution_without_api_key(monkeypatch):
 
     monkeypatch.setattr("runtime.config.load_env", lambda: None)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    app = AppTest.from_file(str(APP_PATH), default_timeout=60).run()
+    app = demo_mode_apptest(AppTest).run()
 
     messages = [e.value for e in app.sidebar.error]
     assert any("ANTHROPIC_API_KEY" in m for m in messages), messages

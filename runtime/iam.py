@@ -175,7 +175,15 @@ class IamConfig(BaseModel):
         주체 이름은 이메일이다 — 감사 로그가 "선택한 이름"이 아니라
         "검증된 신원"을 가리키게 된다.
         """
+        user_groups = set(groups)
         if not email:
+            _write_audit(
+                "(no-email)",
+                "(unmapped)",
+                "resolve_identity",
+                "deny",
+                detail={"groups": sorted(user_groups)},
+            )
             raise PermissionDeniedError(
                 "OIDC identity has no email claim — cannot map to a role"
             )
@@ -183,13 +191,25 @@ class IamConfig(BaseModel):
             role_name = self.principals[email]
             return Principal(name=email, role_name=role_name, role=self.roles[role_name])
 
-        user_groups = set(groups)
         for group, role_name in self.groups.items():
             if group in user_groups:
                 return Principal(
                     name=email, role_name=role_name, role=self.roles[role_name]
                 )
 
+        # 거부만 기록한다 — 성공 해석까지 남기면 Streamlit 재실행(위젯 조작마다
+        # resolve_identity 호출)이 클릭당 한 줄씩 쌓아 로그가 스팸이 된다.
+        # 허용된 행위는 authorize_action이 행위 시점에 이미 기록한다.
+        _write_audit(
+            email,
+            "(unmapped)",
+            "resolve_identity",
+            "deny",
+            detail={
+                "groups": sorted(user_groups),
+                "mapped_groups": sorted(self.groups),
+            },
+        )
         raise PermissionDeniedError(
             f"no role mapping for {email!r} "
             f"(groups: {sorted(user_groups)}; mapped groups: {sorted(self.groups)})"
@@ -324,21 +344,26 @@ def audit_log_path() -> Path:
     return Path(env_or_default("DEEP_BUILDER_AUDIT_LOG", "logs/audit.jsonl"))
 
 
-def _audit(
-    principal: Principal,
+def _write_audit(
+    principal_name: str,
+    role_name: str,
     action: str,
     decision: str,
     *,
     resource: str = "",
     detail: dict | None = None,
 ) -> None:
-    """판정 한 건을 JSONL 한 줄로 남긴다. 쓰기 실패는 숨기지 않는다(OSError 전파)."""
+    """판정 한 건을 JSONL 한 줄로 남긴다. 쓰기 실패는 숨기지 않는다(OSError 전파).
+
+    이름/역할을 문자열로 받는다 — 신원 해석 **실패**처럼 Principal이
+    만들어지기 전의 거부도 기록해야 하기 때문이다 (role은 "(unmapped)").
+    """
     path = audit_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "principal": principal.name,
-        "role": principal.role_name,
+        "principal": principal_name,
+        "role": role_name,
         "action": action,
         "decision": decision,
         "resource": resource,
@@ -347,3 +372,22 @@ def _audit(
     }
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _audit(
+    principal: Principal,
+    action: str,
+    decision: str,
+    *,
+    resource: str = "",
+    detail: dict | None = None,
+) -> None:
+    """해석이 끝난 주체의 판정 기록 — `_write_audit`에 위임한다."""
+    _write_audit(
+        principal.name,
+        principal.role_name,
+        action,
+        decision,
+        resource=resource,
+        detail=detail,
+    )

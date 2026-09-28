@@ -38,11 +38,7 @@ SPEC_DATA = {
 }
 
 
-@pytest.fixture(autouse=True)
-def _isolated_audit_log(tmp_path, monkeypatch):
-    """감사 로그를 임시 경로로 돌린다 — 테스트가 저장소에 로그를 남기면 안 된다."""
-    monkeypatch.setenv("DEEP_BUILDER_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
-    yield
+# 감사 로그 격리는 tests/conftest.py의 autouse 픽스처가 전 테스트에 강제한다.
 
 
 def read_audit(tmp_path) -> list[dict]:
@@ -164,6 +160,51 @@ def test_identity_without_mapping_is_denied():
 def test_identity_without_email_is_denied():
     with pytest.raises(PermissionDeniedError, match="no email claim"):
         _default_config().resolve_identity("", ["agent-builders"])
+
+
+def test_identity_mapping_failure_is_audited(tmp_path):
+    """거부된 접근 시도야말로 감사 대상이다 — 예외만 던지고 침묵하면 안 된다.
+
+    2026-09-28 Okta 실측에서 발견: 매핑 없는 신원의 로그인 거부가
+    감사 로그에 남지 않았다.
+    """
+    with pytest.raises(PermissionDeniedError, match="no role mapping"):
+        _default_config().resolve_identity("stranger@example.com", ["unmapped-group"])
+
+    (record,) = [r for r in read_audit(tmp_path) if r["action"] == "resolve_identity"]
+    assert record["decision"] == "deny"
+    assert record["principal"] == "stranger@example.com", "검증된 신원이 남아야 추적된다"
+    assert "unmapped-group" in record["detail"]["groups"], "무엇으로 왔는지가 남아야 한다"
+
+
+def test_identity_missing_email_is_audited(tmp_path):
+    with pytest.raises(PermissionDeniedError, match="no email claim"):
+        _default_config().resolve_identity("", ["agent-builders"])
+
+    (record,) = [r for r in read_audit(tmp_path) if r["action"] == "resolve_identity"]
+    assert record["decision"] == "deny"
+
+
+def test_identity_success_is_not_audited(tmp_path):
+    """성공 해석은 기록하지 않는다 — Streamlit이 위젯 조작마다 스크립트를
+    재실행하며 매번 resolve_identity를 호출하므로, allow를 남기면 클릭당
+    한 줄씩 쌓여 로그가 스팸이 된다. 행위 허용은 authorize_action이
+    행위 시점에 이미 기록한다."""
+    principal = _default_config().resolve_identity("dev@example.com", ["agent-builders"])
+    assert principal.role_name == "builder"  # 대조군: 해석 자체는 성공한다
+
+    assert not [r for r in read_audit(tmp_path) if r["action"] == "resolve_identity"]
+
+
+def test_audit_log_is_isolated_from_repo(tmp_path):
+    """conftest의 autouse 격리가 살아 있는지 감시한다 — 이것이 풀리면
+    pytest가 저장소 `logs/audit.jsonl`을 오염시킨다 (2026-09-28 실측)."""
+    import os
+
+    from runtime.iam import audit_log_path
+
+    assert os.environ["DEEP_BUILDER_AUDIT_LOG"] == str(tmp_path / "audit.jsonl")
+    assert audit_log_path() != Path("logs/audit.jsonl")
 
 
 def test_group_mapping_to_undefined_role_fails_at_load():

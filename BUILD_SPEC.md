@@ -126,7 +126,10 @@
     - default 인가 서버에 Access Policy가 없으면 MFA 통과 후에도 `no_matching_policy`로 토큰 발급 거부 — 정책+규칙 1개 필수
     - Okta 그룹 이름 오타(3회 발생) — iam.json에서 복사해 붙여넣을 것
 
-    **발견된 개선 후보** (미수정): ① `resolve_identity` 매핑 실패 거부가 감사 로그에 남지 않는다 — 거부된 접근 시도야말로 감사 대상. ② UI가 viewer 위젯을 선제 게이팅해 거부 '시도' 자체가 없어 deny 기록이 없다 — 설계상 허용 가능하나 기록 정책 결정 필요
+    **발견된 개선 후보** — 전부 처리 (2026-09-28, 같은 날 후속 커밋):
+    - ① `resolve_identity` 매핑 실패가 감사에 안 남던 것 → **수정**: 거부 시 `action=resolve_identity, decision=deny, role=(unmapped)` + 사용자 그룹/매핑 그룹을 detail에 기록. **성공 해석은 기록하지 않는다** — Streamlit이 위젯 조작마다 스크립트를 재실행하며 매번 resolve_identity를 호출하므로 allow를 남기면 클릭당 한 줄씩 쌓인다. 허용 행위는 authorize_action이 행위 시점에 이미 기록한다 (테스트가 이 결정을 고정)
+    - ② viewer 거부 '시도' 미기록 → **정책 결정 (코드 무변경)**: UI 게이팅은 UX이고 강제·기록은 authorize_action이 맡는다. 렌더링마다 deny를 남기면 ①과 같은 스팸 문제가 생기고, UI를 우회한 실제 시도는 어차피 authorize_action 경로에서 기록된다
+    - ③ pytest가 실제 `logs/audit.jsonl` 오염 → **수정**: `tests/conftest.py` autouse 픽스처로 전 테스트의 감사 로그를 tmp_path로 격리 + 격리가 풀리면 실패하는 감시 테스트 추가. 같은 원인 계열로, **실제 secrets.toml이 생기자 UI 통합 테스트 5건이 OIDC 게이트를 렌더링하며 깨지던 것**도 잡았다 — AppTest는 secrets가 비어 있으면 실제 파일을 읽으므로(`if self.secrets:` 분기, 설치본 실측) 더미 secrets를 주입해 데모 모드를 강제한다 (`demo_mode_apptest` 헬퍼). 테스트 347 → **351건** 전건 통과 (통합 포함)
 - 11월 초 마무리 (2주 버퍼)
   - [x] 보고서(개조식) — [REPORT.md](REPORT.md)
   - [x] README 정비 — 빠른 시작 5분 경로, 기능별 필요 키, 자기모순 수정
