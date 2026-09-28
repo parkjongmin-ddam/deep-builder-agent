@@ -3,7 +3,7 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~5 완료 · 테스트 307건 통과 · 전 경로 실호출 검증 완료
+> **상태**: Phase 1~6 완료 · Phase 7(OIDC)은 Okta 실계정 실측만 남음 · 테스트 347건 통과
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [DEMO.md](DEMO.md) 데모 대본 · [CLAUDE.md](CLAUDE.md) 작업 규칙
 
 ---
@@ -90,8 +90,26 @@ python cli.py --as demo_builder "코드 실행으로 소수를 찾는 에이전�
 - 주체 미지정 시 `admin`으로 동작해 기존 흐름이 그대로 돌아간다.
   **미등록 주체는 거부**한다 — 기본 역할로 조용히 격하하지 않는다
 - 정책은 [iam.json](iam.json)에서 수정한다. 오타난 행위·도구명은 로드 시점에 실패한다
-- UI에서는 사이드바에서 주체를 고른다 (인증은 범위 밖 — 이 레이어는 인가다)
 - 허용·거부 **모두** `logs/audit.jsonl`에 기록된다 (UTC, JSONL)
+
+### 인증 — Okta OIDC (Phase 7, 선택)
+
+UI 앞단에 OIDC 로그인을 붙일 수 있다. **설정하지 않으면 데모 모드**로 뜬다 —
+사이드바에서 주체를 직접 고르는 기본 동작 그대로이며, 아무것도 깨지지 않는다.
+
+```bash
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # 후 Okta 값 채우기
+streamlit run ui/app.py   # → 로그인 화면 → Okta → 그룹 클레임으로 역할 결정
+```
+
+- 로그인된 신원(검증된 이메일)이 곧 IAM 주체가 된다 — OIDC 모드에서는 주체
+  선택기가 사라진다 (인증이 있는데 주체를 고를 수 있으면 인가가 장식이 된다)
+- 역할 매핑: `iam.json`의 `principals`(이메일 직접, 우선) 또는 `groups`
+  (IdP 그룹 클레임 → 역할, 선언 순서가 우선순위)
+- **로그인 성공 ≠ 인가** — 매핑 없는 신원은 거부된다 (deny-by-default)
+- Okta 쪽 설정 절차는 [.streamlit/secrets.toml.example](.streamlit/secrets.toml.example) 주석 참조.
+  SAML·ADFS를 쓰지 않은 이유는 BUILD_SPEC.md 결정 로그(2026-09-28) 참조
+  (ADFS 2016+의 OIDC 엔드포인트로는 동일 구조 이식 가능)
 
 ---
 

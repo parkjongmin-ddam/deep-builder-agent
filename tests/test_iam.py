@@ -127,6 +127,54 @@ def test_unknown_principal_is_denied_not_defaulted():
         _default_config().resolve("intruder")
 
 
+# --- OIDC 신원 해석 (Phase 7) -------------------------------------------------
+
+
+def test_identity_maps_group_claim_to_role():
+    principal = _default_config().resolve_identity(
+        "user@example.com", ["agent-builders"]
+    )
+    assert principal.role_name == "builder"
+    assert principal.name == "user@example.com", "감사 로그는 검증된 신원을 가리켜야 한다"
+
+
+def test_identity_email_mapping_beats_group_mapping():
+    """개인 예외(이메일 직접 매핑)가 그룹보다 구체적이므로 우선한다."""
+    config = _default_config().model_copy(
+        update={"principals": {**_default_config().principals, "vip@example.com": "admin"}}
+    )
+    principal = config.resolve_identity("vip@example.com", ["agent-viewers"])
+    assert principal.role_name == "admin"
+
+
+def test_identity_first_declared_group_wins():
+    """여러 그룹 매칭 시 정책 파일 선언 순서가 우선순위다."""
+    principal = _default_config().resolve_identity(
+        "user@example.com", ["agent-viewers", "agent-admins"]
+    )
+    assert principal.role_name == "admin"  # groups 선언 순서상 agent-admins가 먼저다
+
+
+def test_identity_without_mapping_is_denied():
+    """로그인 성공 ≠ 인가 — IdP가 보증한 신원도 정책 매핑이 없으면 거부한다."""
+    with pytest.raises(PermissionDeniedError, match="no role mapping"):
+        _default_config().resolve_identity("stranger@example.com", ["unmapped-group"])
+
+
+def test_identity_without_email_is_denied():
+    with pytest.raises(PermissionDeniedError, match="no email claim"):
+        _default_config().resolve_identity("", ["agent-builders"])
+
+
+def test_group_mapping_to_undefined_role_fails_at_load():
+    with pytest.raises(ValueError, match="groups reference undefined roles"):
+        IamConfig(
+            roles={"admin": Role(actions=["*"])},
+            principals={"admin": "admin"},
+            groups={"some-group": "ghost"},
+        )
+
+
 # --- 행위 통제 (RBAC) --------------------------------------------------------
 
 

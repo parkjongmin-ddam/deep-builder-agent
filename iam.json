@@ -22,5 +22,11 @@
     "demo_builder": "builder",
     "demo_operator": "operator",
     "demo_viewer": "viewer"
+  },
+  "groups": {
+    "agent-admins": "admin",
+    "agent-builders": "builder",
+    "agent-operators": "operator",
+    "agent-viewers": "viewer"
   }
 }

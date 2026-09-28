@@ -36,6 +36,7 @@
 - 생성 직후 즉시 대화 실행, 자연어 수정 루프(`/revise` — 변경 내역 diff 표시 후 재생성)
 - 평가: LangSmith 트레이싱 + 평가 케이스 21건 기반 기계 판정·LLM-as-judge 점수 (심판 모델을 Builder와 다른 모델로 분리해 자기 채점 편향 제거)
 - IAM 레이어: 사용자 RBAC(admin/builder/operator/viewer) + **에이전트 권한 경계(permissions boundary)** — 생성되는 에이전트(리더·팀원 전원)의 도구가 생성자의 역할 경계를 초과할 수 없음, deny-by-default, 허용·거부 전건 감사 로그(JSONL)
+- 인증: **Okta OIDC** (`st.login`) — 검증된 이메일·그룹 클레임을 IAM 역할로 매핑, 미설정 시 데모 모드 폴백 (SAML·ADFS 대비 선정 근거는 BUILD_SPEC 결정 로그)
 
 ## 산출물 목표
 

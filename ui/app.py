@@ -50,8 +50,10 @@ from ui.state import (  # noqa: E402
     check_readiness,
     is_allowed,
     load_iam_config,
+    oidc_configured,
     principal_names,
     render_history,
+    user_identity,
     spec_overview,
     team_rows,
 )
@@ -68,15 +70,26 @@ st.set_page_config(page_title="deep_builder_agent", layout="wide")
 # --- 사이드바: 환경 점검 ---------------------------------------------------
 
 
-def render_sidebar(iam_config) -> tuple[list[str], Principal]:
-    """주체 선택 + 환경 상태를 그리고, (실행 차단 목록, 주체)를 돌려준다.
+def render_sidebar(
+    iam_config, oidc_principal: Principal | None = None
+) -> tuple[list[str], Principal]:
+    """주체 표시/선택 + 환경 상태를 그리고, (실행 차단 목록, 주체)를 돌려준다.
 
-    UI에는 로그인(인증)이 없다 — 여기서 다루는 것은 인가(authorization)다.
-    선택된 주체의 역할이 위젯 활성/비활성과 실제 인가 판정을 모두 결정한다.
+    두 모드가 있다 (Phase 7):
+    - **OIDC 모드**: 로그인된 신원이 곧 주체다 — 선택기가 없다. 인증이 있는데
+      주체를 고를 수 있으면 인가가 장식이 된다.
+    - **데모 모드**(OIDC 미설정): 기존처럼 주체를 직접 고른다. 인가 로직 자체는
+      두 모드가 동일하다.
     """
     st.sidebar.header("사용자 (IAM)")
-    choice = st.sidebar.selectbox("주체", principal_names(iam_config))
-    principal = iam_config.resolve(choice)
+    if oidc_principal is not None:
+        principal = oidc_principal
+        st.sidebar.markdown(f"🔐 **{principal.name}**")
+        st.sidebar.button("로그아웃", on_click=st.logout)
+    else:
+        st.sidebar.caption("OIDC 미설정 — 데모 모드 (주체 직접 선택)")
+        choice = st.sidebar.selectbox("주체", principal_names(iam_config))
+        principal = iam_config.resolve(choice)
     st.sidebar.caption(
         f"역할 **{principal.role_name}** · "
         f"행위: {', '.join(sorted(principal.role.actions))} · "
@@ -375,7 +388,26 @@ def main() -> None:
         st.error(f"IAM 정책 오류: {exc}")
         st.stop()
 
-    blockers, principal = render_sidebar(iam_config)
+    # OIDC 인증 게이트 (Phase 7). `.streamlit/secrets.toml`의 [auth]가 있으면
+    # 로그인 없이는 아무 화면도 그리지 않는다. 미설정이면 데모 모드로 폴백해
+    # "clone 후 5분" 경로와 오프라인 테스트가 그대로 유지된다.
+    oidc_principal = None
+    if oidc_configured(st.secrets):
+        if not st.user.is_logged_in:
+            st.info("OIDC 인증이 설정된 앱입니다. IdP(Okta 등)로 로그인하세요.")
+            st.button("🔐 로그인", on_click=st.login)
+            st.stop()
+        email, groups = user_identity(st.user.to_dict())
+        try:
+            # 로그인 성공 ≠ 인가 — 역할 매핑이 없으면 여기서 거부된다.
+            oidc_principal = iam_config.resolve_identity(email, groups)
+        except PermissionDeniedError as exc:
+            st.error(f"IAM 거부: {exc}")
+            st.caption("관리자에게 iam.json의 groups/principals 매핑 추가를 요청하세요.")
+            st.button("로그아웃", on_click=st.logout)
+            st.stop()
+
+    blockers, principal = render_sidebar(iam_config, oidc_principal)
     blocked = bool(blockers)
 
     build_tab, eval_tab = st.tabs(["빌더", "평가"])

@@ -120,22 +120,29 @@ class Principal(BaseModel):
 
 
 class IamConfig(BaseModel):
-    """역할 정의 + 주체→역할 매핑. `iam.json`에서 읽거나 기본 정책을 쓴다."""
+    """역할 정의 + 주체→역할 매핑. `iam.json`에서 읽거나 기본 정책을 쓴다.
+
+    `groups`는 OIDC 신원용이다 (Phase 7) — IdP(Okta 등)의 그룹 클레임을
+    역할로 매핑한다. 여러 그룹에 속한 사용자는 **정책 파일에 선언된 순서**로
+    첫 매칭이 이긴다 (선언 순서 = 정책 작성자가 정한 우선순위).
+    """
 
     roles: dict[str, Role]
     principals: dict[str, str]
+    groups: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def principals_must_reference_existing_roles(self) -> IamConfig:
-        """없는 역할을 가리키는 주체는 로그인 자체가 불가능해야 한다."""
-        dangling = sorted(
-            name for name, role in self.principals.items() if role not in self.roles
-        )
-        if dangling:
-            raise ValueError(
-                f"principals reference undefined roles: {dangling} "
-                f"(defined roles: {sorted(self.roles)})"
+    def mappings_must_reference_existing_roles(self) -> IamConfig:
+        """없는 역할을 가리키는 주체·그룹은 로그인 자체가 불가능해야 한다."""
+        for label, mapping in (("principals", self.principals), ("groups", self.groups)):
+            dangling = sorted(
+                name for name, role in mapping.items() if role not in self.roles
             )
+            if dangling:
+                raise ValueError(
+                    f"{label} reference undefined roles: {dangling} "
+                    f"(defined roles: {sorted(self.roles)})"
+                )
         return self
 
     def resolve(self, name: str | None = None) -> Principal:
@@ -207,6 +214,13 @@ def _default_config() -> IamConfig:
             "demo_builder": "builder",
             "demo_operator": "operator",
             "demo_viewer": "viewer",
+        },
+        # OIDC 그룹 클레임 → 역할. IdP(Okta) 쪽 그룹 이름에 맞춰 수정한다.
+        groups={
+            "agent-admins": "admin",
+            "agent-builders": "builder",
+            "agent-operators": "operator",
+            "agent-viewers": "viewer",
         },
     )
 

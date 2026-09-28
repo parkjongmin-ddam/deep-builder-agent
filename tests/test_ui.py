@@ -275,6 +275,41 @@ def test_principal_names_puts_the_default_first():
     assert set(names) == {"admin", "demo_builder", "demo_operator", "demo_viewer"}
 
 
+# --- OIDC 헬퍼 (Phase 7) -----------------------------------------------------
+
+
+def test_oidc_configured_requires_a_client_id():
+    from ui.state import oidc_configured
+
+    assert not oidc_configured({})
+    assert not oidc_configured({"auth": {}})
+    assert oidc_configured({"auth": {"client_id": "abc"}})
+
+
+def test_oidc_configured_treats_missing_secrets_file_as_demo_mode():
+    """secrets.toml이 없는 클린 클론에서 앱이 죽으면 안 된다 — 데모 모드다."""
+    from ui.state import oidc_configured
+
+    class NoSecretsFile:
+        def get(self, key):
+            raise FileNotFoundError("No secrets files found")
+
+    assert not oidc_configured(NoSecretsFile())
+
+
+def test_user_identity_normalizes_missing_and_scalar_groups():
+    from ui.state import user_identity
+
+    assert user_identity({"email": "a@b.c", "groups": ["g1", "g2"]}) == (
+        "a@b.c",
+        ["g1", "g2"],
+    )
+    assert user_identity({"email": "a@b.c"}) == ("a@b.c", [])
+    # IdP에 따라 그룹이 문자열 하나로 올 수 있다
+    assert user_identity({"email": "a@b.c", "groups": "solo"}) == ("a@b.c", ["solo"])
+    assert user_identity({}) == ("", [])
+
+
 @pytest.mark.integration
 def test_app_blocks_execution_without_api_key(monkeypatch):
     """키가 없으면 실행을 막고 그 사실을 화면에 알려야 한다.

@@ -34,6 +34,33 @@ from runtime.iam import (  # noqa: F401
 from runtime.spec import AgentSpec
 
 
+def oidc_configured(secrets) -> bool:
+    """OIDC 모드 여부 — `[auth]` 설정에 client_id가 있어야 한다 (Phase 7).
+
+    secrets.toml이 아예 없으면 Streamlit이 접근 시점에 FileNotFoundError를
+    던진다 — 그것은 '미설정(데모 모드)'이지 오류가 아니다. 그 외 예외는
+    숨기지 않는다.
+    """
+    try:
+        auth = secrets.get("auth")
+    except FileNotFoundError:
+        return False
+    return bool(auth) and bool(auth.get("client_id"))
+
+
+def user_identity(claims: dict) -> tuple[str, list[str]]:
+    """ID 토큰 클레임에서 (이메일, 그룹 목록)을 뽑는다.
+
+    그룹 클레임은 IdP 설정에 따라 없을 수도, 문자열 하나일 수도 있다 —
+    없으면 빈 목록으로 정규화한다 (매핑 실패는 resolve_identity가 거부한다).
+    """
+    email = claims.get("email") or ""
+    groups = claims.get("groups") or []
+    if isinstance(groups, str):
+        groups = [groups]
+    return email, list(groups)
+
+
 def principal_names(config: IamConfig) -> list[str]:
     """사이드바 selectbox에 올릴 주체 목록.
 
