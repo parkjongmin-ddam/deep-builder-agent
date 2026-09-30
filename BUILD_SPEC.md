@@ -88,6 +88,7 @@
 - 2026-09-28 (Phase 7): **인증은 OIDC로, SAML·ADFS는 채택하지 않는다.** Streamlit 1.42+가 `st.login`/`st.user`로 OIDC를 네이티브 지원해(Authlib) 추가 인프라 없이 붙는다. SAML은 네이티브 미지원이라 커스텀 SP 엔드포인트가 필요하고, ADFS는 Windows Server 인프라가 필요해 심사자가 재현할 수 없다 — "심사자가 못 돌리는 것이 문서화된 한계보다 나쁘다"(컨테이너 샌드박스 기각과 같은 근거). ADFS 2016+도 OIDC를 지원하므로 기업 환경 이식은 문서 한 줄로 충분하다
 - 2026-09-28 (Phase 7): **OIDC 미설정이면 데모 모드로 폴백한다** (`oidc_configured()`). `.streamlit/secrets.toml`의 [auth]가 없으면 기존 주체 선택기로 동작한다 — 외부 계정·토큰을 필수 게이트로 만들지 않는다(aibrief 제거와 같은 원칙). 클린 클론의 "5분 시작"과 오프라인 테스트 전건이 그대로 유지된다. secrets 파일이 없을 때 나는 FileNotFoundError만 '미설정'으로 해석하고 그 외 예외는 숨기지 않는다
 - 2026-09-28 (Phase 7): **로그인 성공 ≠ 인가.** IdP가 신원을 보증해도 역할은 정책이 명시해야 한다 — 매핑 없는 신원은 거부한다(`resolve_identity`, deny-by-default). 매핑 우선순위는 이메일 직접 매핑(개인 예외, 더 구체적) > 그룹 클레임(정책 파일 선언 순서 = 작성자가 정한 우선순위). **OIDC 모드에서는 주체 선택기를 없앤다** — 인증이 있는데 주체를 고를 수 있으면 인가가 장식이 된다. 감사 로그의 principal이 "선택한 이름"에서 "검증된 이메일"로 바뀌는 것이 이 Phase의 실질 이득이다
+- 2026-09-30 (Phase 8): **UI 리디자인 착수 — 테마는 config.toml 이원([theme.light]/[theme.dark]) 방식.** 시안은 docs/design/deep_builder_agent_Redesign.html (Claude Design 산출물, 작업 지시서는 docs/design/UI_REDESIGN.md). 분리 섹션 지원 여부를 추측하지 않고 설치본 streamlit 1.64.0의 config 옵션 목록으로 확인했다 — `theme.light.*`·`theme.dark.*`·`*.sidebar.*`·`fontFaces`·`showWidgetBorder` 전부 존재. **requirements.txt의 streamlit을 1.64.0으로 고정** — 테마 키는 버전에 따라 있고 없고가 갈리므로 미고정이면 클론마다 다른 화면이 뜬다. Pretendard·JetBrains Mono는 **CDN @import(ui/style.py)로 로드**한다. `[[theme.fontFaces]]`+로컬 woff2 커밋은 기각 — 폰트 바이너리 커밋과 정적 서빙 설정이 필요해지고, CDN 실패 시 시스템 폰트로 조용히 폴백하는 쪽이 "clone 후 5분" 원칙에 맞다. CSS 주입은 ui/style.py 한 곳에 모은다(내부 클래스명 의존 최소화). 상태 이모지(✅❌⚠️)는 Material 아이콘으로 교체하고 아이콘 선택을 ui/state.py 순수 함수(`readiness_icon`·`eval_case_icon`)로 두어 테스트한다
 - 2026-08-10: **설정 헤더가 실제로 전송되는지 서버 쪽에서 확인한다.** 기존 `${ENV_VAR}` 치환 테스트는 `load_config()`가 돌려주는 dict만 봤다 — 치환된 헤더가 전송되지 않아도 통과하는 단언이었고, 인증이 필요한 MCP 서버는 전부 이 경로를 탄다. echo 서버에 `http_request_headers` 도구를 두어 수신 헤더를 되돌려받는다. **음성 대조군으로 검출력을 확인했다**: headers 없이 붙으면 `{}`, 붙이면 `authorization`·`x-deep-builder-probe`가 관측된다. stdio에서는 HTTP 요청이 없어 `{}`가 나오는 것도 고정해, 이 도구가 상수를 돌려주는 게 아님을 보장한다
 
 ## 4. Phase 로드맵
@@ -130,6 +131,14 @@
     - ① `resolve_identity` 매핑 실패가 감사에 안 남던 것 → **수정**: 거부 시 `action=resolve_identity, decision=deny, role=(unmapped)` + 사용자 그룹/매핑 그룹을 detail에 기록. **성공 해석은 기록하지 않는다** — Streamlit이 위젯 조작마다 스크립트를 재실행하며 매번 resolve_identity를 호출하므로 allow를 남기면 클릭당 한 줄씩 쌓인다. 허용 행위는 authorize_action이 행위 시점에 이미 기록한다 (테스트가 이 결정을 고정)
     - ② viewer 거부 '시도' 미기록 → **정책 결정 (코드 무변경)**: UI 게이팅은 UX이고 강제·기록은 authorize_action이 맡는다. 렌더링마다 deny를 남기면 ①과 같은 스팸 문제가 생기고, UI를 우회한 실제 시도는 어차피 authorize_action 경로에서 기록된다
     - ③ pytest가 실제 `logs/audit.jsonl` 오염 → **수정**: `tests/conftest.py` autouse 픽스처로 전 테스트의 감사 로그를 tmp_path로 격리 + 격리가 풀리면 실패하는 감시 테스트 추가. 같은 원인 계열로, **실제 secrets.toml이 생기자 UI 통합 테스트 5건이 OIDC 게이트를 렌더링하며 깨지던 것**도 잡았다 — AppTest는 secrets가 비어 있으면 실제 파일을 읽으므로(`if self.secrets:` 분기, 설치본 실측) 더미 secrets를 주입해 데모 모드를 강제한다 (`demo_mode_apptest` 헬퍼). 테스트 347 → **351건** 전건 통과 (통합 포함)
+- Phase 8 (9월 말~): **UI 리디자인** — 시안(docs/design/deep_builder_agent_Redesign.html) 재현. 단계·순서는 docs/design/UI_REDESIGN.md
+  - [x] 단계 1 테마·공통 스타일 ✅ (2026-09-30) — config.toml 이원 테마([theme.light]/[theme.dark]), streamlit 1.64.0 고정, Pretendard·JetBrains Mono CDN 로드(ui/style.py), 상태 이모지 → Material 아이콘(순수 함수 + 테스트 2건). 테스트 **356건** 전건 통과
+  - [ ] 단계 2 빌더 탭 레이아웃
+  - [ ] 단계 3 명세 버전 이력
+  - [ ] 단계 4 위임·도구 호출 표시 1차
+  - [ ] 단계 5 평가 탭 대시보드
+  - [ ] 단계 6 로그인·권한 거부 화면
+  - [ ] 단계 7 스트리밍·서브에이전트 내부 단계 (조사 후 결정)
 - 11월 초 마무리 (2주 버퍼)
   - [x] 보고서(개조식) — [REPORT.md](REPORT.md)
   - [x] README 정비 — 빠른 시작 5분 경로, 기능별 필요 키, 자기모순 수정

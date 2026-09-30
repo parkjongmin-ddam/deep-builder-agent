@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block">
+<style>body{margin:0;background:#E9E8E4;font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;-webkit-font-smoothing:antialiased}a{color:#0F8C73}a:hover{color:#0B6F5B}*{box-sizing:border-box}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 14px/1.2 'Pretendard Variable',system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:none;border:1px solid rgba(0,0,0,.1);border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">빌더 탭 — 에이전트 생성·대화 중</span></div>
+<div class="dv-opts">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+<div class="dv-opt" id="{{ t.b }}">
+<div class="dv-olabel"><a class="dv-oid" href="#{{ t.b }}">{{ t.b }}</a>{{ t.label }}</div>
+<div class="dv-card" style="{{ t.vars }}">
+<div style="width:1440px;height:900px;display:flex;background:var(--bg);color:var(--tx);font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;font-size:14px;line-height:1.5">
+
+<aside style="position:relative;width:288px;flex:none;background:var(--sb);border-right:1px solid var(--bd);padding:20px 20px 24px;display:flex;flex-direction:column;gap:22px">
+<span style="position:absolute;top:8px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace;white-space:nowrap">st.sidebar</span>
+<div style="position:relative;display:flex;align-items:center;gap:10px">
+<span style="width:28px;height:28px;border-radius:8px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px;font-variation-settings:'FILL' 1">hub</span>
+<span style="font:650 15px/1 'Pretendard Variable',sans-serif;letter-spacing:-.01em">deep_builder</span>
+<span style="position:absolute;top:22px;left:0;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.logo</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;font-weight:600;color:var(--t3);letter-spacing:.04em">사용자 · IAM</div>
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.container(border=True)</span>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--acS);color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">PJ</span>
+<div style="min-width:0;flex:1">
+<div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">user01@contoso.com</div>
+<div style="font-size:12px;color:var(--t3)">Okta · OIDC</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font-size:12px;color:var(--t2)">역할</span>
+<span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:var(--acS);color:var(--ac);font:600 12px/1 'JetBrains Mono',monospace"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1">badge</span>builder</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:var(--t2)">허용 행위</span>
+<div style="display:flex;flex-wrap:wrap;gap:4px">
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--s2);border:1px solid var(--bd);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">create_agent</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--s2);border:1px solid var(--bd);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">revise_agent</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--s2);border:1px solid var(--bd);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">run_agent</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--s2);border:1px solid var(--bd);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">view</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:var(--t2)">도구 경계</span>
+<div style="display:flex;flex-wrap:wrap;gap:4px">
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;border:1px dashed var(--bd2);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">calculate</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;border:1px dashed var(--bd2);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">file_list</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;border:1px dashed var(--bd2);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">file_read</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;border:1px dashed var(--bd2);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">file_write</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;border:1px dashed var(--bd2);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">web_search</span>
+</div>
+</div>
+<div style="height:32px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:500;color:var(--t2)"><span style="font-family:'Material Symbols Rounded';font-size:16px">logout</span>로그아웃</div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font-size:12px;font-weight:600;color:var(--t3);letter-spacing:.04em">환경 점검</span>
+<span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:11px;background:var(--okS);color:var(--ok);font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span>실행 가능 · 경고 3</span>
+</div>
+<div style="position:relative;display:flex;flex-direction:column;gap:12px">
+<span style="align-self:flex-start;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.markdown(:material/…:) + st.caption</span>
+<div style="display:grid;grid-template-columns:18px 1fr auto;gap:2px 8px;align-items:center">
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span>
+<span style="font:500 12.5px/1.3 'JetBrains Mono',monospace">ANTHROPIC_API_KEY</span>
+<span style="font-size:12px;color:var(--ok);font-weight:600">정상</span>
+<span></span><span style="grid-column:2/4;font-size:12px;color:var(--t3);line-height:1.45">Builder와 생성된 에이전트 실행에 필요</span>
+</div>
+<div style="display:grid;grid-template-columns:18px 1fr auto;gap:2px 8px;align-items:center">
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--wn);font-variation-settings:'FILL' 1">error</span>
+<span style="font:500 12.5px/1.3 'JetBrains Mono',monospace">TAVILY_API_KEY</span>
+<span style="font-size:12px;color:var(--wn);font-weight:600">경고</span>
+<span></span><span style="grid-column:2/4;font-size:12px;color:var(--t3);line-height:1.45">web_search 도구용. 없으면 도구가 명확한 에러를 반환한다</span>
+</div>
+<div style="display:grid;grid-template-columns:18px 1fr auto;gap:2px 8px;align-items:center">
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--wn);font-variation-settings:'FILL' 1">error</span>
+<span style="font-size:13px;font-weight:500">LangSmith 트레이싱</span>
+<span style="font-size:12px;color:var(--wn);font-weight:600">경고</span>
+<span></span><span style="grid-column:2/4;font-size:12px;color:var(--t3);line-height:1.45">off (LANGSMITH_TRACING이 설정되지 않았다)</span>
+</div>
+<div style="display:grid;grid-template-columns:18px 1fr auto;gap:2px 8px;align-items:center">
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--wn);font-variation-settings:'FILL' 1">error</span>
+<span style="font-size:13px;font-weight:500">MCP 서버</span>
+<span style="font-size:12px;color:var(--wn);font-weight:600">경고</span>
+<span></span><span style="grid-column:2/4;font-size:12px;color:var(--t3);line-height:1.45">mcp_servers.json 없음</span>
+</div>
+</div>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column;padding:26px 36px 0">
+<div style="position:relative;display:flex;align-items:baseline;gap:14px">
+<h1 style="margin:0;font:700 26px/1.2 'Pretendard Variable',sans-serif;letter-spacing:-.02em">deep_builder_agent</h1>
+<span style="font-size:14px;color:var(--t2)">자연어로 AI 에이전트를 만들고, 실행하고, 평가한다</span>
+<span style="position:absolute;top:-12px;left:0;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.title + st.caption</span>
+</div>
+<div style="position:relative;display:flex;gap:24px;margin-top:18px;border-bottom:1px solid var(--bd)">
+<span style="position:absolute;top:-6px;right:0;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.tabs</span>
+<span style="display:flex;align-items:center;gap:6px;padding:10px 0;margin-bottom:-1px;border-bottom:2px solid var(--ac);font-size:14px;font-weight:600;color:var(--tx)"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ac)">construction</span>빌더</span>
+<span style="display:flex;align-items:center;gap:6px;padding:10px 0;font-size:14px;font-weight:500;color:var(--t3)"><span style="font-family:'Material Symbols Rounded';font-size:18px">fact_check</span>평가</span>
+</div>
+
+<div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;padding-top:20px">
+
+<div style="position:relative;min-height:0;overflow-y:auto;padding:0 8px 28px 0;display:grid;align-content:start;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;gap:18px">
+<span style="position:absolute;top:0;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.columns(2) → st.container(height=700)</span>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="width:24px;height:24px;border-radius:7px;background:var(--acS);color:var(--ac);display:flex;align-items:center;justify-content:center;font:700 12px/1 'JetBrains Mono',monospace">1</span>
+<h2 style="margin:0;font:650 18px/1.3 'Pretendard Variable',sans-serif;letter-spacing:-.01em">에이전트 만들기</h2>
+</div>
+
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.form → st.text_area + st.form_submit_button(type="primary")</span>
+<label style="font-size:13px;font-weight:600">무엇을 하는 에이전트가 필요한가요?</label>
+<div style="min-height:64px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--tx)">웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘</div>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="height:36px;padding:0 14px;border-radius:8px;background:var(--ac);color:var(--acf);display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px">auto_awesome</span>생성</span>
+<span style="font-size:12px;color:var(--t3)">또는</span>
+<span style="flex:1;height:36px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 10px;font:500 13px/1 'JetBrains Mono',monospace;color:var(--t2)">data_analysis_team<span style="font-family:'Material Symbols Rounded';font-size:18px">expand_more</span></span>
+<span style="height:36px;padding:0 12px;border-radius:8px;background:var(--s1);border:1px solid var(--bd);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:17px">download</span>템플릿 불러오기</span>
+</div>
+</div>
+
+<div style="position:relative;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--okS);border:1px solid var(--okB);color:var(--tx);font-size:13px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.success(icon=":material/check_circle:")</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span>
+<span style="flex:1"><b style="font-weight:600">명세를 저장했습니다.</b> <span style="color:var(--t2)">v2 → v3 · 방금 전</span></span>
+</div>
+
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.container(border=True) + st.html 배지</span>
+<div style="padding:16px 16px 14px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);font-weight:600;letter-spacing:.04em">현재 명세</div>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+<div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+<span style="font:600 17px/1.3 'JetBrains Mono',monospace;letter-spacing:-.01em">it_news_summarizer</span>
+<span style="font-size:13px;color:var(--t2)">최신 IT 뉴스를 5줄로 요약하고 출처를 첨부</span>
+</div>
+<span style="flex:none;height:24px;padding:0 8px;border-radius:6px;background:var(--acS);color:var(--ac);display:inline-flex;align-items:center;font:600 12px/1 'JetBrains Mono',monospace">v3</span>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--bd)">
+<div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px;border-right:1px solid var(--bd)">
+<span style="font-size:12px;color:var(--t3)">모델</span>
+<span style="font:500 12.5px/1.3 'JetBrains Mono',monospace">claude-sonnet-4-5</span>
+</div>
+<div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px;border-right:1px solid var(--bd)">
+<span style="font-size:12px;color:var(--t3)">도구</span>
+<div style="display:flex;gap:4px;flex-wrap:wrap">
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;gap:3px;border-radius:5px;background:var(--inS);color:var(--in);font:500 11.5px/1 'JetBrains Mono',monospace"><span style="font-family:'Material Symbols Rounded';font-size:13px">travel_explore</span>web_search</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;gap:3px;border-radius:5px;background:var(--inS);color:var(--in);font:500 11.5px/1 'JetBrains Mono',monospace"><span style="font-family:'Material Symbols Rounded';font-size:13px">edit_document</span>file_write</span>
+</div>
+</div>
+<div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:var(--t3)">서브에이전트</span>
+<span style="font-size:14px;font-weight:600">2개 <span style="font-weight:400;color:var(--t3);font-size:12px">팀 구성</span></span>
+</div>
+</div>
+<div style="position:relative;border-top:1px solid var(--bd);border-radius:0 0 11px 11px;overflow:hidden">
+<div style="display:grid;grid-template-columns:120px 130px 1fr;padding:8px 16px;background:var(--s2);font-size:12px;color:var(--t3);font-weight:600;align-items:center"><span>서브에이전트</span><span>도구</span><span style="display:flex;align-items:center;justify-content:space-between;gap:8px">설명<span style="display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.dataframe</span></span></div>
+<div style="display:grid;grid-template-columns:120px 130px 1fr;padding:10px 16px;border-top:1px solid var(--bd);align-items:center;font-size:13px">
+<span style="display:flex;align-items:center;gap:6px;font:500 12.5px/1 'JetBrains Mono',monospace"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:var(--t3)">smart_toy</span>researcher</span>
+<span><span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--inS);color:var(--in);font:500 11.5px/1 'JetBrains Mono',monospace">web_search</span></span>
+<span style="color:var(--t2)">최신 기사를 검색하고 핵심만 추려 전달</span>
+</div>
+<div style="display:grid;grid-template-columns:120px 130px 1fr;padding:10px 16px;border-top:1px solid var(--bd);align-items:center;font-size:13px">
+<span style="display:flex;align-items:center;gap:6px;font:500 12.5px/1 'JetBrains Mono',monospace"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:var(--t3)">smart_toy</span>writer</span>
+<span><span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--inS);color:var(--in);font:500 11.5px/1 'JetBrains Mono',monospace">file_write</span></span>
+<span style="color:var(--t2)">수집 내용을 요약해 파일로 저장</span>
+</div>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+<span style="width:24px;height:24px;border-radius:7px;background:var(--acS);color:var(--ac);display:flex;align-items:center;justify-content:center;font:700 12px/1 'JetBrains Mono',monospace">2</span>
+<h2 style="margin:0;font:650 18px/1.3 'Pretendard Variable',sans-serif;letter-spacing:-.01em">명세 고치기</h2>
+</div>
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.form → st.text_area + submit</span>
+<label style="font-size:13px;font-weight:600">어떻게 고칠까요?</label>
+<div style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:14px">요약을 5줄로 늘리고 각 줄에 출처 링크를 붙여줘</div>
+<div><span style="height:36px;padding:0 14px;border-radius:8px;background:var(--s1);border:1px solid var(--bd);display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px">edit</span>수정 적용</span></div>
+</div>
+
+<div style="position:relative;border:1px solid var(--bd);border-radius:12px;background:var(--s1)">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.code(diff, language="diff")</span>
+<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);font-size:13px">
+<span style="font-family:'Material Symbols Rounded';font-size:17px;color:var(--t2)">difference</span>
+<span style="font-weight:600">변경 내역</span>
+<span style="font:500 12px/1 'JetBrains Mono',monospace;color:var(--t3)">v2 → v3</span>
+<span style="margin-left:auto;font:600 12px/1 'JetBrains Mono',monospace;color:var(--ok)">+2</span>
+<span style="font:600 12px/1 'JetBrains Mono',monospace;color:var(--er)">−2</span>
+</div>
+<div style="font:400 12.5px/1.7 'JetBrains Mono',monospace;padding:6px 0">
+<div style="display:flex;padding:0 14px;color:var(--t3)"><span style="width:18px;flex:none"> </span>  "name": "it_news_summarizer",</div>
+<div style="display:flex;padding:0 14px;background:var(--erS);color:var(--tx)"><span style="width:18px;flex:none;color:var(--er)">−</span>  "description": "최신 IT 뉴스를 3줄로 요약",</div>
+<div style="display:flex;padding:0 14px;background:var(--okS);color:var(--tx)"><span style="width:18px;flex:none;color:var(--ok)">+</span>  "description": "최신 IT 뉴스를 5줄로 요약하고 출처를 첨부",</div>
+<div style="display:flex;padding:0 14px;color:var(--t3)"><span style="width:18px;flex:none"> </span>  "system_prompt": "... 한국어로 답한다.</div>
+<div style="display:flex;padding:0 14px;background:var(--erS);color:var(--tx)"><span style="width:18px;flex:none;color:var(--er)">−</span>    결과는 3줄로 요약한다.</div>
+<div style="display:flex;padding:0 14px;background:var(--okS);color:var(--tx)"><span style="width:18px;flex:none;color:var(--ok)">+</span>    결과는 5줄로 요약하고, 각 줄 끝에 출처 URL을 붙인다.</div>
+</div>
+</div>
+
+<div style="position:relative;border:1px solid var(--bd);border-radius:10px;background:var(--s1);display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:13px;font-weight:500">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.expander → st.code</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--t2)">description</span>system_prompt 전문<span style="margin-left:auto;font-size:12px;color:var(--t3)">1,284자</span><span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--t3)">expand_more</span>
+</div>
+</div>
+
+<div style="position:relative;min-height:0;display:flex;flex-direction:column;gap:14px;padding-bottom:20px">
+<div style="display:flex;align-items:center;gap:10px">
+<span style="width:24px;height:24px;border-radius:7px;background:var(--acS);color:var(--ac);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:16px">forum</span>
+<h2 style="margin:0;font:650 18px/1.3 'Pretendard Variable',sans-serif;letter-spacing:-.01em">대화하기</h2>
+<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:500 12px/1 'JetBrains Mono',monospace;color:var(--t2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span>it_news_summarizer · v3</span>
+</div>
+<div style="position:relative;flex:1;min-height:0;border:1px solid var(--bd);border-radius:12px;background:var(--s1);display:flex;flex-direction:column;overflow:hidden">
+<span style="position:absolute;top:8px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.container(height=640, border=True)</span>
+<div style="flex:1;min-height:0;overflow-y:auto;padding:20px 20px 12px;display:flex;flex-direction:column;gap:18px">
+
+<div style="position:relative;display:flex;gap:12px">
+<span style="position:absolute;top:-18px;left:40px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.chat_message("user")</span>
+<span style="width:28px;height:28px;flex:none;border-radius:8px;background:var(--s2);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px;color:var(--t2)">person</span>
+<div style="padding-top:3px;font-size:14px">오늘 IT 뉴스 요약해줘</div>
+</div>
+
+<div style="display:flex;gap:12px">
+<span style="width:28px;height:28px;flex:none;border-radius:8px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">smart_toy</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+<div style="position:relative;border:1px solid var(--bd);border-radius:10px;background:var(--s2)">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.status(state="complete", expanded)</span>
+<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;border-bottom:1px solid var(--bd)">
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span>
+<span style="font-weight:600">실행 완료</span>
+<span style="color:var(--t3)">4단계 · 12.4s</span>
+<span style="margin-left:auto;font-family:'Material Symbols Rounded';font-size:18px;color:var(--t3)">expand_less</span>
+</div>
+<div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;font-size:13px">
+<div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:4px 0">
+<span style="width:22px;height:22px;border-radius:6px;background:var(--acS);color:var(--ac);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">call_split</span>
+<span><span style="color:var(--t2)">위임</span> <span style="font:500 12.5px/1 'JetBrains Mono',monospace">→ researcher</span> <span style="color:var(--t3)">최신 IT 뉴스 수집</span></span>
+<span style="font:400 12px/1 'JetBrains Mono',monospace;color:var(--t3)">7.8s</span>
+</div>
+<div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:4px 0 4px 30px;border-left:1px solid var(--bd);margin-left:11px">
+<span style="width:22px;height:22px;border-radius:6px;background:var(--inS);color:var(--in);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">build</span>
+<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="font:500 12.5px/1 'JetBrains Mono',monospace">web_search</span> <span style="font:400 12px/1 'JetBrains Mono',monospace;color:var(--t3)">query="IT news 2026-09-30"</span></span>
+<span style="font-size:12px;color:var(--t2)">결과 8건</span>
+</div>
+<div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:4px 0">
+<span style="width:22px;height:22px;border-radius:6px;background:var(--acS);color:var(--ac);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">call_split</span>
+<span><span style="color:var(--t2)">위임</span> <span style="font:500 12.5px/1 'JetBrains Mono',monospace">→ writer</span> <span style="color:var(--t3)">5줄 요약 작성</span></span>
+<span style="font:400 12px/1 'JetBrains Mono',monospace;color:var(--t3)">4.6s</span>
+</div>
+<div style="display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:4px 0 4px 30px;border-left:1px solid var(--bd);margin-left:11px">
+<span style="width:22px;height:22px;border-radius:6px;background:var(--inS);color:var(--in);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px">build</span>
+<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="font:500 12.5px/1 'JetBrains Mono',monospace">file_write</span> <span style="font:400 12px/1 'JetBrains Mono',monospace;color:var(--t3)">path="summaries/2026-09-30.md"</span></span>
+<span style="font-size:12px;color:var(--t2)">저장됨</span>
+</div>
+</div>
+</div>
+<div style="font-size:14px;line-height:1.7;display:flex;flex-direction:column;gap:6px">
+<div>오늘(9월 30일) 주요 IT 뉴스 5건입니다.</div>
+<ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">
+<li>국내 클라우드 3사, AI 전용 GPU 리전 확대 발표 <a href="#" style="font-size:12px;color:var(--in);text-decoration:none">zdnet.co.kr</a></li>
+<li>오픈소스 에이전트 프레임워크 보안 권고 공개 <a href="#" style="font-size:12px;color:var(--in);text-decoration:none">github.blog</a></li>
+<li>반도체 수출, 3개월 연속 증가세 <a href="#" style="font-size:12px;color:var(--in);text-decoration:none">etnews.com</a></li>
+<li>주요 브라우저, 서드파티 쿠키 정책 개편 일정 확정 <a href="#" style="font-size:12px;color:var(--in);text-decoration:none">theverge.com</a></li>
+<li>공공기관 생성형 AI 도입 가이드라인 개정 <a href="#" style="font-size:12px;color:var(--in);text-decoration:none">korea.kr</a></li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div style="position:relative;padding:12px;border-top:1px solid var(--bd)">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.chat_input</span>
+<div style="height:44px;border-radius:10px;background:var(--s2);border:1px solid var(--bd);display:flex;align-items:center;padding:0 6px 0 14px;font-size:14px;color:var(--t3)">에이전트에게 메시지 보내기<span style="margin-left:auto;width:32px;height:32px;border-radius:8px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px">arrow_upward</span></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">평가 탭 — 결과 표시 · 데모 모드 주체</span></div>
+<div class="dv-opts">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+<div class="dv-opt" id="{{ t.e }}">
+<div class="dv-olabel"><a class="dv-oid" href="#{{ t.e }}">{{ t.e }}</a>{{ t.label }}</div>
+<div class="dv-card" style="{{ t.vars }}">
+<div style="width:1440px;height:900px;display:flex;background:var(--bg);color:var(--tx);font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;font-size:14px;line-height:1.5">
+
+<aside style="position:relative;width:288px;flex:none;background:var(--sb);border-right:1px solid var(--bd);padding:20px 20px 24px;display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;align-items:center;gap:10px">
+<span style="width:28px;height:28px;border-radius:8px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:18px;font-variation-settings:'FILL' 1">hub</span>
+<span style="font:650 15px/1 'Pretendard Variable',sans-serif;letter-spacing:-.01em">deep_builder</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:12px;font-weight:600;color:var(--t3);letter-spacing:.04em">사용자 · IAM</div>
+<div style="position:relative;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;background:var(--inS);border:1px solid var(--inB);font-size:12.5px;line-height:1.45">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.info</span>
+<span style="font-family:'Material Symbols Rounded';font-size:17px;color:var(--in);font-variation-settings:'FILL' 1">info</span>
+<span><b style="font-weight:600">데모 모드</b> <span style="color:var(--t2)">OIDC가 설정되지 않아 주체를 직접 선택합니다.</span></span>
+</div>
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px">
+<div style="position:relative;display:flex;flex-direction:column;gap:6px">
+<span style="position:absolute;top:-20px;right:0;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.selectbox</span>
+<span style="font-size:12px;color:var(--t2)">주체</span>
+<span style="height:34px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 10px;font:500 12.5px/1 'JetBrains Mono',monospace">reviewer@demo<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--t3)">expand_more</span></span>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font-size:12px;color:var(--t2)">역할</span>
+<span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:var(--acS);color:var(--ac);font:600 12px/1 'JetBrains Mono',monospace"><span style="font-family:'Material Symbols Rounded';font-size:14px;font-variation-settings:'FILL' 1">badge</span>evaluator</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:var(--t2)">허용 행위</span>
+<div style="display:flex;flex-wrap:wrap;gap:4px">
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--s2);border:1px solid var(--bd);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">run_eval</span>
+<span style="height:22px;padding:0 7px;display:inline-flex;align-items:center;border-radius:5px;background:var(--s2);border:1px solid var(--bd);font:500 11.5px/1 'JetBrains Mono',monospace;color:var(--t2)">view</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:var(--t2)">도구 경계</span>
+<span style="font-size:12px;color:var(--t3)">없음 — 도구를 직접 실행하지 않는 역할</span>
+</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<span style="font-size:12px;font-weight:600;color:var(--t3);letter-spacing:.04em">환경 점검</span>
+<span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:11px;background:var(--okS);color:var(--ok);font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span>실행 가능 · 경고 1</span>
+</div>
+<div style="display:grid;grid-template-columns:18px 1fr auto;gap:10px 8px;align-items:center">
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span><span style="font:500 12.5px/1.3 'JetBrains Mono',monospace">ANTHROPIC_API_KEY</span><span style="font-size:12px;color:var(--ok);font-weight:600">정상</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span><span style="font:500 12.5px/1.3 'JetBrains Mono',monospace">TAVILY_API_KEY</span><span style="font-size:12px;color:var(--ok);font-weight:600">정상</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span><span style="font-size:13px;font-weight:500">LangSmith 트레이싱</span><span style="font-size:12px;color:var(--ok);font-weight:600">정상</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--wn);font-variation-settings:'FILL' 1">error</span><span style="font-size:13px;font-weight:500">MCP 서버</span><span style="font-size:12px;color:var(--wn);font-weight:600">경고</span>
+</div>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column;padding:26px 36px 0">
+<div style="display:flex;align-items:baseline;gap:14px">
+<h1 style="margin:0;font:700 26px/1.2 'Pretendard Variable',sans-serif;letter-spacing:-.02em">deep_builder_agent</h1>
+<span style="font-size:14px;color:var(--t2)">자연어로 AI 에이전트를 만들고, 실행하고, 평가한다</span>
+</div>
+<div style="display:flex;gap:24px;margin-top:18px;border-bottom:1px solid var(--bd)">
+<span style="display:flex;align-items:center;gap:6px;padding:10px 0;font-size:14px;font-weight:500;color:var(--t3)"><span style="font-family:'Material Symbols Rounded';font-size:18px">construction</span>빌더</span>
+<span style="display:flex;align-items:center;gap:6px;padding:10px 0;margin-bottom:-1px;border-bottom:2px solid var(--ac);font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--ac)">fact_check</span>평가</span>
+</div>
+
+<div style="flex:1;min-height:0;display:grid;grid-template-columns:400px minmax(0,1fr);gap:28px;padding-top:20px">
+<div style="position:relative;min-height:0;overflow-y:auto;padding:0 6px 28px 0;display:grid;align-content:start;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;gap:16px">
+<h2 style="margin:0;display:flex;align-items:center;gap:10px;font:650 18px/1.3 'Pretendard Variable',sans-serif">평가 설정<span style="display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.columns([2,3])</span></h2>
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.form → st.checkbox + submit</span>
+<div style="display:flex;align-items:center;gap:10px">
+<span style="font-family:'Material Symbols Rounded';font-size:20px;color:var(--t2)">list_alt</span>
+<span style="font-size:13px;color:var(--t2)">평가 케이스</span>
+<span style="margin-left:auto;font:600 20px/1 'Pretendard Variable',sans-serif">6<span style="font-size:13px;font-weight:500;color:var(--t3)"> 건</span></span>
+</div>
+<div style="height:1px;background:var(--bd)"></div>
+<div style="display:flex;gap:10px;align-items:flex-start">
+<span style="width:18px;height:18px;flex:none;margin-top:1px;border-radius:5px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:15px;font-weight:700">check</span>
+<div style="display:flex;flex-direction:column;gap:2px">
+<span style="font-size:14px;font-weight:500">LLM 심판 사용</span>
+<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--wn)"><span style="font-family:'Material Symbols Rounded';font-size:14px">payments</span>케이스마다 추가 API 호출로 비용이 발생합니다</span>
+</div>
+</div>
+<span style="height:38px;border-radius:8px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px">play_arrow</span>평가 실행</span>
+<span style="font-size:12px;color:var(--t3);text-align:center">마지막 실행 2026-09-30 14:22 · 1분 48초</span>
+</div>
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:4px">
+<h3 style="margin:0;display:flex;align-items:center;gap:8px;font:600 15px/1.3 'Pretendard Variable',sans-serif">케이스 목록<span style="display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.dataframe</span></h3>
+<span style="font-size:12px;color:var(--t3)">evals/cases.yaml</span>
+</div>
+<div style="position:relative;border:1px solid var(--bd);border-radius:10px;overflow:hidden;background:var(--s1);font-size:12.5px">
+<div style="display:grid;grid-template-columns:40px 1fr 100px 34px;gap:8px;padding:8px 12px;background:var(--s2);color:var(--t3);font-weight:600;font-size:12px"><span>id</span><span>요구</span><span>기대 도구</span><span>팀</span></div>
+<sc-for list="{{ cases }}" as="c" hint-placeholder-count="6">
+<div style="display:grid;grid-template-columns:40px 1fr 100px 34px;gap:8px;padding:9px 12px;border-top:1px solid var(--bd);align-items:center">
+<span style="font:500 12px/1 'JetBrains Mono',monospace;color:var(--t2)">{{ c.id }}</span>
+<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.req }}</span>
+<span style="font:400 11.5px/1.3 'JetBrains Mono',monospace;color:var(--in);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.tools }}</span>
+<span style="font-family:'Material Symbols Rounded';font-size:17px;color:var(--t2)">{{ c.teamIcon }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="min-height:0;overflow-y:auto;padding:0 6px 28px 0;display:grid;align-content:start;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;gap:16px">
+<h2 style="margin:0;font:650 18px/1.3 'Pretendard Variable',sans-serif">결과</h2>
+<div style="position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.columns(3) → st.metric(border=True)</span>
+<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;color:var(--t2)">통과율</span>
+<span style="font:700 30px/1 'Pretendard Variable',sans-serif;letter-spacing:-.02em">83<span style="font-size:18px">%</span></span>
+<div style="height:6px;border-radius:3px;background:var(--s2);overflow:hidden;display:flex"><span style="width:83%;background:var(--ok)"></span></div>
+<span style="font-size:12px;color:var(--t3)">5 / 6 케이스 통과</span>
+</div>
+<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;color:var(--t2)">심판 평균 점수</span>
+<span style="font:700 30px/1 'Pretendard Variable',sans-serif;letter-spacing:-.02em">4.2<span style="font-size:15px;font-weight:500;color:var(--t3)"> / 5</span></span>
+<div style="display:flex;gap:3px"><span style="flex:1;height:6px;border-radius:3px;background:var(--ac)"></span><span style="flex:1;height:6px;border-radius:3px;background:var(--ac)"></span><span style="flex:1;height:6px;border-radius:3px;background:var(--ac)"></span><span style="flex:1;height:6px;border-radius:3px;background:var(--ac)"></span><span style="flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--ac) 20%,var(--s2) 20%)"></span></div>
+<span style="font-size:12px;color:var(--t3)">claude 심판 · 6건 채점</span>
+</div>
+<div style="background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;color:var(--t2)">실패 케이스</span>
+<span style="font:700 30px/1 'Pretendard Variable',sans-serif;letter-spacing:-.02em;color:var(--er)">1<span style="font-size:15px;font-weight:500;color:var(--t3)"> 건</span></span>
+<div style="height:6px"></div>
+<span style="font-size:12px;color:var(--t3)">c04 · 팀 필요 판단</span>
+</div>
+</div>
+
+<div style="position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.progress(value, text=…) × 4</span>
+<span style="font-size:13px;font-weight:600">검사 항목별 통과</span>
+<sc-for list="{{ checkStats }}" as="k" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:110px 1fr 44px;gap:12px;align-items:center;font-size:13px">
+<span style="color:var(--t2)">{{ k.name }}</span>
+<div style="height:6px;border-radius:3px;background:var(--s2);overflow:hidden;display:flex"><span style="{{ k.bar }}"></span></div>
+<span style="font:500 12px/1 'JetBrains Mono',monospace;color:var(--t2);text-align:right">{{ k.val }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:4px">
+<h3 style="margin:0;font:600 15px/1.3 'Pretendard Variable',sans-serif">케이스별 상세</h3>
+<span style="font-size:12px;color:var(--t3)">실패 먼저 정렬</span>
+</div>
+
+<div style="position:relative;border:1px solid var(--erB);border-radius:10px;background:var(--s1)">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.expander(icon=":material/cancel:", expanded=True)</span>
+<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;font-size:13.5px">
+<span style="font-family:'Material Symbols Rounded';font-size:19px;color:var(--er);font-variation-settings:'FILL' 1">cancel</span>
+<span style="font:500 12.5px/1 'JetBrains Mono',monospace;color:var(--t2)">c04</span>
+<span style="font-weight:500">경쟁사 3곳 조사 후 비교표 저장</span>
+<span style="margin-left:auto;font-size:12px;color:var(--t3)">3/4 검사 · 심판 2.8</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--t3)">expand_less</span>
+</div>
+<div style="padding:4px 14px 14px 43px;display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<span style="height:26px;padding:0 9px;display:inline-flex;align-items:center;gap:4px;border-radius:6px;background:var(--okS);color:var(--ok);font-size:12.5px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:15px">check</span>도구 선택</span>
+<span style="height:26px;padding:0 9px;display:inline-flex;align-items:center;gap:4px;border-radius:6px;background:var(--erS);color:var(--er);font-size:12.5px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:15px">close</span>팀 필요 판단</span>
+<span style="height:26px;padding:0 9px;display:inline-flex;align-items:center;gap:4px;border-radius:6px;background:var(--okS);color:var(--ok);font-size:12.5px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:15px">check</span>명세 유효성</span>
+<span style="height:26px;padding:0 9px;display:inline-flex;align-items:center;gap:4px;border-radius:6px;background:var(--okS);color:var(--ok);font-size:12.5px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:15px">check</span>실행 성공</span>
+</div>
+<div style="font-size:12.5px;color:var(--t2);display:grid;grid-template-columns:70px 1fr;gap:4px 12px">
+<span style="color:var(--t3)">기대</span><span>팀 구성 필요 · <span style="font-family:'JetBrains Mono',monospace;color:var(--in)">web_search, file_write</span></span>
+<span style="color:var(--t3)">실제</span><span>단일 에이전트 · 서브에이전트 0개</span>
+</div>
+<div style="position:relative;border-radius:8px;background:var(--s2);padding:10px 12px;display:flex;gap:10px;font-size:13px;line-height:1.6">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.chat_message("심판", avatar=…)</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--t2)">gavel</span>
+<span><b style="font-weight:600">심판 2.8 / 5</b><br>조사와 표 작성을 한 에이전트가 모두 처리해 역할 분리가 없다. 비교 항목은 적절하나 출처가 두 곳 누락됐다.</span>
+</div>
+</div>
+</div>
+
+<sc-for list="{{ passRows }}" as="r" hint-placeholder-count="5">
+<div style="border:1px solid var(--bd);border-radius:10px;background:var(--s1);display:flex;align-items:center;gap:10px;padding:11px 14px;font-size:13.5px">
+<span style="font-family:'Material Symbols Rounded';font-size:19px;color:var(--ok);font-variation-settings:'FILL' 1">check_circle</span>
+<span style="font:500 12.5px/1 'JetBrains Mono',monospace;color:var(--t2)">{{ r.id }}</span>
+<span style="font-weight:500">{{ r.req }}</span>
+<span style="margin-left:auto;font-size:12px;color:var(--t3)">4/4 검사 · 심판 {{ r.score }}</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--t3)">expand_more</span>
+</div>
+</sc-for>
+</div>
+</div>
+</main>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">로그인 전 화면 (OIDC 설정 시)</span></div>
+<div class="dv-opts">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+<div class="dv-opt" id="{{ t.l }}">
+<div class="dv-olabel"><a class="dv-oid" href="#{{ t.l }}">{{ t.l }}</a>{{ t.label }}</div>
+<div class="dv-card" style="{{ t.vars }}">
+<div style="width:1440px;height:900px;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--tx);font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;font-size:14px;line-height:1.5">
+<div style="position:relative;width:420px;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:24px">
+<span style="position:absolute;top:-9px;right:12px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.columns([1,2,1]) → st.container(border=True)</span>
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="width:40px;height:40px;border-radius:11px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px;font-variation-settings:'FILL' 1">hub</span>
+<div>
+<h1 style="margin:0;font:700 22px/1.3 'Pretendard Variable',sans-serif;letter-spacing:-.02em">deep_builder_agent</h1>
+<p style="margin:4px 0 0;font-size:14px;color:var(--t2)">자연어로 AI 에이전트를 만들고, 실행하고, 평가한다</p>
+</div>
+</div>
+<div style="height:1px;background:var(--bd)"></div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:15px;font-weight:600">조직 계정으로 로그인하세요</span>
+<span style="font-size:13px;color:var(--t2);text-wrap:pretty">로그인 후 IdP 그룹에 매핑된 역할에 따라 사용할 수 있는 기능과 도구가 정해집니다.</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<span style="position:relative;height:44px;border-radius:10px;background:var(--ac);color:var(--acf);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:20px">login</span>Okta로 로그인<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.button(on_click=st.login)</span></span>
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--t3)"><span style="font-family:'Material Symbols Rounded';font-size:14px">lock</span>IdP · Okta (OIDC)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section class="dv-turn" id="t4">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">권한 거부 화면 — 로그인했지만 역할 매핑 없음</span></div>
+<div class="dv-opts">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+<div class="dv-opt" id="{{ t.d }}">
+<div class="dv-olabel"><a class="dv-oid" href="#{{ t.d }}">{{ t.d }}</a>{{ t.label }}</div>
+<div class="dv-card" style="{{ t.vars }}">
+<div style="width:1440px;height:900px;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--tx);font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;font-size:14px;line-height:1.5">
+<div style="position:relative;width:460px;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:22px">
+<span style="position:absolute;top:-9px;right:12px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.container(border=True) + st.stop()</span>
+<span style="width:40px;height:40px;border-radius:11px;background:var(--erS);color:var(--er);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Rounded';font-size:24px;font-variation-settings:'FILL' 1">block</span>
+<div style="display:flex;flex-direction:column;gap:6px">
+<h1 style="margin:0;font:700 22px/1.3 'Pretendard Variable',sans-serif;letter-spacing:-.02em">접근 권한이 없습니다</h1>
+<span style="font-size:14px;color:var(--t2);text-wrap:pretty">로그인은 완료됐지만 이 계정에 매핑된 역할이 없어 deep_builder_agent를 사용할 수 없습니다.</span>
+</div>
+<div style="position:relative;border-radius:10px;background:var(--erS);border:1px solid var(--erB);padding:12px 14px;display:flex;gap:10px;font-size:13px">
+<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.error(icon=":material/block:")</span>
+<span style="font-family:'Material Symbols Rounded';font-size:18px;color:var(--er);font-variation-settings:'FILL' 1">cancel</span>
+<div style="display:grid;grid-template-columns:64px 1fr;gap:4px 10px">
+<span style="color:var(--t2)">계정</span><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px">user01@contoso.com</span>
+<span style="color:var(--t2)">사유</span><span>역할 매핑 없음 (IAM 거부)</span>
+</div>
+</div>
+<span style="font-size:13px;color:var(--t2)">관리자에게 역할 매핑을 요청한 뒤 다시 로그인하세요.</span>
+<span style="position:relative;height:40px;border-radius:10px;background:var(--s1);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px">logout</span>로그아웃<span style="position:absolute;top:-9px;right:10px;z-index:5;display:var(--ann);align-items:center;height:18px;padding:0 6px;border-radius:4px;background:#D6409F;color:#fff;font:500 10.5px/1 'JetBrains Mono',monospace">st.button(on_click=st.logout)</span></span>
+</div>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section class="dv-turn" id="t5">
+<div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">스타일 가이드</span></div>
+<div class="dv-opts">
+<div class="dv-opt" id="5a">
+<div class="dv-olabel"><a class="dv-oid" href="#5a">5a</a>색상 · 폰트 · 간격 · 상태 체계 · config.toml</div>
+<div class="dv-card" style="background:#FFFFFF">
+<div style="width:1440px;padding:48px 56px 56px;color:#16181C;font-family:'Pretendard Variable',Pretendard,system-ui,sans-serif;font-size:14px;line-height:1.5;display:flex;flex-direction:column;gap:44px">
+<div style="display:flex;align-items:baseline;justify-content:space-between">
+<h1 style="margin:0;font:700 28px/1.2 'Pretendard Variable',sans-serif;letter-spacing:-.02em">deep_builder_agent 스타일 가이드</h1>
+<span style="font-size:13px;color:#565B63">Streamlit 1.46+ · config.toml [theme.light] / [theme.dark] + st.html CSS 주입</span>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:48px">
+<div style="display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">색상 토큰</h2>
+<div style="border:1px solid #E2E2DD;border-radius:12px;overflow:hidden">
+<div style="display:grid;grid-template-columns:130px 1fr 150px 150px;padding:8px 14px;background:#F3F3F0;font-size:12px;font-weight:600;color:#8B9099"><span>토큰</span><span>용도</span><span>Dark</span><span>Light</span></div>
+<sc-for list="{{ tokens }}" as="k" hint-placeholder-count="14">
+<div style="display:grid;grid-template-columns:130px 1fr 150px 150px;padding:7px 14px;border-top:1px solid #E2E2DD;align-items:center;font-size:13px">
+<span style="font:500 12px/1 'JetBrains Mono',monospace">{{ k.name }}</span>
+<span style="color:#565B63">{{ k.use }}</span>
+<span style="display:flex;align-items:center;gap:8px;font:400 12px/1 'JetBrains Mono',monospace;color:#565B63"><span style="{{ k.dSw }}"></span>{{ k.d }}</span>
+<span style="display:flex;align-items:center;gap:8px;font:400 12px/1 'JetBrains Mono',monospace;color:#565B63"><span style="{{ k.lSw }}"></span>{{ k.l }}</span>
+</div>
+</sc-for>
+</div>
+<span style="font-size:12px;color:#8B9099">상태 배경(S)은 상태색 12–14% 투명도, 테두리(B)는 30%. 주석 칩 #D6409F는 설계 표기 전용이며 실제 UI에는 쓰지 않는다.</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">타이포그래피 · Pretendard / JetBrains Mono</h2>
+<div style="border:1px solid #E2E2DD;border-radius:12px;display:flex;flex-direction:column">
+<div style="display:grid;grid-template-columns:1fr 150px;padding:12px 16px;align-items:baseline"><span style="font:700 26px/1.2 'Pretendard Variable',sans-serif;letter-spacing:-.02em">앱 제목</span><span style="font:400 12px/1 'JetBrains Mono',monospace;color:#8B9099">26 / 700 · -2%</span></div>
+<div style="display:grid;grid-template-columns:1fr 150px;padding:12px 16px;border-top:1px solid #E2E2DD;align-items:baseline"><span style="font:650 18px/1.3 'Pretendard Variable',sans-serif">섹션 제목</span><span style="font:400 12px/1 'JetBrains Mono',monospace;color:#8B9099">18 / 650</span></div>
+<div style="display:grid;grid-template-columns:1fr 150px;padding:12px 16px;border-top:1px solid #E2E2DD;align-items:baseline"><span style="font:600 15px/1.3 'Pretendard Variable',sans-serif">하위 제목 · 카드 제목</span><span style="font:400 12px/1 'JetBrains Mono',monospace;color:#8B9099">15 / 600</span></div>
+<div style="display:grid;grid-template-columns:1fr 150px;padding:12px 16px;border-top:1px solid #E2E2DD;align-items:baseline"><span style="font-size:14px">본문 · 입력 · 버튼</span><span style="font:400 12px/1 'JetBrains Mono',monospace;color:#8B9099">14 / 400·600 · 1.5</span></div>
+<div style="display:grid;grid-template-columns:1fr 150px;padding:12px 16px;border-top:1px solid #E2E2DD;align-items:baseline"><span style="font-size:12px;color:#565B63">캡션 · 레이블 · 배지</span><span style="font:400 12px/1 'JetBrains Mono',monospace;color:#8B9099">12–13 / 400·600</span></div>
+<div style="display:grid;grid-template-columns:1fr 150px;padding:12px 16px;border-top:1px solid #E2E2DD;align-items:baseline"><span style="font:500 12.5px/1 'JetBrains Mono',monospace">web_search · v3 · c04</span><span style="font:400 12px/1 'JetBrains Mono',monospace;color:#8B9099">Mono 12.5 / 500</span></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">간격 · 반경</h2>
+<div style="display:flex;align-items:flex-end;gap:14px">
+<sc-for list="{{ spaces }}" as="s" hint-placeholder-count="7">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="{{ s.box }}"></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#565B63">{{ s.v }}</span></div>
+</sc-for>
+</div>
+<div style="display:flex;gap:18px;font-size:12.5px;color:#565B63">
+<span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:24px;border:1.5px solid #16181C;border-radius:6px"></span>6 배지</span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:24px;border:1.5px solid #16181C;border-radius:8px"></span>8 버튼·입력</span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:24px;border:1.5px solid #16181C;border-radius:12px"></span>12 카드</span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:24px;border:1.5px solid #16181C;border-radius:16px"></span>16 게이트 카드</span>
+</div>
+<span style="font-size:12px;color:#8B9099">카드 패딩 16 · 카드 간 18 · 좌우 패널 간 28 · 사이드바 폭 288 · 본문 좌우 36</span>
+</div>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px">
+<div style="display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">메시지 체계 — 아이콘 + 색 + 제목 한 줄 + 부가 설명</h2>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#1E8A4C1F;border:1px solid #1E8A4C4D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#1E8A4C;font-variation-settings:'FILL' 1">check_circle</span><span style="flex:1"><b style="font-weight:600">명세를 저장했습니다.</b> <span style="color:#565B63">v2 → v3</span></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#8B9099">st.success</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#1F6FD11F;border:1px solid #1F6FD14D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#1F6FD1;font-variation-settings:'FILL' 1">info</span><span style="flex:1"><b style="font-weight:600">아직 에이전트가 없습니다.</b> <span style="color:#565B63">왼쪽에서 만들거나 템플릿을 불러오세요.</span></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#8B9099">st.info</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#A86A001F;border:1px solid #A86A004D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#A86A00;font-variation-settings:'FILL' 1">error</span><span style="flex:1"><b style="font-weight:600">TAVILY_API_KEY가 없습니다.</b> <span style="color:#565B63">web_search는 에러를 반환합니다.</span></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#8B9099">st.warning</span></div>
+<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#D0342C1F;border:1px solid #D0342C4D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#D0342C;font-variation-settings:'FILL' 1">cancel</span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span><b style="font-weight:600">명세 생성에 실패했습니다.</b> <span style="color:#565B63">JSON 형식 검증 오류</span></span><span style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#565B63">ValidationError: tools[1] 'web_serch'는 허용 도구가 아닙니다</span></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#8B9099">st.error</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#D0342C1F;border:1px solid #D0342C4D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#D0342C;font-variation-settings:'FILL' 1">block</span><span style="flex:1"><b style="font-weight:600">IAM 거부 · run_agent</b> <span style="color:#565B63">evaluator 역할은 에이전트를 실행할 수 없습니다.</span></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#8B9099">st.error</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#D0342C1F;border:1px solid #D0342C4D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#D0342C;font-variation-settings:'FILL' 1">cancel</span><span style="flex:1"><b style="font-weight:600">에이전트 실행에 실패했습니다.</b> <span style="color:#565B63">researcher → web_search 단계 · 타임아웃 30s</span></span><span style="font:400 11.5px/1 'JetBrains Mono',monospace;color:#8B9099">st.status(state="error")</span></div>
+<span style="font-size:12px;color:#8B9099">규칙: 제목은 "~했습니다/~없습니다" 한 문장 굵게, 부가 설명은 보조 색. 기술 상세는 Mono 한 줄. 이모지 대신 icon=":material/…:" 사용.</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">환경 점검 3단계</h2>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+<div style="border:1px solid #E2E2DD;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px"><span style="display:flex;align-items:center;gap:6px;font-weight:600;color:#1E8A4C"><span style="font-family:'Material Symbols Rounded';font-size:18px;font-variation-settings:'FILL' 1">check_circle</span>정상</span><span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#8B9099">:material/check_circle:</span></div>
+<div style="border:1px solid #E2E2DD;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px"><span style="display:flex;align-items:center;gap:6px;font-weight:600;color:#A86A00"><span style="font-family:'Material Symbols Rounded';font-size:18px;font-variation-settings:'FILL' 1">error</span>경고</span><span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#8B9099">:material/error:</span></div>
+<div style="border:1px solid #E2E2DD;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px"><span style="display:flex;align-items:center;gap:6px;font-weight:600;color:#D0342C"><span style="font-family:'Material Symbols Rounded';font-size:18px;font-variation-settings:'FILL' 1">cancel</span>필수 누락</span><span style="font:400 11.5px/1.4 'JetBrains Mono',monospace;color:#8B9099">:material/cancel:</span></div>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#D0342C1F;border:1px solid #D0342C4D;font-size:13px"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#D0342C;font-variation-settings:'FILL' 1">cancel</span><span style="flex:1"><b style="font-weight:600">실행 불가</b> <span style="color:#565B63">ANTHROPIC_API_KEY가 없습니다. 생성·실행·평가 버튼이 비활성화됩니다.</span></span></div>
+<span style="font-size:12px;color:#8B9099">사이드바 상단 요약 필: 실행 가능(녹) / 실행 가능·경고 n(녹) / 실행 불가(적). 필수 누락 시 요약 아래에 위 경고를 고정.</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">권한 비활성 — 버튼 + 사유 한 줄</h2>
+<div style="display:flex;gap:28px;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:#8B9099">활성</span>
+<span style="height:36px;padding:0 14px;border-radius:8px;background:#0F8C73;color:#fff;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:18px">auto_awesome</span>생성</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:#8B9099">보조</span>
+<span style="height:36px;padding:0 14px;border-radius:8px;background:#fff;border:1px solid #E2E2DD;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500"><span style="font-family:'Material Symbols Rounded';font-size:18px">edit</span>수정 적용</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;color:#8B9099">역할 비활성</span>
+<span style="height:36px;padding:0 14px;border-radius:8px;background:#F3F3F0;border:1px solid #E2E2DD;color:#8B9099;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;cursor:not-allowed"><span style="font-family:'Material Symbols Rounded';font-size:17px">lock</span>생성</span>
+<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:#565B63"><span style="font-family:'Material Symbols Rounded';font-size:14px">shield_person</span>evaluator 역할은 에이전트를 만들 수 없습니다</span>
+</div>
+</div>
+<span style="font:400 12px/1.5 'JetBrains Mono',monospace;color:#565B63;background:#F3F3F0;border-radius:8px;padding:10px 12px">st.button("생성", icon=":material/lock:", disabled=not can("create_agent"), help=reason)<br>if not can(...): st.caption(":material/shield_person: " + reason)</span>
+</div>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">.streamlit/config.toml</h2>
+<pre style="margin:0;background:#16181C;color:#E9EBEE;border-radius:12px;padding:18px 20px;font:400 12.5px/1.65 'JetBrains Mono',monospace;white-space:pre;overflow:auto">[theme]
+font = "Pretendard"
+codeFont = "JetBrains Mono"
+baseRadius = "0.5rem"
+showWidgetBorder = true
+
+[[theme.fontFaces]]
+family = "Pretendard"
+url = "static/PretendardVariable.woff2"
+
+[theme.light]
+primaryColor = "#0F8C73"
+backgroundColor = "#F7F7F5"
+secondaryBackgroundColor = "#F3F3F0"
+textColor = "#16181C"
+borderColor = "#E2E2DD"
+
+[theme.light.sidebar]
+backgroundColor = "#EFEFEC"
+
+[theme.dark]
+primaryColor = "#34D3B0"
+backgroundColor = "#0F1115"
+secondaryBackgroundColor = "#1E2229"
+textColor = "#E9EBEE"
+borderColor = "#2A2F38"
+
+[theme.dark.sidebar]
+backgroundColor = "#15181D"</pre>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font:650 17px/1.3 'Pretendard Variable',sans-serif">CSS 주입 (st.html, 1회)</h2>
+<pre style="margin:0;background:#16181C;color:#E9EBEE;border-radius:12px;padding:18px 20px;font:400 12.5px/1.65 'JetBrains Mono',monospace;white-space:pre;overflow:auto">/* 도구 배지 · 역할 칩 — st.html로 span 렌더 */
+.dba-badge { display:inline-flex; height:22px;
+  padding:0 7px; border-radius:6px;
+  font:500 11.5px/1 "JetBrains Mono";
+  background:color-mix(in srgb,
+    var(--dba-info) 14%, transparent);
+  color:var(--dba-info); }
+
+/* 배지 색은 테마 따라 전환 */
+:root { --dba-info:#1F6FD1; }
+@media (prefers-color-scheme: dark) {
+  :root { --dba-info:#6AA8FF; } }
+
+/* 메인 폭 · 여백 */
+.block-container { max-width:none;
+  padding:1.6rem 2.25rem 0; }
+
+/* 좌우 패널 독립 스크롤:
+   st.container(height=700, border=False)
+   — 별도 CSS 불필요 */</pre>
+<span style="font-size:12px;color:#8B9099">diff는 st.code(language="diff")가 기본 +/− 색을 제공. 도구 호출 단계는 st.status 안에서 st.markdown 한 줄씩 기록(중첩 expander 불가).</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showAnnotations&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;표시&quot;},&quot;themeView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;both&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;표시&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const ann = (this.props.showAnnotations ?? true) ? 'inline-flex' : 'none';
+    const view = this.props.themeView ?? 'both';
+    const D = { bg:'#0F1115', sb:'#15181D', s1:'#171A20', s2:'#1E2229', bd:'#2A2F38', bd2:'#3A404B', tx:'#E9EBEE', t2:'#A3A9B3', t3:'#6E7580', ac:'#34D3B0', acf:'#06231C', ok:'#3FB968', wn:'#E0A33A', er:'#F2645A', in:'#6AA8FF' };
+    const L = { bg:'#F7F7F5', sb:'#EFEFEC', s1:'#FFFFFF', s2:'#F3F3F0', bd:'#E2E2DD', bd2:'#C9C9C2', tx:'#16181C', t2:'#565B63', t3:'#8B9099', ac:'#0F8C73', acf:'#FFFFFF', ok:'#1E8A4C', wn:'#A86A00', er:'#D0342C', in:'#1F6FD1' };
+    const toVars = (p, soft) => {
+      const v = { width:'1440px', '--ann':ann };
+      Object.entries(p).forEach(([k, c]) => { v['--' + k] = c; });
+      ['ac','ok','wn','er','in'].forEach(k => { v['--' + k + 'S'] = p[k] + soft; v['--' + k + 'B'] = p[k] + '4D'; });
+      return v;
+    };
+    let themes = [
+      { key:'dark', label:'Dark', vars:toVars(D, '24'), b:'1a', e:'2a', l:'3a', d:'4a' },
+      { key:'light', label:'Light', vars:toVars(L, '1F'), b:'1b', e:'2b', l:'3b', d:'4b' },
+    ];
+    if (view !== 'both') themes = themes.filter(t => t.key === view);
+    const cases = [
+      { id:'c01', req:'웹 검색으로 최신 IT 뉴스 3줄 요약', tools:'web_search', team:false, score:'4.6' },
+      { id:'c02', req:'CSV 파일 읽고 매출 합계 계산', tools:'file_read, calculate', team:false, score:'4.4' },
+      { id:'c03', req:'데이터 분석 팀으로 월간 리포트 작성', tools:'file_read, calculate, file_write', team:true, score:'4.0' },
+      { id:'c04', req:'경쟁사 3곳 조사 후 비교표 저장', tools:'web_search, file_write', team:true, score:'2.8' },
+      { id:'c05', req:'폴더 내 파일 목록 정리', tools:'file_list', team:false, score:'4.8' },
+      { id:'c06', req:'환율 변환 계산', tools:'calculate', team:false, score:'4.5' },
+    ].map(c => ({ ...c, teamIcon: c.team ? 'group' : '' }));
+    const bar = (n, fail) => `width:${n / 6 * 100}%;background:${fail ? 'linear-gradient(90deg,var(--ok) 0 100%)' : 'var(--ok)'}`;
+    const checkStats = [
+      { name:'도구 선택', val:'6/6', bar:bar(6) },
+      { name:'팀 필요 판단', val:'5/6', bar:bar(5) },
+      { name:'명세 유효성', val:'6/6', bar:bar(6) },
+      { name:'실행 성공', val:'6/6', bar:bar(6) },
+    ];
+    const tk = [
+      ['--bg','앱 배경','bg'],['--sidebar','사이드바','sb'],['--surface','카드','s1'],['--sunken','입력·표 머리','s2'],['--border','테두리','bd'],
+      ['--text','본문','tx'],['--text-2','보조 텍스트','t2'],['--text-3','캡션·비활성','t3'],['--primary','주요 버튼·선택','ac'],
+      ['--success','정상·통과·추가','ok'],['--warning','경고·비용','wn'],['--danger','오류·실패·삭제·거부','er'],['--info','안내·도구 배지·링크','in'],
+    ];
+    const sw = c => `width:18px;height:18px;border-radius:5px;background:${c};border:1px solid rgba(0,0,0,.12);flex:none`;
+    const tokens = tk.map(([name, use, k]) => ({ name, use, d:D[k], l:L[k], dSw:sw(D[k]), lSw:sw(L[k]) }));
+    const spaces = [4,8,12,16,20,24,32].map(v => ({ v, box:`width:${v}px;height:${v}px;background:#0F8C73;border-radius:2px` }));
+    return { themes, cases, checkStats, tokens, spaces, passRows: cases.filter(c => c.id !== 'c04') };
+  }
+}
+</script>
+</body>
+</html>

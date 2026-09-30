@@ -48,15 +48,18 @@ from ui.state import (  # noqa: E402
     authorize_action,
     blocking_problems,
     check_readiness,
+    eval_case_icon,
     is_allowed,
     load_iam_config,
     oidc_configured,
     principal_names,
+    readiness_icon,
     render_history,
     user_identity,
     spec_overview,
     team_rows,
 )
+from ui.style import inject_css  # noqa: E402
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -65,6 +68,7 @@ TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 load_env()
 
 st.set_page_config(page_title="deep_builder_agent", layout="wide")
+inject_css()
 
 
 # --- 사이드바: 환경 점검 ---------------------------------------------------
@@ -100,8 +104,7 @@ def render_sidebar(
 
     items = check_readiness()
     for item in items:
-        icon = "✅" if item.ok else ("❌" if item.required else "⚠️")
-        st.sidebar.markdown(f"{icon} **{item.label}**")
+        st.sidebar.markdown(f"{readiness_icon(item)} **{item.label}**")
         st.sidebar.caption(item.detail)
 
     blockers = blocking_problems(items)
@@ -358,8 +361,7 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
         st.metric("심판 평균", f"{report.mean_score:.2f} / 5")
 
     for result in report.results:
-        icon = "✅" if result.passed else "❌"
-        with st.expander(f"{icon} {result.case_id}"):
+        with st.expander(result.case_id, icon=eval_case_icon(result.passed)):
             st.caption(result.request)
             if result.error:
                 st.error(result.error)

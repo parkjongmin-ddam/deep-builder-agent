@@ -78,6 +78,28 @@ def test_ready_environment_has_no_blockers():
     assert blocking_problems(check_readiness(READY_ENV)) == []
 
 
+def test_readiness_icon_covers_three_states():
+    """시안 5a의 환경 점검 3단계: 정상 / 필수 누락 / 경고 (Phase 8)."""
+    from runtime.readiness import ReadinessItem
+    from ui.state import readiness_icon
+
+    ok = ReadinessItem(label="KEY", ok=True, detail="", required=True)
+    missing = ReadinessItem(label="KEY", ok=False, detail="", required=True)
+    warning = ReadinessItem(label="KEY", ok=False, detail="", required=False)
+
+    assert readiness_icon(ok) == ":green[:material/check_circle:]"
+    assert readiness_icon(missing) == ":red[:material/cancel:]"
+    assert readiness_icon(warning) == ":orange[:material/error:]"
+
+
+def test_eval_case_icon_maps_pass_and_fail():
+    """expander icon 파라미터는 색 지시자 없이 아이콘 이름만 받는다 (Phase 8)."""
+    from ui.state import eval_case_icon
+
+    assert eval_case_icon(True) == ":material/check_circle:"
+    assert eval_case_icon(False) == ":material/cancel:"
+
+
 def test_readiness_never_exposes_secret_values():
     """화면에 키 값이 새면 안 된다. 존재 여부만 다룬다."""
     rendered = " ".join(

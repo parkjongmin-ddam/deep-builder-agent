@@ -61,6 +61,27 @@ def user_identity(claims: dict) -> tuple[str, list[str]]:
     return email, list(groups)
 
 
+def readiness_icon(item: ReadinessItem) -> str:
+    """환경 점검 항목의 Material 아이콘 마크다운 (Phase 8 — 이모지 대체).
+
+    시안 5a의 환경 점검 3단계를 따른다: 정상(check_circle·녹) /
+    경고(error·주황) / 필수 누락(cancel·적).
+    """
+    if item.ok:
+        return ":green[:material/check_circle:]"
+    if item.required:
+        return ":red[:material/cancel:]"
+    return ":orange[:material/error:]"
+
+
+def eval_case_icon(passed: bool) -> str:
+    """평가 케이스 expander의 icon 파라미터 값 (Phase 8 — 이모지 대체).
+
+    `st.expander(icon=...)`은 색 지시자를 받지 않으므로 아이콘 이름만 준다.
+    """
+    return ":material/check_circle:" if passed else ":material/cancel:"
+
+
 def principal_names(config: IamConfig) -> list[str]:
     """사이드바 selectbox에 올릴 주체 목록.
 
