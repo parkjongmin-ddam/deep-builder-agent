@@ -246,6 +246,53 @@ def diff_as_diff_text(diff: SpecDiff) -> str:
     return "\n".join(lines)
 
 
+# --- 평가 대시보드 (Phase 8 단계 5) -----------------------------------------
+# eval 레이어의 실제 검사 5종(eval/checks.py)과 화면 표기 라벨.
+# dict 순서가 곧 대시보드 표시 순서다.
+_CHECK_LABELS = {
+    "expected_tools": "기대 도구 선택",
+    "forbidden_tools": "금지 도구 회피",
+    "team_shape": "팀 필요 판단",
+    "subagent_tools": "팀원 도구",
+    "guardrail": "가드레일 문장",
+}
+
+
+def check_label(name: str) -> str:
+    """검사 이름의 한글 라벨. 모르는 이름은 그대로 돌려준다."""
+    return _CHECK_LABELS.get(name, name)
+
+
+def check_pass_rates(report) -> list[tuple[str, int, int]]:
+    """EvalReport → 검사 이름별 (이름, 통과 수, 전체 수) 목록.
+
+    생성 실패로 checks가 빈 케이스는 분모에 넣지 않는다 — 검사가 돌지
+    않은 것이지 실패한 것이 아니다. 순서는 _CHECK_LABELS 선언 순서,
+    모르는 검사 이름은 나온 순서대로 뒤에 붙는다.
+    """
+    counts: dict[str, list[int]] = {}
+    for result in report.results:
+        for check in result.checks:
+            passed, total = counts.setdefault(check.name, [0, 0])
+            counts[check.name] = [passed + (1 if check.passed else 0), total + 1]
+
+    ordered = [name for name in _CHECK_LABELS if name in counts]
+    ordered += [name for name in counts if name not in _CHECK_LABELS]
+    return [(name, counts[name][0], counts[name][1]) for name in ordered]
+
+
+def failed_first(results: Sequence) -> list:
+    """케이스 결과를 실패 먼저로 정렬한다 (안정 정렬 — 그룹 내 원래 순서 유지)."""
+    return sorted(results, key=lambda r: r.passed)
+
+
+def format_duration(seconds: float) -> str:
+    """소요시간을 "1분 48초" / "48초"로."""
+    whole = int(round(seconds))
+    minutes, secs = divmod(whole, 60)
+    return f"{minutes}분 {secs}초" if minutes else f"{secs}초"
+
+
 # 화면 표시용 이름 — 식별자(name)는 파일명·IAM 리소스·감사 로그·CLI에서
 # 그대로 쓰므로 바꾸지 않는다. 표시만 분리한다 (Phase 8 단계 2 보완).
 _DISPLAY_NAMES = {

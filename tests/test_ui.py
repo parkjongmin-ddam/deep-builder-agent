@@ -372,6 +372,107 @@ def test_diff_as_diff_text_uses_plus_minus_prefixes():
     assert "+   도구 web_search" in lines
 
 
+# --- 평가 대시보드 (Phase 8 단계 5) ------------------------------------------
+
+
+def _case_result(case_id="c01", passed_checks=(True, True), error=None, score=None):
+    from eval.checks import CheckResult
+    from eval.judge import JudgeVerdict
+    from eval.runner import CaseResult
+
+    names = ["expected_tools", "team_shape"]
+    checks = [
+        CheckResult(name=names[i], passed=ok, detail="")
+        for i, ok in enumerate(passed_checks)
+    ]
+    verdict = JudgeVerdict(score=score, reason="") if score is not None else None
+    return CaseResult(
+        case_id=case_id,
+        request="요구",
+        checks=[] if error else checks,
+        verdict=verdict,
+        error=error,
+    )
+
+
+def test_check_pass_rates_aggregates_by_check_name():
+    """검사 이름별 (통과 수, 전체 수) — 표시 순서는 실제 검사 5종 순서다."""
+    from eval.runner import EvalReport
+    from ui.state import check_pass_rates
+
+    report = EvalReport(
+        results=[
+            _case_result("c01", (True, True)),
+            _case_result("c02", (False, True)),
+        ]
+    )
+
+    rates = check_pass_rates(report)
+
+    assert rates[0] == ("expected_tools", 1, 2)
+    assert rates[1] == ("team_shape", 2, 2)
+
+
+def test_check_pass_rates_skips_errored_cases():
+    """생성 실패로 checks가 빈 케이스는 분모에 넣지 않는다."""
+    from eval.runner import EvalReport
+    from ui.state import check_pass_rates
+
+    report = EvalReport(
+        results=[
+            _case_result("c01", (True, True)),
+            _case_result("c02", error="생성 실패"),
+        ]
+    )
+
+    assert check_pass_rates(report) == [
+        ("expected_tools", 1, 1),
+        ("team_shape", 1, 1),
+    ]
+
+
+def test_check_pass_rates_empty_report():
+    from eval.runner import EvalReport
+    from ui.state import check_pass_rates
+
+    assert check_pass_rates(EvalReport(results=[])) == []
+
+
+def test_check_label_covers_all_five_checks():
+    """화면 라벨은 실제 검사 5종을 전부 안다 — 모르는 이름은 그대로 보여준다."""
+    from ui.state import check_label
+
+    for name in (
+        "expected_tools",
+        "forbidden_tools",
+        "team_shape",
+        "subagent_tools",
+        "guardrail",
+    ):
+        assert check_label(name) != name  # 한글 라벨이 있다
+    assert check_label("unknown_check") == "unknown_check"
+
+
+def test_failed_first_puts_failures_before_passes():
+    """케이스별 상세는 실패 먼저 — 안정 정렬이라 같은 그룹은 원래 순서다."""
+    from ui.state import failed_first
+
+    ok1 = _case_result("c01", (True, True))
+    bad = _case_result("c02", (False, True))
+    ok2 = _case_result("c03", (True, True))
+
+    ordered = failed_first([ok1, bad, ok2])
+
+    assert [r.case_id for r in ordered] == ["c02", "c01", "c03"]
+
+
+def test_format_duration_minutes_and_seconds():
+    from ui.state import format_duration
+
+    assert format_duration(48.2) == "48초"
+    assert format_duration(108.0) == "1분 48초"
+
+
 # --- 대화 상태 -------------------------------------------------------------
 
 

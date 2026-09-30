@@ -12,8 +12,9 @@
 
 from __future__ import annotations
 
-import json
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -49,12 +50,16 @@ from ui.state import (  # noqa: E402
     authorize_action,
     badges_html,
     blocking_problems,
+    check_label,
+    check_pass_rates,
     check_readiness,
     chips_html,
     denial_reason,
     diff_as_diff_text,
     display_name,
     eval_case_icon,
+    failed_first,
+    format_duration,
     is_allowed,
     load_iam_config,
     oidc_configured,
@@ -471,63 +476,140 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
 # --- 탭 2: 평가 ------------------------------------------------------------
 
 
-def render_eval_tab(blocked: bool, principal: Principal) -> None:
-    st.subheader("평가 — Builder 회귀 검사")
-    st.caption(
-        "케이스마다 자연어 요구로 명세를 생성한 뒤, 도구·팀·가드레일을 기계적으로 "
-        "검사하고 통과한 것만 LLM 심판이 채점합니다."
-    )
+EVAL_DENIAL = "역할은 평가(Builder 호출)를 실행할 수 없습니다"
 
+
+def render_eval_tab(blocked: bool, principal: Principal) -> None:
+    """평가 탭 — 좌측 설정·케이스 목록, 우측 결과 대시보드 (시안 2a, 단계 5)."""
     try:
         cases = load_cases()
     except (ValueError, OSError) as exc:
-        st.error(f"케이스를 읽지 못했습니다: {exc}")
+        st.error(f"**케이스를 읽지 못했습니다.** {exc}", icon=":material/cancel:")
         return
 
-    st.write(f"등록된 케이스 **{len(cases)}건**")
-    with st.expander("케이스 보기"):
-        st.table(
+    # 평가는 케이스마다 Builder(create_agent)를 호출하므로 같은 인가를 받는다.
+    can_eval = is_allowed(principal, ACTION_CREATE)
+
+    left, right = st.columns([2, 3], gap="large")
+
+    with left:
+        st.subheader("평가 설정")
+        with st.form("eval_run"):
+            st.markdown(f":material/list_alt: 평가 케이스 **{len(cases)}건**")
+            use_judge = st.checkbox("LLM 심판 사용", value=False)
+            st.caption(
+                ":material/payments: 케이스마다 추가 API 호출로 비용이 발생합니다"
+            )
+            run_clicked = st.form_submit_button(
+                "평가 실행",
+                type="primary",
+                icon=":material/play_arrow:" if can_eval else ":material/lock:",
+                disabled=blocked or not can_eval,
+                help=None if can_eval else f"{principal.role_name} {EVAL_DENIAL}",
+            )
+        if not can_eval:
+            st.caption(
+                f":material/shield_person: {principal.role_name} {EVAL_DENIAL}"
+            )
+        ran_at = st.session_state.get("eval_ran_at")
+        if ran_at:
+            duration = format_duration(st.session_state.get("eval_duration", 0.0))
+            st.caption(f"마지막 실행 {ran_at} · {duration}")
+
+        st.markdown("**케이스 목록**")
+        st.dataframe(
             [
                 {
                     "id": c.id,
                     "요구": c.request,
-                    "기대 도구": ", ".join(c.expect_tools) or "(none)",
-                    "팀": "필요" if c.expect_team else "불필요",
+                    "기대 도구": list(c.expect_tools) or ["(없음)"],
+                    "팀": "필요" if c.expect_team else "",
                 }
                 for c in cases
-            ]
+            ],
+            hide_index=True,
+            column_config={
+                "id": st.column_config.TextColumn("id", width="small"),
+                "요구": st.column_config.TextColumn("요구", width="large"),
+                "기대 도구": st.column_config.ListColumn("기대 도구"),
+                "팀": st.column_config.TextColumn("팀", width="small"),
+            },
         )
+        st.caption("eval/cases/builder_cases.json")
 
-    # 평가는 케이스마다 Builder(create_agent)를 호출하므로 같은 인가를 받는다.
-    can_eval = is_allowed(principal, ACTION_CREATE)
-    if not can_eval:
-        st.info(f"역할 {principal.role_name} 은 평가(Builder 호출)를 실행할 수 없습니다.")
+    if run_clicked and can_eval:
+        started = time.time()
+        with st.spinner("평가를 실행하는 중... 케이스마다 LLM을 호출합니다"):
+            report = run_evaluation(cases, judge=judge_spec if use_judge else None)
+        st.session_state.eval_report = report
+        st.session_state.eval_ran_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+        st.session_state.eval_duration = time.time() - started
 
-    use_judge = st.checkbox("LLM 심판 사용 (비용 발생)", value=False)
-    if not st.button("평가 실행", disabled=blocked or not can_eval):
-        return
+    with right:
+        st.subheader("결과")
+        report = st.session_state.get("eval_report")
+        if report is None:
+            st.info(
+                "**아직 실행 결과가 없습니다.** 왼쪽에서 평가를 실행하세요.",
+                icon=":material/info:",
+            )
+            return
 
-    with st.spinner("평가를 실행하는 중... 케이스마다 LLM을 호출합니다"):
-        report = run_evaluation(cases, judge=judge_spec if use_judge else None)
+        col_pass, col_judge, col_fail = st.columns(3)
+        with col_pass:
+            st.metric(
+                "통과율",
+                f"{report.pass_rate:.0%}",
+                border=True,
+                help=f"{report.passed}/{report.total} 케이스 통과",
+            )
+        with col_judge:
+            judge_value = (
+                f"{report.mean_score:.1f} / 5"
+                if report.mean_score is not None
+                else "—"
+            )
+            st.metric("심판 평균 점수", judge_value, border=True)
+        with col_fail:
+            st.metric("실패 케이스", f"{report.total - report.passed}건", border=True)
 
-    st.metric("통과율", f"{report.pass_rate:.0%}", f"{report.passed}/{report.total}")
-    if report.mean_score is not None:
-        st.metric("심판 평균", f"{report.mean_score:.2f} / 5")
-
-    for result in report.results:
-        with st.expander(result.case_id, icon=eval_case_icon(result.passed)):
-            st.caption(result.request)
-            if result.error:
-                st.error(result.error)
-            for check in result.checks:
-                (st.success if check.passed else st.error)(
-                    f"{check.name}: {check.detail}"
+        with st.container(border=True):
+            st.markdown("**검사 항목별 통과**")
+            for name, passed_count, total_count in check_pass_rates(report):
+                ratio = passed_count / total_count if total_count else 0.0
+                st.progress(
+                    ratio,
+                    text=f"{check_label(name)} — {passed_count}/{total_count}",
                 )
-            if result.verdict is not None:
-                st.info(f"심판 {result.verdict.score}/5 — {result.verdict.reason}")
 
-    with st.expander("텍스트 리포트"):
-        st.code(format_report(report))
+        st.markdown("**케이스별 상세** · 실패 먼저 정렬")
+        for result in failed_first(report.results):
+            with st.expander(
+                f"{result.case_id} · {result.request}",
+                icon=eval_case_icon(result.passed),
+                expanded=not result.passed,
+            ):
+                if result.error:
+                    st.error(f"**생성 실패.** {result.error}", icon=":material/cancel:")
+                if result.checks:
+                    chips = " · ".join(
+                        f":green[:material/check: {check_label(c.name)}]"
+                        if c.passed
+                        else f":red[:material/close: {check_label(c.name)}]"
+                        for c in result.checks
+                    )
+                    st.markdown(chips)
+                for check in result.failed_checks:
+                    st.caption(f":material/subdirectory_arrow_right: {check.detail}")
+                if result.verdict is not None:
+                    with st.chat_message("judge", avatar=":material/gavel:"):
+                        st.markdown(
+                            f"**심판 {result.verdict.score} / 5** — "
+                            f"{result.verdict.reason}"
+                        )
+
+        with st.expander("텍스트 리포트", icon=":material/description:"):
+            st.code(format_report(report))
 
 
 # --- 진입 ------------------------------------------------------------------
