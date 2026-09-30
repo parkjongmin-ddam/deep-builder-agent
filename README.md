@@ -184,7 +184,9 @@ streamlit run ui/app.py
 Phase 8에서 전면 리디자인했다 (시안·작업 지시서: [docs/design/](docs/design/),
 라이트/다크 테마는 `.streamlit/config.toml`).
 
-<!-- TODO: 스크린샷 — 빌더 탭(위임 단계 펼침) / 평가 탭(대시보드) / 로그인 게이트 -->
+| 빌더 탭 — 위임·내부 단계 | 평가 대시보드 | 로그인 게이트 |
+|---|---|---|
+| ![빌더 탭 — 위임 단계 펼침](docs/images/builder_steps.jpg) | ![평가 대시보드](docs/images/eval_dashboard.jpg) | ![로그인 게이트](docs/images/login_gate.jpg) |
 
 - **사이드바** — 사용자·IAM 카드(역할 배지 + 허용 행위·도구 경계 칩)와
   환경 점검(키·트레이싱·MCP). 비밀값은 **존재 여부만** 표시한다.
