@@ -286,6 +286,14 @@ def failed_first(results: Sequence) -> list:
     return sorted(results, key=lambda r: r.passed)
 
 
+def case_title(case_id: str, request: str, limit: int = 40) -> str:
+    """케이스 expander 제목 — 요구가 길어도 한 줄로 남게 앞 40자에서 자른다.
+
+    전체 요구는 expander 안쪽에 따로 보여준다.
+    """
+    return f"{case_id} · {_truncate(request, limit)}"
+
+
 def format_duration(seconds: float) -> str:
     """소요시간을 "1분 48초" / "48초"로."""
     whole = int(round(seconds))

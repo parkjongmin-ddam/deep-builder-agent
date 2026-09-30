@@ -50,6 +50,7 @@ from ui.state import (  # noqa: E402
     authorize_action,
     badges_html,
     blocking_problems,
+    case_title,
     check_label,
     check_pass_rates,
     check_readiness,
@@ -511,12 +512,8 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
             st.caption(
                 f":material/shield_person: {principal.role_name} {EVAL_DENIAL}"
             )
-        ran_at = st.session_state.get("eval_ran_at")
-        if ran_at:
-            duration = format_duration(st.session_state.get("eval_duration", 0.0))
-            st.caption(f"마지막 실행 {ran_at} · {duration}")
-
         st.markdown("**케이스 목록**")
+        # 좁은 좌측 열(전체의 2/5)에 4열이 다 보이도록 픽셀 폭으로 고정한다.
         st.dataframe(
             [
                 {
@@ -529,10 +526,10 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
             ],
             hide_index=True,
             column_config={
-                "id": st.column_config.TextColumn("id", width="small"),
-                "요구": st.column_config.TextColumn("요구", width="large"),
-                "기대 도구": st.column_config.ListColumn("기대 도구"),
-                "팀": st.column_config.TextColumn("팀", width="small"),
+                "id": st.column_config.TextColumn("id", width=60),
+                "요구": st.column_config.TextColumn("요구", width=175),
+                "기대 도구": st.column_config.ListColumn("기대 도구", width=110),
+                "팀": st.column_config.TextColumn("팀", width=45),
             },
         )
         st.caption("eval/cases/builder_cases.json")
@@ -546,7 +543,16 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
         st.session_state.eval_duration = time.time() - started
 
     with right:
-        st.subheader("결과")
+        # 마지막 실행 시각·소요시간은 결과 제목 옆에 — 실행 블록 뒤에 그려지므로
+        # 실행 직후 리런 없이도 바로 보인다.
+        col_head, col_when = st.columns([0.4, 0.6], vertical_alignment="bottom")
+        with col_head:
+            st.subheader("결과")
+        with col_when:
+            ran_at = st.session_state.get("eval_ran_at")
+            if ran_at:
+                duration = format_duration(st.session_state.get("eval_duration", 0.0))
+                st.caption(f"마지막 실행 {ran_at} · {duration}")
         report = st.session_state.get("eval_report")
         if report is None:
             st.info(
@@ -585,10 +591,11 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
         st.markdown("**케이스별 상세** · 실패 먼저 정렬")
         for result in failed_first(report.results):
             with st.expander(
-                f"{result.case_id} · {result.request}",
+                case_title(result.case_id, result.request),
                 icon=eval_case_icon(result.passed),
                 expanded=not result.passed,
             ):
+                st.caption(result.request)
                 if result.error:
                     st.error(f"**생성 실패.** {result.error}", icon=":material/cancel:")
                 if result.checks:

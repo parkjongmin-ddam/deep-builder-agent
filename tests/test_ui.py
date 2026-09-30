@@ -466,6 +466,18 @@ def test_failed_first_puts_failures_before_passes():
     assert [r.case_id for r in ordered] == ["c02", "c01", "c03"]
 
 
+def test_case_title_truncates_long_requests():
+    """expander 제목은 id + 요구 앞 40자 — 길어도 한 줄이다. 전체는 안쪽에 보인다."""
+    from ui.state import case_title
+
+    short = case_title("c01", "짧은 요구")
+    long = case_title("c04", "가" * 50)
+
+    assert short == "c01 · 짧은 요구"
+    assert long == f"c04 · {'가' * 39}…"
+    assert len(long) <= len("c04 · ") + 40
+
+
 def test_format_duration_minutes_and_seconds():
     from ui.state import format_duration
 
