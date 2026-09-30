@@ -51,6 +51,7 @@ from ui.state import (  # noqa: E402
     check_readiness,
     chips_html,
     denial_reason,
+    display_name,
     eval_case_icon,
     is_allowed,
     load_iam_config,
@@ -210,6 +211,7 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
                 st.selectbox(
                     "템플릿",
                     [p.stem for p in templates],
+                    format_func=display_name,
                     label_visibility="collapsed",
                 )
                 if templates
@@ -278,8 +280,9 @@ def render_spec_card(spec: AgentSpec) -> None:
     overview = spec_overview(spec)
     with st.container(border=True):
         st.caption("현재 명세")
-        st.markdown(f"**`{overview['name']}`**")
-        st.caption(spec.description)
+        # 카드 제목은 표시 이름, 식별자는 그 아래 작게 (파일·IAM·CLI는 식별자 그대로)
+        st.markdown(f"##### {display_name(overview['name'])}")
+        st.caption(f"`{overview['name']}` — {spec.description}")
 
         col_model, col_tools, col_team = st.columns(3)
         with col_model:
@@ -302,7 +305,7 @@ def render_spec_card(spec: AgentSpec) -> None:
                 hide_index=True,
                 column_config={
                     "name": st.column_config.TextColumn("서브에이전트"),
-                    "tools": st.column_config.TextColumn("도구"),
+                    "tools": st.column_config.ListColumn("도구"),
                     "description": st.column_config.TextColumn(
                         "설명", width="large"
                     ),
@@ -383,10 +386,12 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
 
     agent = st.session_state.get("agent")
     if agent is None:
-        st.info(
-            "**아직 에이전트가 없습니다.** 왼쪽에서 만들거나 템플릿을 불러오세요.",
-            icon=":material/info:",
-        )
+        # 빈 상태도 같은 카드 틀 안에 안내 한 줄로 그린다 (단계 2 보완).
+        with st.container(height=640, border=True):
+            st.caption(
+                ":material/info: 아직 에이전트가 없습니다 — "
+                "왼쪽에서 만들거나 템플릿을 불러오세요."
+            )
         return
 
     can_run = is_allowed(principal, ACTION_RUN)

@@ -189,6 +189,20 @@ def principal_names(config: IamConfig) -> list[str]:
     return names
 
 
+# 화면 표시용 이름 — 식별자(name)는 파일명·IAM 리소스·감사 로그·CLI에서
+# 그대로 쓰므로 바꾸지 않는다. 표시만 분리한다 (Phase 8 단계 2 보완).
+_DISPLAY_NAMES = {
+    "data_analysis_team": "데이터 분석 팀",
+    "research_team": "리서치 팀",
+    "doc_qa_team": "문서 Q&A 팀",
+}
+
+
+def display_name(identifier: str) -> str:
+    """식별자의 화면 표시 이름. 매핑이 없으면 밑줄을 공백으로 바꾼다."""
+    return _DISPLAY_NAMES.get(identifier, identifier.replace("_", " "))
+
+
 def spec_overview(spec: AgentSpec) -> dict[str, str]:
     """스펙을 표로 보여주기 위한 납작한 요약."""
     return {
@@ -200,12 +214,15 @@ def spec_overview(spec: AgentSpec) -> dict[str, str]:
     }
 
 
-def team_rows(spec: AgentSpec) -> list[dict[str, str]]:
-    """팀 구성을 표 형태로. 팀이 없으면 빈 목록."""
+def team_rows(spec: AgentSpec) -> list[dict[str, object]]:
+    """팀 구성을 표 형태로. 팀이 없으면 빈 목록.
+
+    tools는 목록 그대로 준다 — st.dataframe의 ListColumn이 배지로 그린다.
+    """
     return [
         {
             "name": sub.name,
-            "tools": ", ".join(sub.tools) or "(none)",
+            "tools": list(sub.tools),
             "description": sub.description,
         }
         for sub in spec.subagents

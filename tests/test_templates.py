@@ -30,6 +30,31 @@ def test_templates_directory_is_not_empty():
 
 
 @pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
+def test_template_descriptions_mention_only_granted_tools(path: Path):
+    """설명이 그 팀원에게 없는 도구를 말하면 안 된다 (Phase 8에서 실측된 불일치).
+
+    data_analysis_team의 analyst 설명에 python_repl이 남아 있었다 — 5-1에서
+    도구를 calculate로 바꾸며 설명을 놓쳤다. 설명은 위임 판단의 근거라
+    실제 도구와 어긋나면 리더가 잘못 위임한다.
+    """
+    from registry import allowed_tool_keys
+
+    spec = _load(path)
+    members = [
+        (spec.name, spec.tools, spec.description),
+        *((s.name, s.tools, s.description) for s in spec.subagents),
+    ]
+
+    for member_name, tools, description in members:
+        for key in allowed_tool_keys():
+            if key in description:
+                assert key in tools, (
+                    f"{path.stem}/{member_name}: 설명이 '{key}'를 언급하지만 "
+                    f"tools에는 없다 ({tools})"
+                )
+
+
+@pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
 def test_template_passes_spec_validation(path: Path):
     """배포하는 템플릿은 그대로 로드돼야 한다."""
     spec = _load(path)

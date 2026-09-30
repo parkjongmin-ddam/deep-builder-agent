@@ -220,6 +220,17 @@ def test_denial_reason_names_role_and_action():
 # --- 스펙 표시 -------------------------------------------------------------
 
 
+def test_display_name_maps_templates_and_falls_back():
+    """식별자는 그대로 두고 화면 표시 이름만 분리한다 (Phase 8 단계 2 보완)."""
+    from ui.state import display_name
+
+    assert display_name("data_analysis_team") == "데이터 분석 팀"
+    assert display_name("research_team") == "리서치 팀"
+    assert display_name("doc_qa_team") == "문서 Q&A 팀"
+    # 매핑 없는 이름은 밑줄을 공백으로
+    assert display_name("it_news_summarizer") == "it news summarizer"
+
+
 def test_spec_overview_flattens_fields():
     overview = spec_overview(_spec())
 
@@ -247,7 +258,8 @@ def test_team_rows_list_members():
     rows = team_rows(spec)
 
     assert rows[0]["name"] == "researcher"
-    assert rows[0]["tools"] == "web_search"
+    # Phase 8: ListColumn(배지 표시)용으로 문자열이 아니라 목록을 준다
+    assert rows[0]["tools"] == ["web_search"]
 
 
 # --- 대화 상태 -------------------------------------------------------------
