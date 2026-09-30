@@ -67,6 +67,7 @@ from ui.state import (  # noqa: E402
     principal_names,
     readiness_rows_html,
     readiness_summary,
+    role_label,
     render_turns,
     spec_version,
     stream_agent_reply,
@@ -121,7 +122,7 @@ def render_sidebar(
             choice = st.selectbox("주체", principal_names(iam_config))
             principal = iam_config.resolve(choice)
         st.caption("역할")
-        st.html(badges_html([principal.role_name], accent=True))
+        st.html(badges_html([principal.role_name], accent=True, labeler=role_label))
         st.caption("허용 행위")
         st.html(chips_html(sorted(principal.role.actions), labeler=action_label))
         st.caption("도구 경계")
@@ -312,7 +313,7 @@ def render_spec_card(spec: AgentSpec) -> None:
         with col_ver:
             version = spec_version(overview["name"])
             if version:
-                st.html(badges_html([f"v{version}"], accent=True))
+                st.html(badges_html([f"v{version}"], accent=True, mono=True))
         st.caption(f"`{overview['name']}` — {spec.description}")
 
         col_model, col_tools, col_team = st.columns(3)

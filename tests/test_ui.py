@@ -197,6 +197,41 @@ def test_tool_label_maps_registry_and_mcp_keys():
     assert tool_label("unknown_tool") == "unknown_tool"
 
 
+def test_role_label_maps_shipped_roles():
+    from ui.state import role_label
+
+    assert role_label("admin") == "관리자"
+    assert role_label("builder") == "빌더"
+    assert role_label("operator") == "운영자"
+    assert role_label("viewer") == "조회자"
+    assert role_label("custom_role") == "custom_role"
+
+
+def test_every_iam_role_has_a_korean_label():
+    """iam.json에 역할을 추가하면 표시 매핑도 함께 추가해야 한다."""
+    import json
+    from pathlib import Path
+
+    from ui.state import role_label
+
+    roles = json.loads(
+        (Path(__file__).resolve().parent.parent / "iam.json").read_text(
+            encoding="utf-8"
+        )
+    )["roles"]
+    unmapped = [name for name in roles if role_label(name) == name]
+
+    assert not unmapped, f"한글 라벨이 없는 역할: {unmapped}"
+
+
+def test_badges_html_mono_variant_for_identifiers():
+    """식별자를 그대로 보여주는 배지(vN 등)만 고정폭 변형을 쓴다."""
+    from ui.state import badges_html
+
+    assert "dba-badge--mono" in badges_html(["v3"], accent=True, mono=True)
+    assert "dba-badge--mono" not in badges_html(["v3"], accent=True)
+
+
 def test_every_registered_tool_has_a_korean_label():
     """레지스트리에 도구를 추가하면 표시 매핑도 함께 추가해야 한다."""
     from registry import allowed_tool_keys

@@ -101,11 +101,13 @@ def _detected_theme() -> str | None:
 
 
 _COMPONENT_CSS = """
+/* 칩·배지 기본 폰트는 본문 — 한글 라벨을 고정폭으로 그리면 자간이 벌어진다.
+   식별자를 그대로 보여주는 배지(vN 등)만 --mono 변형으로 고정폭을 쓴다. */
 .dba-badge {
   display: inline-flex; align-items: center;
   height: 22px; padding: 0 7px; margin: 0 4px 4px 0;
   border-radius: 6px;
-  font: 500 11.5px/1 "JetBrains Mono", monospace;
+  font: 500 12px/1 "Pretendard Variable", Pretendard, sans-serif;
   background: color-mix(in srgb, var(--dba-info) 14%, transparent);
   color: var(--dba-info);
 }
@@ -113,11 +115,14 @@ _COMPONENT_CSS = """
   background: color-mix(in srgb, var(--dba-accent) 14%, transparent);
   color: var(--dba-accent);
 }
+.dba-badge--mono {
+  font: 500 11.5px/1 "JetBrains Mono", monospace;
+}
 .dba-chip {
   display: inline-flex; align-items: center;
   height: 22px; padding: 0 7px; margin: 0 4px 4px 0;
   border-radius: 5px;
-  font: 500 11.5px/1 "JetBrains Mono", monospace;
+  font: 500 12px/1 "Pretendard Variable", Pretendard, sans-serif;
   background: var(--dba-chip-bg);
   border: 1px solid var(--dba-chip-border);
   color: var(--dba-chip-text);

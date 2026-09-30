@@ -155,6 +155,22 @@ _TOOL_LABELS_KO = {
 }
 
 
+_ROLE_LABELS_KO = {
+    "admin": "관리자",
+    "builder": "빌더",
+    "operator": "운영자",
+    "viewer": "조회자",
+}
+
+
+def role_label(key: str) -> str:
+    """IAM 역할의 한글 표시 이름. 매핑이 없으면 식별자 그대로.
+
+    iam.json의 역할 전체가 매핑돼야 한다 — 테스트가 강제한다.
+    """
+    return _ROLE_LABELS_KO.get(key, key)
+
+
 def action_label(key: str) -> str:
     """IAM 행위의 한글 표시 이름. 매핑이 없으면 식별자 그대로."""
     return _ACTION_LABELS_KO.get(key, key)
@@ -180,14 +196,20 @@ def badges_html(
     keys: Sequence[str],
     accent: bool = False,
     labeler: Callable[[str], str] | None = None,
+    mono: bool = False,
 ) -> str:
     """도구 키 목록을 배지 span HTML로 (Phase 8 단계 2, 시안 1a).
 
     클래스는 ui/style.py가 주입하는 `.dba-badge`다. labeler를 주면 표시는
-    그 결과, hover(title)는 원래 식별자다. 입력이 레지스트리 키라 통제되어
-    있어도 이스케이프한다 — 시스템 경계에서는 신뢰하지 않는다.
+    그 결과, hover(title)는 원래 식별자다. 기본 폰트는 본문(한글 라벨용)이고
+    식별자를 그대로 보여주는 배지(vN 등)만 mono=True로 고정폭을 쓴다.
+    입력이 레지스트리 키라 통제되어 있어도 이스케이프한다.
     """
-    cls = "dba-badge dba-badge--accent" if accent else "dba-badge"
+    cls = "dba-badge"
+    if accent:
+        cls += " dba-badge--accent"
+    if mono:
+        cls += " dba-badge--mono"
     return "".join(_span(cls, key, labeler) for key in keys)
 
 
