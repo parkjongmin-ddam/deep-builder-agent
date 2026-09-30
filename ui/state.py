@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+import html
+from collections.abc import Sequence
+
 from runtime.messages import last_text, message_text
 
 # 환경 점검은 UI만의 관심사가 아니다 — CLI도 같은 판정을 써야 한다.
@@ -80,6 +83,57 @@ def eval_case_icon(passed: bool) -> str:
     `st.expander(icon=...)`은 색 지시자를 받지 않으므로 아이콘 이름만 준다.
     """
     return ":material/check_circle:" if passed else ":material/cancel:"
+
+
+def badges_html(keys: Sequence[str], accent: bool = False) -> str:
+    """도구 키 목록을 배지 span HTML로 (Phase 8 단계 2, 시안 1a).
+
+    클래스는 ui/style.py가 주입하는 `.dba-badge`다. 입력이 레지스트리 키라
+    통제되어 있어도 이스케이프한다 — 시스템 경계에서는 신뢰하지 않는다.
+    """
+    cls = "dba-badge dba-badge--accent" if accent else "dba-badge"
+    return "".join(
+        f'<span class="{cls}">{html.escape(key)}</span>' for key in keys
+    )
+
+
+def chips_html(items: Sequence[str], dashed: bool = False) -> str:
+    """행위·도구 경계 칩 HTML (Phase 8 단계 2, 시안 1a).
+
+    dashed=True는 도구 경계용 점선 테두리 변형(`.dba-chip--dashed`)이다.
+    """
+    cls = "dba-chip dba-chip--dashed" if dashed else "dba-chip"
+    return "".join(
+        f'<span class="{cls}">{html.escape(item)}</span>' for item in items
+    )
+
+
+def readiness_summary(items: Sequence[ReadinessItem]) -> str:
+    """사이드바 환경 점검 요약 필 텍스트 (시안 5a).
+
+    실행 가능(전부 정상) / 실행 가능 · 경고 n(선택 항목만 결측) /
+    실행 불가(필수 결측).
+    """
+    if blocking_problems(list(items)):
+        return "실행 불가"
+    warnings = sum(1 for item in items if not item.ok)
+    return f"실행 가능 · 경고 {warnings}" if warnings else "실행 가능"
+
+
+_ACTION_VERBS = {
+    ACTION_CREATE: "에이전트를 생성할",
+    ACTION_REVISE: "명세를 수정할",
+    ACTION_RUN: "에이전트를 실행할",
+}
+
+
+def denial_reason(principal: Principal, action: str) -> str:
+    """권한 비활성 버튼 옆에 붙일 사유 한 줄 (시안 5a).
+
+    "{역할} 역할은 {행위} 수 없습니다" — 행위별 한국어 술어로 풀어 쓴다.
+    """
+    verb = _ACTION_VERBS.get(action, f"'{action}' 행위를 수행할")
+    return f"{principal.role_name} 역할은 {verb} 수 없습니다"
 
 
 def principal_names(config: IamConfig) -> list[str]:

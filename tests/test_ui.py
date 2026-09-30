@@ -109,6 +109,62 @@ def test_readiness_never_exposes_secret_values():
     assert "synthetic-key" not in rendered
 
 
+# --- 배지·칩·요약 (Phase 8 단계 2) ------------------------------------------
+
+
+def test_badges_html_renders_and_escapes():
+    """도구 키를 배지 span으로. 외부 입력이 아니어도 이스케이프는 기본이다."""
+    from ui.state import badges_html
+
+    out = badges_html(["web_search", "<b>"])
+
+    assert out.count('class="dba-badge"') == 2
+    assert "web_search" in out
+    assert "&lt;b&gt;" in out and "<b>" not in out
+
+
+def test_badges_html_accent_variant():
+    from ui.state import badges_html
+
+    assert 'dba-badge--accent' in badges_html(["builder"], accent=True)
+
+
+def test_chips_html_solid_and_dashed():
+    from ui.state import chips_html
+
+    solid = chips_html(["create_agent"])
+    dashed = chips_html(["calculate"], dashed=True)
+
+    assert 'class="dba-chip"' in solid and "--dashed" not in solid
+    assert 'class="dba-chip dba-chip--dashed"' in dashed
+
+
+def test_readiness_summary_three_states():
+    """사이드바 요약 필: 실행 가능(녹) / 실행 가능·경고 n / 실행 불가 (시안 5a)."""
+    from runtime.readiness import ReadinessItem
+    from ui.state import readiness_summary
+
+    ok = ReadinessItem(label="A", ok=True, detail="", required=True)
+    warn = ReadinessItem(label="B", ok=False, detail="", required=False)
+    missing = ReadinessItem(label="C", ok=False, detail="", required=True)
+
+    assert readiness_summary([ok]) == "실행 가능"
+    assert readiness_summary([ok, warn, warn]) == "실행 가능 · 경고 2"
+    assert readiness_summary([ok, missing]) == "실행 불가"
+
+
+def test_denial_reason_names_role_and_action():
+    """권한 비활성 버튼 옆 사유 한 줄 (시안 5a) — 행위별 한국어 술어."""
+    from runtime.iam import ACTION_CREATE, ACTION_REVISE, ACTION_RUN, load_iam_config
+    from ui.state import denial_reason
+
+    viewer = load_iam_config().resolve("demo_viewer")
+
+    assert denial_reason(viewer, ACTION_CREATE) == "viewer 역할은 에이전트를 생성할 수 없습니다"
+    assert "수정할 수 없습니다" in denial_reason(viewer, ACTION_REVISE)
+    assert "실행할 수 없습니다" in denial_reason(viewer, ACTION_RUN)
+
+
 # --- 스펙 표시 -------------------------------------------------------------
 
 
@@ -298,8 +354,9 @@ def test_viewer_principal_disables_creation_in_the_ui(monkeypatch, tmp_path):
     app.sidebar.selectbox[0].set_value("demo_viewer").run()
 
     assert not app.exception, [e.value for e in app.exception]
-    infos = [i.value for i in app.info]
-    assert any("생성할 수 없습니다" in m for m in infos), infos
+    # Phase 8: 사유는 st.info가 아니라 비활성 버튼 옆 caption 한 줄이다 (시안 5a).
+    captions = [c.value for c in app.caption]
+    assert any("생성할 수 없습니다" in m for m in captions), captions
 
 
 def test_principal_names_puts_the_default_first():

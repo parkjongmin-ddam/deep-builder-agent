@@ -46,14 +46,18 @@ from ui.state import (  # noqa: E402
     agent_reply,
     append_turn,
     authorize_action,
+    badges_html,
     blocking_problems,
     check_readiness,
+    chips_html,
+    denial_reason,
     eval_case_icon,
     is_allowed,
     load_iam_config,
     oidc_configured,
     principal_names,
     readiness_icon,
+    readiness_summary,
     render_history,
     user_identity,
     spec_overview,
@@ -85,31 +89,49 @@ def render_sidebar(
     - **데모 모드**(OIDC 미설정): 기존처럼 주체를 직접 고른다. 인가 로직 자체는
       두 모드가 동일하다.
     """
-    st.sidebar.header("사용자 (IAM)")
-    if oidc_principal is not None:
-        principal = oidc_principal
-        st.sidebar.markdown(f"🔐 **{principal.name}**")
-        st.sidebar.button("로그아웃", on_click=st.logout)
-    else:
-        st.sidebar.caption("OIDC 미설정 — 데모 모드 (주체 직접 선택)")
-        choice = st.sidebar.selectbox("주체", principal_names(iam_config))
-        principal = iam_config.resolve(choice)
-    st.sidebar.caption(
-        f"역할 **{principal.role_name}** · "
-        f"행위: {', '.join(sorted(principal.role.actions))} · "
-        f"도구 경계: {', '.join(sorted(principal.role.tools)) or '(없음)'}"
-    )
+    st.sidebar.markdown("#### :material/hub: deep_builder")
 
-    st.sidebar.header("환경")
+    st.sidebar.markdown("**사용자 · IAM**")
+    if oidc_principal is None:
+        st.sidebar.info(
+            "**데모 모드** — OIDC가 설정되지 않아 주체를 직접 선택합니다.",
+            icon=":material/info:",
+        )
+    with st.sidebar.container(border=True):
+        if oidc_principal is not None:
+            principal = oidc_principal
+            st.markdown(f"**{principal.name}**")
+            st.caption("OIDC 로그인 신원")
+        else:
+            choice = st.selectbox("주체", principal_names(iam_config))
+            principal = iam_config.resolve(choice)
+        st.caption("역할")
+        st.html(badges_html([principal.role_name], accent=True))
+        st.caption("허용 행위")
+        st.html(chips_html(sorted(principal.role.actions)))
+        st.caption("도구 경계")
+        boundary = sorted(principal.role.tools)
+        if boundary:
+            st.html(chips_html(boundary, dashed=True))
+        else:
+            st.caption("없음 — 도구를 직접 실행하지 않는 역할")
+        if oidc_principal is not None:
+            st.button("로그아웃", icon=":material/logout:", on_click=st.logout)
 
     items = check_readiness()
+    summary = readiness_summary(items)
+    pill_color = "red" if summary == "실행 불가" else "green"
+    st.sidebar.markdown(f"**환경 점검** · :{pill_color}[{summary}]")
+
     for item in items:
         st.sidebar.markdown(f"{readiness_icon(item)} **{item.label}**")
         st.sidebar.caption(item.detail)
 
     blockers = blocking_problems(items)
     if blockers:
-        st.sidebar.error(f"실행 불가: {', '.join(blockers)} 미설정")
+        st.sidebar.error(
+            f"실행 불가: {', '.join(blockers)} 미설정", icon=":material/cancel:"
+        )
 
     try:
         configure_tracing()
@@ -161,8 +183,6 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
     st.subheader("① 에이전트 만들기")
 
     can_create = is_allowed(principal, ACTION_CREATE)
-    if not can_create:
-        st.info(f"역할 {principal.role_name} 은 에이전트를 생성할 수 없습니다.")
 
     with st.form("build"):
         request = st.text_area(
@@ -170,14 +190,24 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
             placeholder="웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘",
             height=110,
         )
-        submitted = st.form_submit_button("생성", disabled=blocked or not can_create)
+        submitted = st.form_submit_button(
+            "생성",
+            type="primary",
+            icon=":material/auto_awesome:" if can_create else ":material/lock:",
+            disabled=blocked or not can_create,
+            help=None if can_create else denial_reason(principal, ACTION_CREATE),
+        )
+    if not can_create:
+        st.caption(
+            f":material/shield_person: {denial_reason(principal, ACTION_CREATE)}"
+        )
 
     if submitted and request.strip():
         # 위젯 비활성은 UX일 뿐이다 — 인가는 여기서 다시 판정하고 감사에 남긴다.
         try:
             authorize_action(principal, ACTION_CREATE)
         except PermissionDeniedError as exc:
-            st.error(f"IAM 거부: {exc}")
+            st.error(f"**IAM 거부.** {exc}", icon=":material/block:")
             return
         with st.spinner("명세를 생성하는 중..."):
             try:
@@ -185,10 +215,13 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
                     request.strip(), allowed_tools=principal.role.tools
                 )
             except SpecGenerationError as exc:
-                st.error(f"명세 생성 실패: {exc}\n\n마지막 원인: {exc.__cause__}")
+                st.error(
+                    f"**명세 생성에 실패했습니다.** {exc}\n\n마지막 원인: {exc.__cause__}",
+                    icon=":material/cancel:",
+                )
                 return
         saved = save_spec(spec)
-        st.success(f"{saved} 에 저장했습니다")
+        st.success(f"**명세를 저장했습니다.** {saved}", icon=":material/check_circle:")
         activate(spec)
 
     st.divider()
@@ -200,30 +233,69 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
         choice = st.selectbox("템플릿", [p.stem for p in templates])
         # 템플릿 활성화는 '기존 에이전트 실행'이다 — 경계는 부여(생성) 시점에만
         # 적용되므로 run_agent 행위 검사만 받는다 (runtime/iam.py 의미론 참조).
-        if st.button("템플릿 불러오기", disabled=blocked or not can_run):
+        if st.button(
+            "템플릿 불러오기",
+            icon=":material/download:" if can_run else ":material/lock:",
+            disabled=blocked or not can_run,
+            help=None if can_run else denial_reason(principal, ACTION_RUN),
+        ):
             try:
                 authorize_action(principal, ACTION_RUN, resource=choice)
             except PermissionDeniedError as exc:
-                st.error(f"IAM 거부: {exc}")
+                st.error(f"**IAM 거부.** {exc}", icon=":material/block:")
                 return
             path = TEMPLATES_DIR / f"{choice}.json"
             activate(load_spec_file(path))
-            st.success(f"{choice} 를 불러왔습니다")
+            st.success(f"**{choice} 를 불러왔습니다.**", icon=":material/check_circle:")
+        if not can_run:
+            st.caption(
+                f":material/shield_person: {denial_reason(principal, ACTION_RUN)}"
+            )
 
     spec = st.session_state.get("spec")
     if spec is None:
         return
 
     st.divider()
-    st.markdown("**현재 명세**")
-    st.table(spec_overview(spec))
-
-    rows = team_rows(spec)
-    if rows:
-        st.markdown("**팀 구성**")
-        st.table(rows)
-
+    render_spec_card(spec)
     render_revision_form(spec, blocked, principal)
+
+
+def render_spec_card(spec: AgentSpec) -> None:
+    """현재 명세를 카드형으로 그린다 (시안 1a — st.table 대체)."""
+    overview = spec_overview(spec)
+    with st.container(border=True):
+        st.caption("현재 명세")
+        st.markdown(f"**`{overview['name']}`**")
+        st.caption(spec.description)
+
+        col_model, col_tools, col_team = st.columns(3)
+        with col_model:
+            st.caption("모델")
+            st.markdown(f"`{overview['model']}`")
+        with col_tools:
+            st.caption("도구")
+            if spec.tools:
+                st.html(badges_html(spec.tools))
+            else:
+                st.caption("(없음)")
+        with col_team:
+            st.caption("서브에이전트")
+            st.markdown(f"**{len(spec.subagents)}개**")
+
+        rows = team_rows(spec)
+        if rows:
+            st.dataframe(
+                rows,
+                hide_index=True,
+                column_config={
+                    "name": st.column_config.TextColumn("서브에이전트"),
+                    "tools": st.column_config.TextColumn("도구"),
+                    "description": st.column_config.TextColumn(
+                        "설명", width="large"
+                    ),
+                },
+            )
 
 
 def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -> None:
@@ -234,16 +306,25 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
     자기가 쓴 프롬프트가 바뀐 줄 모른다.
     """
     st.divider()
-    st.markdown("**② 명세 고치기**")
+    st.subheader("② 명세 고치기")
 
     can_revise = is_allowed(principal, ACTION_REVISE)
     with st.form("revise"):
         request = st.text_area(
-            "무엇을 바꿀까요?",
+            "어떻게 고칠까요?",
             placeholder="결과를 파일로 저장하는 기능도 넣어줘",
             height=80,
         )
-        submitted = st.form_submit_button("수정", disabled=blocked or not can_revise)
+        submitted = st.form_submit_button(
+            "수정 적용",
+            icon=":material/edit:" if can_revise else ":material/lock:",
+            disabled=blocked or not can_revise,
+            help=None if can_revise else denial_reason(principal, ACTION_REVISE),
+        )
+    if not can_revise:
+        st.caption(
+            f":material/shield_person: {denial_reason(principal, ACTION_REVISE)}"
+        )
 
     if not (submitted and request.strip()):
         return
@@ -251,7 +332,7 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
     try:
         authorize_action(principal, ACTION_REVISE, resource=spec.name)
     except PermissionDeniedError as exc:
-        st.error(f"IAM 거부: {exc}")
+        st.error(f"**IAM 거부.** {exc}", icon=":material/block:")
         return
 
     with st.spinner("명세를 수정하는 중..."):
@@ -260,7 +341,10 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
                 spec, request.strip(), allowed_tools=principal.role.tools
             )
         except SpecGenerationError as exc:
-            st.error(f"수정 실패: {exc}\n\n마지막 원인: {exc.__cause__}")
+            st.error(
+                f"**수정에 실패했습니다.** {exc}\n\n마지막 원인: {exc.__cause__}",
+                icon=":material/cancel:",
+            )
             return
 
     diff = diff_specs(spec, revised)
@@ -268,14 +352,14 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
     st.code(format_diff(diff), language="text")
 
     if diff.is_empty:
-        st.info("바뀐 것이 없어 저장하지 않았습니다.")
+        st.info("**바뀐 것이 없어 저장하지 않았습니다.**", icon=":material/info:")
         return
 
     saved = save_spec(revised)
-    st.success(f"{saved} 에 저장했습니다")
+    st.success(f"**명세를 저장했습니다.** {saved}", icon=":material/check_circle:")
     activate(revised)
 
-    with st.expander("system_prompt 전문"):
+    with st.expander("system_prompt 전문", icon=":material/description:"):
         st.code(spec.system_prompt, language="markdown")
         for sub in spec.subagents:
             st.markdown(f"— **{sub.name}**")
@@ -283,22 +367,29 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
 
 
 def render_chat_panel(blocked: bool, principal: Principal) -> None:
-    st.subheader("② 대화하기")
+    st.subheader(":material/forum: 대화하기")
 
     agent = st.session_state.get("agent")
     if agent is None:
-        st.info("왼쪽에서 에이전트를 만들거나 템플릿을 불러오세요.")
+        st.info(
+            "**아직 에이전트가 없습니다.** 왼쪽에서 만들거나 템플릿을 불러오세요.",
+            icon=":material/info:",
+        )
         return
 
     can_run = is_allowed(principal, ACTION_RUN)
     if not can_run:
-        st.info(f"역할 {principal.role_name} 은 에이전트를 실행할 수 없습니다.")
+        st.caption(f":material/shield_person: {denial_reason(principal, ACTION_RUN)}")
 
-    for role, text in render_history(st.session_state.get("history", [])):
-        with st.chat_message(role):
-            st.markdown(text)
+    # 시안 1a — 대화 이력은 고정 높이 카드 안에서 독립 스크롤한다.
+    with st.container(height=640, border=True):
+        for role, text in render_history(st.session_state.get("history", [])):
+            with st.chat_message(role):
+                st.markdown(text)
 
-    user_input = st.chat_input("메시지를 입력하세요", disabled=blocked or not can_run)
+    user_input = st.chat_input(
+        "에이전트에게 메시지 보내기", disabled=blocked or not can_run
+    )
     if not user_input:
         return
 
@@ -309,7 +400,7 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
     st.session_state.history = history
     # 정상 응답은 history에 들어 있어 rerun 후 그려진다. 오류는 history에 없으므로 여기서 띄운다.
     if reply.startswith("[error]"):
-        st.error(reply)
+        st.error(f"**에이전트 실행에 실패했습니다.** {reply}", icon=":material/cancel:")
     else:
         st.rerun()
 
@@ -412,12 +503,16 @@ def main() -> None:
     blockers, principal = render_sidebar(iam_config, oidc_principal)
     blocked = bool(blockers)
 
-    build_tab, eval_tab = st.tabs(["빌더", "평가"])
+    build_tab, eval_tab = st.tabs(
+        [":material/construction: 빌더", ":material/fact_check: 평가"]
+    )
 
     with build_tab:
         left, right = st.columns(2, gap="large")
         with left:
-            render_builder_panel(blocked, principal)
+            # 시안 1a — 좌측 패널은 고정 높이 컨테이너에서 독립 스크롤한다.
+            with st.container(height=700, border=False):
+                render_builder_panel(blocked, principal)
         with right:
             render_chat_panel(blocked, principal)
 

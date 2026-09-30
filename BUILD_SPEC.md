@@ -133,7 +133,7 @@
     - ③ pytest가 실제 `logs/audit.jsonl` 오염 → **수정**: `tests/conftest.py` autouse 픽스처로 전 테스트의 감사 로그를 tmp_path로 격리 + 격리가 풀리면 실패하는 감시 테스트 추가. 같은 원인 계열로, **실제 secrets.toml이 생기자 UI 통합 테스트 5건이 OIDC 게이트를 렌더링하며 깨지던 것**도 잡았다 — AppTest는 secrets가 비어 있으면 실제 파일을 읽으므로(`if self.secrets:` 분기, 설치본 실측) 더미 secrets를 주입해 데모 모드를 강제한다 (`demo_mode_apptest` 헬퍼). 테스트 347 → **351건** 전건 통과 (통합 포함)
 - Phase 8 (9월 말~): **UI 리디자인** — 시안(docs/design/deep_builder_agent_Redesign.html) 재현. 단계·순서는 docs/design/UI_REDESIGN.md
   - [x] 단계 1 테마·공통 스타일 ✅ (2026-09-30) — config.toml 이원 테마([theme.light]/[theme.dark]), streamlit 1.64.0 고정, Pretendard·JetBrains Mono CDN 로드(ui/style.py), 상태 이모지 → Material 아이콘(순수 함수 + 테스트 2건). 테스트 **356건** 전건 통과
-  - [ ] 단계 2 빌더 탭 레이아웃
+  - [x] 단계 2 빌더 탭 레이아웃 ✅ (2026-09-30) — 사이드바 IAM 카드(역할 배지 + 행위·경계 칩, st.html), 환경 점검 요약 필, 탭 아이콘, 좌측 패널 st.container(height=700) 독립 스크롤, 대화 이력 st.container(height=640, border=True), 현재 명세 카드형(st.table → 카드 + 도구 배지 + 팀 st.dataframe(column_config)), 메시지 체계 통일(굵은 제목 + Material 아이콘), 권한 비활성 버튼(lock 아이콘 + help + shield_person 사유 caption). 배지·칩·요약·사유는 ui/state.py 순수 함수(badges_html·chips_html·readiness_summary·denial_reason) + 테스트 5건. 테스트 **361건** 전건 통과
   - [ ] 단계 3 명세 버전 이력
   - [ ] 단계 4 위임·도구 호출 표시 1차
   - [ ] 단계 5 평가 탭 대시보드
