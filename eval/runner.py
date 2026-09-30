@@ -15,6 +15,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
 from eval.checks import CheckResult, run_checks
@@ -228,6 +230,27 @@ def format_report(report: EvalReport) -> str:
     return "\n".join(lines)
 
 
+RESULTS_DIR = Path("eval/results")
+
+
+def save_report(
+    report: EvalReport,
+    directory: Path = RESULTS_DIR,
+    now: datetime | None = None,
+) -> Path:
+    """리포트 텍스트를 `<directory>/<YYYY-MM-DD_HHMMSS>.txt`로 남긴다 (Phase 8).
+
+    실행할 때마다 자동으로 불린다 — 이미 지불한 LLM 호출 결과가 화면·세션에만
+    남아 사라지는 일을 막는다. 자동 저장본은 실행 산출물이라 gitignore 대상이고,
+    기준값으로 삼을 파일만 `git add -f`로 골라 커밋한다 (.gitignore 주석 참조).
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = (now or datetime.now()).strftime("%Y-%m-%d_%H%M%S")
+    path = directory / f"{stamp}.txt"
+    path.write_text(format_report(report) + "\n", encoding="utf-8")
+    return path
+
+
 def main() -> int:
     """`python -m eval.runner` — 기본 케이스로 평가를 돌린다 (심판 포함).
 
@@ -239,6 +262,8 @@ def main() -> int:
 
     report = run_evaluation(judge=judge_spec)
     print(format_report(report))
+    saved = save_report(report)
+    print(f"[report] {saved} 에 저장했습니다")
     return 0 if report.passed == report.total else 1
 
 

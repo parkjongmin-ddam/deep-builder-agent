@@ -511,3 +511,24 @@ def test_format_report_names_failed_checks():
 
     assert "FAIL" in text
     assert "expected_tools" in text
+
+
+def test_save_report_writes_timestamped_text_file(tmp_path):
+    """실행 결과를 <디렉터리>/<날짜시각>.txt로 남긴다 (Phase 8 — 기준값 보관용).
+
+    파일명은 주입한 시각으로 결정적이고, 내용은 format_report 그대로다.
+    """
+    from datetime import datetime
+
+    from eval.runner import save_report
+
+    report = run_evaluation([_case()], spec_generator=lambda r: _spec())
+
+    path = save_report(
+        report,
+        directory=tmp_path / "results",
+        now=datetime(2026, 9, 30, 14, 22, 5),
+    )
+
+    assert path == tmp_path / "results" / "2026-09-30_142205.txt"
+    assert path.read_text(encoding="utf-8").rstrip() == format_report(report)

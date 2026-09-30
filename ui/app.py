@@ -31,7 +31,7 @@ from builder.builder import (  # noqa: E402
 )
 from eval.dataset import load_cases  # noqa: E402
 from eval.judge import judge_spec  # noqa: E402
-from eval.runner import format_report, run_evaluation  # noqa: E402
+from eval.runner import format_report, run_evaluation, save_report  # noqa: E402
 from registry import MCP_PREFIX  # noqa: E402
 from registry.mcp import MCPConfigError, load_tools_by_server  # noqa: E402
 from runtime.config import load_env  # noqa: E402
@@ -541,6 +541,8 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
         st.session_state.eval_report = report
         st.session_state.eval_ran_at = datetime.now().strftime("%Y-%m-%d %H:%M")
         st.session_state.eval_duration = time.time() - started
+        # 세션이 닫혀도 결과가 남게 즉시 파일로 적는다 (기준값 보관은 git add -f).
+        st.session_state.eval_saved = str(save_report(report))
 
     with right:
         # 마지막 실행 시각·소요시간은 결과 제목 옆에 — 실행 블록 뒤에 그려지므로
@@ -552,7 +554,9 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
             ran_at = st.session_state.get("eval_ran_at")
             if ran_at:
                 duration = format_duration(st.session_state.get("eval_duration", 0.0))
-                st.caption(f"마지막 실행 {ran_at} · {duration}")
+                saved = st.session_state.get("eval_saved", "")
+                saved_note = f" · {Path(saved).name} 저장됨" if saved else ""
+                st.caption(f"마지막 실행 {ran_at} · {duration}{saved_note}")
         report = st.session_state.get("eval_report")
         if report is None:
             st.info(

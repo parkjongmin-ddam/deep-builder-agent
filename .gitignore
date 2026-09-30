@@ -9,6 +9,11 @@ mcp_servers.json
 # IAM 감사 로그: 실행 기록이라 커밋하지 않는다 (workspace/ 밖에 두는 이유는 runtime/iam.py 참조)
 logs/
 
+# 평가 리포트 자동 저장본: 실행할 때마다 쌓이는 산출물이라 커밋하지 않는다.
+# 기준값으로 남길 리포트만 `git add -f eval/results/<파일>`로 골라 추적한다
+# (한 번 추적된 파일은 이 규칙과 무관하게 계속 추적된다)
+eval/results/
+
 # OIDC 클라이언트 비밀값: .env와 같은 규칙 — example만 추적한다
 .streamlit/secrets.toml
 
