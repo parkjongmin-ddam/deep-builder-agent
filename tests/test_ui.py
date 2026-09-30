@@ -170,6 +170,62 @@ def test_readiness_never_exposes_secret_values():
 # --- 배지·칩·요약 (Phase 8 단계 2) ------------------------------------------
 
 
+def test_action_label_maps_iam_actions():
+    """허용 행위는 한글로 보여준다 — 식별자는 그대로 (감사 로그·iam.json 불변)."""
+    from ui.state import action_label
+
+    assert action_label("create_agent") == "에이전트 생성"
+    assert action_label("revise_agent") == "명세 수정"
+    assert action_label("run_agent") == "에이전트 실행"
+    assert action_label("view") == "조회"
+    assert action_label("*") == "전체"
+    assert action_label("unknown_action") == "unknown_action"
+
+
+def test_tool_label_maps_registry_and_mcp_keys():
+    from ui.state import tool_label
+
+    assert tool_label("web_search") == "웹 검색"
+    assert tool_label("calculate") == "계산"
+    assert tool_label("file_read") == "파일 읽기"
+    assert tool_label("file_write") == "파일 쓰기"
+    assert tool_label("file_list") == "파일 목록"
+    assert tool_label("python_repl") == "코드 실행"
+    assert tool_label("mcp:echo") == "MCP · echo"
+    assert tool_label("mcp:*") == "모든 MCP"
+    assert tool_label("*") == "전체"
+    assert tool_label("unknown_tool") == "unknown_tool"
+
+
+def test_every_registered_tool_has_a_korean_label():
+    """레지스트리에 도구를 추가하면 표시 매핑도 함께 추가해야 한다."""
+    from registry import allowed_tool_keys
+    from ui.state import tool_label
+
+    unmapped = [key for key in allowed_tool_keys() if tool_label(key) == key]
+
+    assert not unmapped, f"한글 라벨이 없는 도구: {unmapped}"
+
+
+def test_badges_html_labeler_adds_title_hover():
+    """표시는 한글, hover(title)는 원래 식별자다."""
+    from ui.state import badges_html, tool_label
+
+    out = badges_html(["web_search"], labeler=tool_label)
+
+    assert ">웹 검색<" in out
+    assert 'title="web_search"' in out
+
+
+def test_chips_html_labeler_adds_title_hover():
+    from ui.state import action_label, chips_html
+
+    out = chips_html(["create_agent"], labeler=action_label)
+
+    assert ">에이전트 생성<" in out
+    assert 'title="create_agent"' in out
+
+
 def test_badges_html_renders_and_escapes():
     """도구 키를 배지 span으로. 외부 입력이 아니어도 이스케이프는 기본이다."""
     from ui.state import badges_html
@@ -307,8 +363,8 @@ def test_team_rows_list_members():
     rows = team_rows(spec)
 
     assert rows[0]["name"] == "researcher"
-    # Phase 8: ListColumn(배지 표시)용으로 문자열이 아니라 목록을 준다
-    assert rows[0]["tools"] == ["web_search"]
+    # Phase 8: ListColumn(배지 표시)용 목록 + 한글 표시 이름
+    assert rows[0]["tools"] == ["웹 검색"]
 
 
 # --- 명세 버전 이력 (Phase 8 단계 3) -----------------------------------------

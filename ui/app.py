@@ -45,6 +45,7 @@ from ui.state import (  # noqa: E402
     ACTION_RUN,
     PermissionDeniedError,
     Principal,
+    action_label,
     append_turn,
     authorize_action,
     badges_html,
@@ -74,6 +75,7 @@ from ui.state import (  # noqa: E402
     user_identity,
     spec_overview,
     team_rows,
+    tool_label,
     with_object_josa,
 )
 from ui.style import inject_css  # noqa: E402
@@ -121,11 +123,11 @@ def render_sidebar(
         st.caption("역할")
         st.html(badges_html([principal.role_name], accent=True))
         st.caption("허용 행위")
-        st.html(chips_html(sorted(principal.role.actions)))
+        st.html(chips_html(sorted(principal.role.actions), labeler=action_label))
         st.caption("도구 경계")
         boundary = sorted(principal.role.tools)
         if boundary:
-            st.html(chips_html(boundary, dashed=True))
+            st.html(chips_html(boundary, dashed=True, labeler=tool_label))
         else:
             st.caption("없음 — 도구를 직접 실행하지 않는 역할")
         if oidc_principal is not None:
@@ -320,7 +322,7 @@ def render_spec_card(spec: AgentSpec) -> None:
         with col_tools:
             st.caption("도구")
             if spec.tools:
-                st.html(badges_html(spec.tools))
+                st.html(badges_html(spec.tools, labeler=tool_label))
             else:
                 st.caption("(없음)")
         with col_team:
@@ -440,7 +442,8 @@ def step_line(step) -> str:
     if kind == "delegate":
         return f":material/call_split: **위임** → `{name}` — {args_summary}{suffix}"
     indent = _INNER_INDENT if depth else ""
-    return f"{indent}:material/build: `{name}` {args_summary}{suffix}"
+    # 도구명은 한글 표시 — 팀원 이름(delegate)은 스펙의 식별자 그대로 둔다.
+    return f"{indent}:material/build: `{tool_label(name)}` {args_summary}{suffix}"
 
 
 def render_chat_panel(blocked: bool, principal: Principal) -> None:
@@ -667,7 +670,7 @@ def render_case_list(cases) -> None:
             {
                 "id": c.id,
                 "요구": c.request,
-                "기대 도구": list(c.expect_tools) or ["(없음)"],
+                "기대 도구": [tool_label(k) for k in c.expect_tools] or ["(없음)"],
                 "팀": "필요" if c.expect_team else "",
             }
             for c in cases

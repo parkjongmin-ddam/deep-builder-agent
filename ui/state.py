@@ -134,27 +134,75 @@ def eval_case_icon(passed: bool) -> str:
     return ":material/check_circle:" if passed else ":material/cancel:"
 
 
-def badges_html(keys: Sequence[str], accent: bool = False) -> str:
+# 행위·도구의 화면 표시 이름 — 식별자는 diff·감사 로그·iam.json·명세 파일에서
+# 그대로 쓰므로 바꾸지 않는다. 표시만 분리한다 (display_name과 같은 원칙).
+_ACTION_LABELS_KO = {
+    "create_agent": "에이전트 생성",
+    "revise_agent": "명세 수정",
+    "run_agent": "에이전트 실행",
+    "view": "조회",
+    "*": "전체",
+}
+
+_TOOL_LABELS_KO = {
+    "web_search": "웹 검색",
+    "calculate": "계산",
+    "file_read": "파일 읽기",
+    "file_write": "파일 쓰기",
+    "file_list": "파일 목록",
+    "python_repl": "코드 실행",
+    "*": "전체",
+}
+
+
+def action_label(key: str) -> str:
+    """IAM 행위의 한글 표시 이름. 매핑이 없으면 식별자 그대로."""
+    return _ACTION_LABELS_KO.get(key, key)
+
+
+def tool_label(key: str) -> str:
+    """도구 키의 한글 표시 이름. `mcp:<서버>`는 "MCP · <서버>"로 푼다."""
+    if key == "mcp:*":
+        return "모든 MCP"
+    if key.startswith("mcp:"):
+        return f"MCP · {key[len('mcp:'):]}"
+    return _TOOL_LABELS_KO.get(key, key)
+
+
+def _span(cls: str, key: str, labeler: Callable[[str], str] | None) -> str:
+    label = labeler(key) if labeler else key
+    # hover에 원래 식별자를 남긴다 — 라벨과 같으면 title이 무의미하므로 생략.
+    title = f' title="{html.escape(key)}"' if label != key else ""
+    return f'<span class="{cls}"{title}>{html.escape(label)}</span>'
+
+
+def badges_html(
+    keys: Sequence[str],
+    accent: bool = False,
+    labeler: Callable[[str], str] | None = None,
+) -> str:
     """도구 키 목록을 배지 span HTML로 (Phase 8 단계 2, 시안 1a).
 
-    클래스는 ui/style.py가 주입하는 `.dba-badge`다. 입력이 레지스트리 키라
-    통제되어 있어도 이스케이프한다 — 시스템 경계에서는 신뢰하지 않는다.
+    클래스는 ui/style.py가 주입하는 `.dba-badge`다. labeler를 주면 표시는
+    그 결과, hover(title)는 원래 식별자다. 입력이 레지스트리 키라 통제되어
+    있어도 이스케이프한다 — 시스템 경계에서는 신뢰하지 않는다.
     """
     cls = "dba-badge dba-badge--accent" if accent else "dba-badge"
-    return "".join(
-        f'<span class="{cls}">{html.escape(key)}</span>' for key in keys
-    )
+    return "".join(_span(cls, key, labeler) for key in keys)
 
 
-def chips_html(items: Sequence[str], dashed: bool = False) -> str:
+def chips_html(
+    items: Sequence[str],
+    dashed: bool = False,
+    labeler: Callable[[str], str] | None = None,
+) -> str:
     """행위·도구 경계 칩 HTML (Phase 8 단계 2, 시안 1a).
 
     dashed=True는 도구 경계용 점선 테두리 변형(`.dba-chip--dashed`)이다.
+    labeler·title 규칙은 badges_html과 같다.
     """
     cls = "dba-chip dba-chip--dashed" if dashed else "dba-chip"
-    return "".join(
-        f'<span class="{cls}">{html.escape(item)}</span>' for item in items
-    )
+    return "".join(_span(cls, item, labeler) for item in items)
 
 
 def readiness_summary(items: Sequence[ReadinessItem]) -> str:
@@ -348,13 +396,13 @@ def spec_overview(spec: AgentSpec) -> dict[str, str]:
 def team_rows(spec: AgentSpec) -> list[dict[str, object]]:
     """팀 구성을 표 형태로. 팀이 없으면 빈 목록.
 
-    tools는 목록 그대로 준다 — st.dataframe의 ListColumn이 배지로 그린다.
-    도구가 없으면 빈 칸 대신 "(없음)"을 보여준다.
+    tools는 목록으로 준다 — st.dataframe의 ListColumn이 배지로 그린다.
+    표시는 한글 라벨(tool_label), 없으면 빈 칸 대신 "(없음)"이다.
     """
     return [
         {
             "name": sub.name,
-            "tools": list(sub.tools) or ["(없음)"],
+            "tools": [tool_label(key) for key in sub.tools] or ["(없음)"],
             "description": sub.description,
         }
         for sub in spec.subagents
