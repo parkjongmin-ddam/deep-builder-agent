@@ -35,7 +35,7 @@ from registry.mcp import MCPConfigError, load_tools_by_server  # noqa: E402
 from runtime.config import load_env  # noqa: E402
 from runtime.factory import build_agent  # noqa: E402
 from runtime.spec import AgentSpec, load_spec_file  # noqa: E402
-from runtime.spec_diff import diff_specs, format_diff  # noqa: E402
+from runtime.spec_diff import diff_specs  # noqa: E402
 from runtime.tracing import TracingConfigError, configure_tracing  # noqa: E402
 from ui.state import (  # noqa: E402
     ACTION_CREATE,
@@ -51,6 +51,7 @@ from ui.state import (  # noqa: E402
     check_readiness,
     chips_html,
     denial_reason,
+    diff_as_diff_text,
     display_name,
     eval_case_icon,
     is_allowed,
@@ -60,6 +61,8 @@ from ui.state import (  # noqa: E402
     readiness_rows_html,
     readiness_summary,
     render_history,
+    spec_version,
+    version_label,
     user_card_html,
     user_identity,
     spec_overview,
@@ -262,8 +265,12 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
                     icon=":material/cancel:",
                 )
                 return
+        old_version = spec_version(spec.name)
         saved = save_spec(spec)
-        st.success(f"**명세를 저장했습니다.** {saved}", icon=":material/check_circle:")
+        st.success(
+            f"**명세를 저장했습니다.** {version_label(old_version)} · {saved}",
+            icon=":material/check_circle:",
+        )
         activate(spec)
 
     spec = st.session_state.get("spec")
@@ -281,7 +288,13 @@ def render_spec_card(spec: AgentSpec) -> None:
     with st.container(border=True):
         st.caption("현재 명세")
         # 카드 제목은 표시 이름, 식별자는 그 아래 작게 (파일·IAM·CLI는 식별자 그대로)
-        st.markdown(f"##### {display_name(overview['name'])}")
+        col_name, col_ver = st.columns([0.86, 0.14], vertical_alignment="center")
+        with col_name:
+            st.markdown(f"##### {display_name(overview['name'])}")
+        with col_ver:
+            version = spec_version(overview["name"])
+            if version:
+                st.html(badges_html([f"v{version}"], accent=True))
         st.caption(f"`{overview['name']}` — {spec.description}")
 
         col_model, col_tools, col_team = st.columns(3)
@@ -363,15 +376,20 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
             return
 
     diff = diff_specs(spec, revised)
-    st.markdown("**변경 내역**")
-    st.code(format_diff(diff), language="text")
-
     if diff.is_empty:
         st.info("**바뀐 것이 없어 저장하지 않았습니다.**", icon=":material/info:")
         return
 
+    st.markdown("**변경 내역**")
+    # diff 문법(+/− 접두)이어야 st.code가 추가/삭제에 색을 입힌다 (단계 3).
+    st.code(diff_as_diff_text(diff), language="diff")
+
+    old_version = spec_version(revised.name)
     saved = save_spec(revised)
-    st.success(f"**명세를 저장했습니다.** {saved}", icon=":material/check_circle:")
+    st.success(
+        f"**명세를 저장했습니다.** {version_label(old_version)} · {saved}",
+        icon=":material/check_circle:",
+    )
     activate(revised)
 
     with st.expander("system_prompt 전문", icon=":material/description:"):

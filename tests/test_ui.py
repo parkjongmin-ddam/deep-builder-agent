@@ -262,6 +262,67 @@ def test_team_rows_list_members():
     assert rows[0]["tools"] == ["web_search"]
 
 
+# --- 명세 버전 이력 (Phase 8 단계 3) -----------------------------------------
+
+
+def test_spec_version_counts_history_files(tmp_path):
+    """버전 번호는 이력 파일 개수다 — 스키마 필드를 추가하지 않는다."""
+    from ui.state import spec_version
+
+    assert spec_version("ghost", directory=tmp_path) == 0
+
+    history = tmp_path / "my_agent"
+    history.mkdir()
+    (history / "v1.json").write_text("{}", encoding="utf-8")
+    (history / "v2.json").write_text("{}", encoding="utf-8")
+
+    assert spec_version("my_agent", directory=tmp_path) == 2
+
+
+def test_version_label_first_save_and_increment():
+    from ui.state import version_label
+
+    assert version_label(0) == "v1"
+    assert version_label(2) == "v2 → v3"
+
+
+def test_diff_as_diff_text_uses_plus_minus_prefixes():
+    """st.code(language="diff")가 색을 입히려면 +/−가 줄 머리에 와야 한다.
+
+    format_diff는 들여쓴 `~`/`+ 도구` 형식이라 diff 문법과 맞지 않는다 —
+    SpecDiff에서 직접 diff 텍스트를 만든다 (UI_REDESIGN 단계 3).
+    """
+    from runtime.spec_diff import FieldChange, MemberChange, SpecDiff
+    from ui.state import diff_as_diff_text
+
+    diff = SpecDiff(
+        fields=[FieldChange("description", "3줄 요약", "5줄 요약")],
+        tools_added=["file_write"],
+        tools_removed=["python_repl"],
+        members_added=["writer"],
+        members_changed=[
+            MemberChange(
+                "researcher",
+                fields=[FieldChange("system_prompt", "(292자)", "(414자)")],
+                tools_added=["web_search"],
+            )
+        ],
+    )
+
+    lines = diff_as_diff_text(diff).splitlines()
+
+    assert "- description: 3줄 요약" in lines
+    assert "+ description: 5줄 요약" in lines
+    assert "+ 도구 file_write" in lines
+    assert "- 도구 python_repl" in lines
+    assert "+ 팀원 writer" in lines
+    # 팀원 변경은 문맥 줄(공백 접두) 아래에 +/− 상세가 붙는다
+    assert "  팀원 researcher" in lines
+    assert "-   system_prompt: (292자)" in lines
+    assert "+   system_prompt: (414자)" in lines
+    assert "+   도구 web_search" in lines
+
+
 # --- 대화 상태 -------------------------------------------------------------
 
 

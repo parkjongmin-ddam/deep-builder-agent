@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import html
 from collections.abc import Sequence
+from pathlib import Path
 
 from runtime.messages import last_text, message_text
+from runtime.spec_diff import SpecDiff
 
 # 환경 점검은 UI만의 관심사가 아니다 — CLI도 같은 판정을 써야 한다.
 # `cli`가 `ui`를 임포트하는 것은 레이어가 거꾸로라 runtime/으로 내렸고,
@@ -187,6 +189,56 @@ def principal_names(config: IamConfig) -> list[str]:
         names.remove(DEFAULT_PRINCIPAL)
         names.insert(0, DEFAULT_PRINCIPAL)
     return names
+
+
+def spec_version(name: str, directory: Path = Path("specs")) -> int:
+    """명세의 현재 버전 — 이력 파일(`<directory>/<name>/v*.json`) 개수다.
+
+    이력이 없으면 0. 스키마에 버전 필드를 두지 않는 대신 저장 이력이
+    곧 버전이다 (Phase 8 단계 3, builder.save_spec과 같은 규칙).
+    """
+    history_dir = directory / name
+    if not history_dir.is_dir():
+        return 0
+    return len(list(history_dir.glob("v*.json")))
+
+
+def version_label(previous: int) -> str:
+    """저장 성공 메시지의 버전 표기 — 첫 저장은 "v1", 이후는 "v2 → v3"."""
+    if previous <= 0:
+        return "v1"
+    return f"v{previous} → v{previous + 1}"
+
+
+def diff_as_diff_text(diff: SpecDiff) -> str:
+    """SpecDiff를 diff 문법 텍스트로 — `st.code(language="diff")`용.
+
+    format_diff의 들여쓴 `~`/`+ 도구` 형식은 diff 하이라이터가 색을 못
+    입힌다(+/−가 줄 머리에 와야 한다). 필드 변경은 −이전/+이후 두 줄로,
+    팀원 변경은 문맥 줄 아래 들여쓴 +/− 상세로 편다.
+    """
+    lines: list[str] = []
+    for change in diff.fields:
+        lines.append(f"- {change.name}: {change.before}")
+        lines.append(f"+ {change.name}: {change.after}")
+    for key in diff.tools_added:
+        lines.append(f"+ 도구 {key}")
+    for key in diff.tools_removed:
+        lines.append(f"- 도구 {key}")
+    for name in diff.members_added:
+        lines.append(f"+ 팀원 {name}")
+    for name in diff.members_removed:
+        lines.append(f"- 팀원 {name}")
+    for member in diff.members_changed:
+        lines.append(f"  팀원 {member.name}")
+        for change in member.fields:
+            lines.append(f"-   {change.name}: {change.before}")
+            lines.append(f"+   {change.name}: {change.after}")
+        for key in member.tools_added:
+            lines.append(f"+   도구 {key}")
+        for key in member.tools_removed:
+            lines.append(f"-   도구 {key}")
+    return "\n".join(lines)
 
 
 # 화면 표시용 이름 — 식별자(name)는 파일명·IAM 리소스·감사 로그·CLI에서

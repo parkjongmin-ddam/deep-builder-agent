@@ -282,3 +282,33 @@ def test_save_spec_roundtrip(tmp_path):
     path = save_spec(spec, directory=tmp_path)
     assert path == tmp_path / "news_summarizer.json"
     assert AgentSpec(**json.loads(path.read_text(encoding="utf-8"))) == spec
+
+
+def test_save_spec_accumulates_version_history(tmp_path):
+    """연속 저장이 v1→v2→v3 이력을 쌓고, 최신본 경로는 CLI 호환으로 유지된다 (Phase 8)."""
+    spec = AgentSpec(**VALID_SPEC)
+
+    save_spec(spec, directory=tmp_path)
+    save_spec(spec.model_copy(update={"description": "2판"}), directory=tmp_path)
+    latest = save_spec(
+        spec.model_copy(update={"description": "3판"}), directory=tmp_path
+    )
+
+    history = sorted(p.name for p in (tmp_path / "news_summarizer").glob("v*.json"))
+    assert history == ["v1.json", "v2.json", "v3.json"]
+    # 최신본은 기존 경로에 그대로 — cli.py --spec specs/<name>.json 이 계속 돈다
+    assert latest == tmp_path / "news_summarizer.json"
+    assert "3판" in latest.read_text(encoding="utf-8")
+
+
+def test_save_spec_never_overwrites_history(tmp_path):
+    """이력 파일은 불변이다 — v1은 두 번째 저장 후에도 처음 내용 그대로다."""
+    spec = AgentSpec(**VALID_SPEC)
+
+    save_spec(spec, directory=tmp_path)
+    history_dir = tmp_path / "news_summarizer"
+    v1_before = (history_dir / "v1.json").read_text(encoding="utf-8")
+    save_spec(spec.model_copy(update={"description": "2판"}), directory=tmp_path)
+
+    assert (history_dir / "v1.json").read_text(encoding="utf-8") == v1_before
+    assert "2판" in (history_dir / "v2.json").read_text(encoding="utf-8")

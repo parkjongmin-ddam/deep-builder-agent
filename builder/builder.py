@@ -260,8 +260,23 @@ def revise_spec(
 
 
 def save_spec(spec: AgentSpec, directory: Path = SPECS_DIR) -> Path:
-    """검증된 스펙을 `<directory>/<name>.json`에 저장하고 경로를 반환한다."""
+    """검증된 스펙을 저장하고 최신본 경로를 반환한다.
+
+    두 곳에 쓴다 (Phase 8 단계 3):
+    - `<directory>/<name>/vN.json` — 이력. N은 기존 이력 개수 + 1이라
+      같은 번호를 덮어쓰지 않는다. 버전은 파일 개수로 세므로 스키마 필드가
+      늘지 않는다 (SPEC_VERSION 불변).
+    - `<directory>/<name>.json` — 최신본. 기존 경로 그대로라
+      `cli.py --spec specs/<name>.json` 호환이 유지된다.
+    """
     directory.mkdir(parents=True, exist_ok=True)
+    payload = spec.model_dump_json(indent=2)
+
+    history_dir = directory / spec.name
+    history_dir.mkdir(exist_ok=True)
+    version = len(list(history_dir.glob("v*.json"))) + 1
+    (history_dir / f"v{version}.json").write_text(payload, encoding="utf-8")
+
     path = directory / f"{spec.name}.json"
-    path.write_text(spec.model_dump_json(indent=2), encoding="utf-8")
+    path.write_text(payload, encoding="utf-8")
     return path
