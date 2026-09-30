@@ -807,6 +807,26 @@ def test_user_identity_normalizes_missing_and_scalar_groups():
 
 
 @pytest.mark.integration
+def test_oidc_gate_renders_login_card(monkeypatch):
+    """[auth]가 설정되면 로그인 카드가 뜨고 앱 본문은 그리지 않는다 (단계 6).
+
+    게이트 흐름(st.stop 위치)은 Phase 7 그대로고 화면만 카드형이다.
+    """
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+
+    app = AppTest.from_file(str(APP_PATH), default_timeout=60)
+    app.secrets["auth"] = {"client_id": "synthetic-client"}
+    app.run()
+
+    assert not app.exception, [e.value for e in app.exception]
+    assert [b for b in app.button if "Okta로 로그인" in b.label], [
+        b.label for b in app.button
+    ]
+    assert not app.chat_input, "게이트가 본문을 막지 못했다"
+
+
+@pytest.mark.integration
 def test_app_blocks_execution_without_api_key(monkeypatch):
     """키가 없으면 실행을 막고 그 사실을 화면에 알려야 한다.
 

@@ -619,6 +619,50 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
             st.code(format_report(report))
 
 
+# --- OIDC 게이트 화면 (Phase 8 단계 6) --------------------------------------
+
+
+def render_login_gate() -> None:
+    """로그인 전 게이트 카드 (시안 3a). 그리기만 — st.stop()은 main()에 있다."""
+    _, center, _ = st.columns([1, 1, 1])
+    with center, st.container(border=True):
+        st.markdown("## :material/hub: deep_builder_agent")
+        st.caption("자연어로 AI 에이전트를 만들고, 실행하고, 평가한다")
+        st.divider()
+        st.markdown("**조직 계정으로 로그인하세요**")
+        st.caption(
+            "로그인 후 IdP 그룹에 매핑된 역할에 따라 사용할 수 있는 "
+            "기능과 도구가 정해집니다."
+        )
+        st.button(
+            "Okta로 로그인",
+            type="primary",
+            icon=":material/login:",
+            width="stretch",
+            on_click=st.login,
+        )
+        st.caption(":material/lock: IdP · Okta (OIDC)")
+
+
+def render_access_denied(email: str, reason: str) -> None:
+    """권한 거부 카드 (시안 4a) — 로그인 성공 ≠ 인가."""
+    _, center, _ = st.columns([1, 1, 1])
+    with center, st.container(border=True):
+        st.markdown("## :material/block: 접근 권한이 없습니다")
+        st.caption(
+            "로그인은 완료됐지만 이 계정에 매핑된 역할이 없어 "
+            "deep_builder_agent를 사용할 수 없습니다."
+        )
+        st.error(
+            f"**계정** `{email}`\n\n**사유** {reason}", icon=":material/block:"
+        )
+        st.caption(
+            "관리자에게 iam.json의 groups/principals 매핑 추가를 요청한 뒤 "
+            "다시 로그인하세요."
+        )
+        st.button("로그아웃", icon=":material/logout:", on_click=st.logout)
+
+
 # --- 진입 ------------------------------------------------------------------
 
 
@@ -643,17 +687,14 @@ def main() -> None:
     oidc_principal = None
     if oidc_configured(st.secrets):
         if not st.user.is_logged_in:
-            st.info("OIDC 인증이 설정된 앱입니다. IdP(Okta 등)로 로그인하세요.")
-            st.button("🔐 로그인", on_click=st.login)
+            render_login_gate()
             st.stop()
         email, groups = user_identity(st.user.to_dict())
         try:
             # 로그인 성공 ≠ 인가 — 역할 매핑이 없으면 여기서 거부된다.
             oidc_principal = iam_config.resolve_identity(email, groups)
         except PermissionDeniedError as exc:
-            st.error(f"IAM 거부: {exc}")
-            st.caption("관리자에게 iam.json의 groups/principals 매핑 추가를 요청하세요.")
-            st.button("로그아웃", on_click=st.logout)
+            render_access_denied(email, str(exc))
             st.stop()
 
     blockers, principal = render_sidebar(iam_config, oidc_principal)
