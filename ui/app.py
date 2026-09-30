@@ -45,7 +45,6 @@ from ui.state import (  # noqa: E402
     ACTION_RUN,
     PermissionDeniedError,
     Principal,
-    agent_reply,
     append_turn,
     authorize_action,
     badges_html,
@@ -69,6 +68,7 @@ from ui.state import (  # noqa: E402
     readiness_summary,
     render_turns,
     spec_version,
+    stream_agent_reply,
     version_label,
     user_card_html,
     user_identity,
@@ -185,6 +185,7 @@ def activate(spec: AgentSpec) -> None:
     st.session_state.spec = spec
     st.session_state.agent = agent
     st.session_state.history = []
+    st.session_state.rich_steps = {}  # 이력 초기화와 함께 단계 기록도 비운다
 
 
 # --- 탭 1: 빌더 ------------------------------------------------------------
@@ -416,6 +417,32 @@ def render_revision_form(spec: AgentSpec, blocked: bool, principal: Principal) -
             st.code(sub.system_prompt, language="markdown")
 
 
+_INNER_INDENT = "&nbsp;&nbsp;&nbsp;&nbsp;"
+
+
+def step_line(step) -> str:
+    """단계 하나를 st.status 안의 마크다운 한 줄로.
+
+    스트리밍의 LiveStep(들여쓰기·소요시간 포함)과 extract_steps의 튜플
+    (과거 이력 — 리더 수준만) 둘 다 받는다.
+    """
+    if isinstance(step, tuple):
+        kind, name, args_summary, result_summary = step
+        depth, duration = 0, None
+    else:
+        kind, name = step.kind, step.name
+        args_summary, result_summary = step.args_summary, step.result_summary
+        depth, duration = step.depth, step.duration
+
+    suffix = f" · {result_summary}" if result_summary else ""
+    if duration is not None:
+        suffix += f" · {duration:.1f}s"
+    if kind == "delegate":
+        return f":material/call_split: **위임** → `{name}` — {args_summary}{suffix}"
+    indent = _INNER_INDENT if depth else ""
+    return f"{indent}:material/build: `{name}` {args_summary}{suffix}"
+
+
 def render_chat_panel(blocked: bool, principal: Principal) -> None:
     st.subheader(":material/forum: 대화하기")
 
@@ -434,25 +461,23 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
         st.caption(f":material/shield_person: {denial_reason(principal, ACTION_RUN)}")
 
     # 시안 1a — 대화 이력은 고정 높이 카드 안에서 독립 스크롤한다.
-    # 단계(위임·도구 호출)는 응답 위에 st.status로 그린다 (단계 4, 리더 수준).
+    # 단계는 응답 위 st.status. 스트리밍으로 수집한 단계(내부 도구·소요시간
+    # 포함)는 rich_steps에 턴 번호로 남아 있어 rerun 후에도 그대로 그린다.
+    rich_steps: dict = st.session_state.get("rich_steps", {})
+    user_turn = 0
     with st.container(height=640, border=True):
         for role, text, steps in render_turns(st.session_state.get("history", [])):
+            if role == "user":
+                user_turn += 1
+            carries_steps = bool(steps) or not text
+            display = (rich_steps.get(user_turn) or steps) if carries_steps else []
             with st.chat_message(role):
-                if steps:
+                if role != "user" and display:
                     with st.status(
-                        f"실행 완료 · {len(steps)}단계", state="complete"
+                        f"실행 완료 · {len(display)}단계", state="complete"
                     ):
-                        for kind, name, args_summary, result_summary in steps:
-                            if kind == "delegate":
-                                line = (
-                                    f":material/call_split: **위임** → `{name}`"
-                                    f" — {args_summary}"
-                                )
-                            else:
-                                line = f":material/build: `{name}` {args_summary}"
-                            if result_summary:
-                                line += f" · {result_summary}"
-                            st.markdown(line)
+                        for step in display:
+                            st.markdown(step_line(step))
                 if text:
                     st.markdown(text)
 
@@ -463,15 +488,38 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
         return
 
     history = append_turn(st.session_state.get("history", []), user_input)
-    with st.spinner("에이전트가 작업 중..."):
-        history, reply = agent_reply(agent, history)
+    current_turn = user_turn + 1
 
-    st.session_state.history = history
-    # 정상 응답은 history에 들어 있어 rerun 후 그려진다. 오류는 history에 없으므로 여기서 띄운다.
+    # 단계 7 — 스트리밍 실행. 단계가 도착할 때마다 status 본문을 다시 그린다.
+    # 실패하면 stream_agent_reply가 invoke로 폴백한다 (단계는 빈다).
+    with st.chat_message("user"):
+        st.markdown(user_input)
+    with st.chat_message("assistant"):
+        status = st.status("실행 중...", state="running", expanded=True)
+        with status:
+            body = st.empty()
+
+        def on_update(steps) -> None:
+            status.update(label=f"실행 중 · {len(steps)}단계")
+            body.markdown("\n\n".join(step_line(s) for s in steps))
+
+        new_history, reply, steps, _streamed = stream_agent_reply(
+            agent, history, on_update
+        )
+
+    st.session_state.history = new_history
     if reply.startswith("[error]"):
+        status.update(label="실행 실패", state="error")
         st.error(f"**에이전트 실행에 실패했습니다.** {reply}", icon=":material/cancel:")
-    else:
-        st.rerun()
+        return
+
+    status.update(
+        label=f"실행 완료 · {len(steps)}단계" if steps else "실행 완료",
+        state="complete",
+    )
+    if steps:
+        st.session_state.setdefault("rich_steps", {})[current_turn] = steps
+    st.rerun()
 
 
 # --- 탭 2: 평가 ------------------------------------------------------------

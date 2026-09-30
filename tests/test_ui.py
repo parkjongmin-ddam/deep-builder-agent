@@ -372,6 +372,184 @@ def test_diff_as_diff_text_uses_plus_minus_prefixes():
     assert "+   도구 web_search" in lines
 
 
+# --- 스트리밍 실행 (Phase 8 단계 7) ------------------------------------------
+
+
+def _ns(uuid: str) -> tuple:
+    return (f"tools:{uuid}",)
+
+
+def _stream_events():
+    """실측 형태 그대로의 이벤트 대본 — 위임 1회(내부 echo 1회) + 리더 최종 답.
+
+    (ns, mode, chunk) 3튜플, updates chunk는 {노드: {"messages": [...]}} 형태.
+    미들웨어 노드 이벤트도 섞어 필터를 검증한다 (주의사항 ③).
+    """
+    task_call = FakeMessage(
+        "ai",
+        "",
+        tool_calls=[
+            {
+                "name": "task",
+                "args": {"subagent_type": "researcher", "description": "뉴스 수집"},
+                "id": "call_t1",
+            }
+        ],
+    )
+    inner_call = FakeMessage(
+        "ai",
+        "",
+        tool_calls=[{"name": "echo", "args": {"text": "안녕"}, "id": "call_e1"}],
+    )
+    inner_result = FakeMessage("tool", "echo:안녕", tool_call_id="call_e1")
+    task_result = FakeMessage("tool", "수집 완료", tool_call_id="call_t1")
+    final = FakeMessage("ai", "최종 보고입니다")
+    ns1 = _ns("aaaa")
+    return [
+        ((), "updates", {"PatchToolCallsMiddleware.before_agent": None}),
+        ((), "updates", {"model": {"messages": [task_call]}}),
+        (ns1, "updates", {"PatchToolCallsMiddleware.before_agent": None}),
+        (ns1, "updates", {"model": {"messages": [inner_call]}}),
+        (ns1, "updates", {"tools": {"messages": [inner_result]}}),
+        ((), "updates", {"tools": {"messages": [task_result]}}),
+        ((), "updates", {"model": {"messages": [final]}}),
+        ((), "values", {"messages": [task_call, task_result, final]}),
+    ]
+
+
+class FakeStreamAgent:
+    def __init__(self, events, invoke_messages=None, fail_after=None):
+        self._events = events
+        self._invoke_messages = invoke_messages or []
+        self._fail_after = fail_after
+        self.invoked = False
+
+    def stream(self, _payload, subgraphs=False, stream_mode=None):
+        for index, event in enumerate(self._events):
+            if self._fail_after is not None and index >= self._fail_after:
+                raise RuntimeError("스트림 끊김")
+            yield event
+
+    def invoke(self, _payload):
+        self.invoked = True
+        return {"messages": self._invoke_messages}
+
+
+def test_stream_agent_reply_collects_delegation_and_inner_steps():
+    """위임·내부 도구가 순서대로 수집되고, 내부 단계는 depth=1 + 소요시간이 붙는다."""
+    from ui.state import stream_agent_reply
+
+    agent = FakeStreamAgent(_stream_events())
+
+    history, reply, steps, streamed = stream_agent_reply(agent, [])
+
+    assert streamed is True
+    assert reply == "최종 보고입니다"
+    assert len(history) == 3  # values 마지막 상태 그대로
+    assert [(s.kind, s.name, s.depth) for s in steps] == [
+        ("delegate", "researcher", 0),
+        ("tool", "echo", 1),
+    ]
+    assert "뉴스 수집" in steps[0].args_summary
+    assert steps[0].result_summary == "수집 완료"
+    assert steps[0].duration is not None and steps[0].duration >= 0
+    assert steps[1].result_summary == "echo:안녕"
+    assert steps[1].duration is not None
+
+
+def test_stream_agent_reply_filters_middleware_nodes():
+    """model·tools 외 노드(미들웨어)는 단계로 잡히지 않는다 (주의사항 ③)."""
+    from ui.state import stream_agent_reply
+
+    agent = FakeStreamAgent(_stream_events())
+
+    _, _, steps, _ = stream_agent_reply(agent, [])
+
+    assert all(s.name in {"researcher", "echo"} for s in steps)
+
+
+def test_stream_agent_reply_maps_namespaces_in_call_order():
+    """병렬 위임 시 네임스페이스는 호출 순서로 배정된다 (주의사항 ①)."""
+    from ui.state import stream_agent_reply
+
+    call_a = FakeMessage(
+        "ai",
+        "",
+        tool_calls=[
+            {"name": "task", "args": {"subagent_type": "a", "description": "일"}, "id": "t_a"},
+            {"name": "task", "args": {"subagent_type": "b", "description": "이"}, "id": "t_b"},
+        ],
+    )
+    inner_a = FakeMessage(
+        "ai", "", tool_calls=[{"name": "calc_a", "args": {}, "id": "i_a"}]
+    )
+    inner_b = FakeMessage(
+        "ai", "", tool_calls=[{"name": "calc_b", "args": {}, "id": "i_b"}]
+    )
+    final = FakeMessage("ai", "끝")
+    events = [
+        ((), "updates", {"model": {"messages": [call_a]}}),
+        (_ns("na"), "updates", {"model": {"messages": [inner_a]}}),
+        (_ns("nb"), "updates", {"model": {"messages": [inner_b]}}),
+        ((), "updates", {"model": {"messages": [final]}}),
+        ((), "values", {"messages": [final]}),
+    ]
+
+    _, _, steps, _ = stream_agent_reply(FakeStreamAgent(events), [])
+
+    # a 위임 블록 뒤에 a 내부, b 위임 블록 뒤에 b 내부
+    assert [(s.kind, s.name) for s in steps] == [
+        ("delegate", "a"),
+        ("tool", "calc_a"),
+        ("delegate", "b"),
+        ("tool", "calc_b"),
+    ]
+
+
+def test_stream_agent_reply_falls_back_when_stream_is_missing():
+    """stream이 없는 에이전트는 기존 invoke 경로로 폴백한다."""
+    from ui.state import stream_agent_reply
+
+    agent = FakeAgent([FakeMessage("ai", "인보크 응답")])
+
+    history, reply, steps, streamed = stream_agent_reply(agent, [])
+
+    assert streamed is False
+    assert reply == "인보크 응답"
+    assert steps == []
+
+
+def test_stream_agent_reply_falls_back_on_mid_stream_failure():
+    """스트림이 중간에 죽어도 invoke로 다시 실행해 답을 만든다."""
+    from ui.state import stream_agent_reply
+
+    agent = FakeStreamAgent(
+        _stream_events(),
+        invoke_messages=[FakeMessage("ai", "폴백 응답")],
+        fail_after=2,
+    )
+
+    _, reply, steps, streamed = stream_agent_reply(agent, [])
+
+    assert streamed is False
+    assert reply == "폴백 응답"
+    assert steps == []
+    assert agent.invoked
+
+
+def test_stream_agent_reply_falls_back_without_final_values():
+    """루트 values(최종 상태)가 없으면 스트림 결과를 신뢰하지 않고 폴백한다 (주의사항 ②)."""
+    from ui.state import stream_agent_reply
+
+    events = [e for e in _stream_events() if e[1] != "values"]
+    agent = FakeStreamAgent(events, invoke_messages=[FakeMessage("ai", "폴백")])
+
+    _, reply, _, streamed = stream_agent_reply(agent, [])
+
+    assert streamed is False
+    assert reply == "폴백"
+
+
 # --- 평가 대시보드 (Phase 8 단계 5) ------------------------------------------
 
 

@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from runtime.messages import last_text, message_text
@@ -477,6 +479,176 @@ def render_turns(history: list) -> list[tuple[str, str, list[Step]]]:
         segment.append(message)
     flush()
     return rows
+
+
+@dataclass
+class LiveStep:
+    """스트리밍 중 수집되는 실행 단계 (Phase 8 단계 7).
+
+    depth 0은 리더 수준(위임·리더 도구), 1은 서브에이전트 내부 도구다.
+    duration은 결과가 도착한 뒤에야 채워진다 — 이벤트 도착 시각의 델타라
+    근사값이다 (LangGraph는 시각을 주지 않는다).
+    """
+
+    kind: str  # "delegate" | "tool"
+    name: str
+    args_summary: str
+    depth: int = 0
+    result_summary: str = ""
+    duration: float | None = None
+    call_id: str | None = None
+
+
+_STREAM_NODES = {"model", "tools"}  # 그 외(미들웨어 훅)는 단계가 아니다
+
+
+def _leader_step(call: dict) -> LiveStep:
+    args = call.get("args") or {}
+    if call.get("name") == _TASK_TOOL:
+        return LiveStep(
+            "delegate",
+            str(args.get("subagent_type", "?")),
+            _truncate(args.get("description", "")),
+            call_id=call.get("id"),
+        )
+    args_text = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return LiveStep(
+        "tool", call.get("name", "?"), _truncate(args_text), call_id=call.get("id")
+    )
+
+
+def _insert_inner(steps: list[LiveStep], delegate: LiveStep | None, step: LiveStep) -> None:
+    """내부 단계를 해당 위임 블록의 끝에 끼운다. 위임을 모르면 맨 뒤에."""
+    if delegate is None or delegate not in steps:
+        steps.append(step)
+        return
+    index = steps.index(delegate) + 1
+    while index < len(steps) and steps[index].depth == 1:
+        index += 1
+    steps.insert(index, step)
+
+
+def _stream_reply(
+    agent, history: list, on_update: Callable[[list[LiveStep]], None] | None
+) -> tuple[list, str, list[LiveStep]]:
+    steps: list[LiveStep] = []
+    started: dict[str, float] = {}
+    pending_delegations: list[LiveStep] = []  # 네임스페이스 미배정 위임 (호출 순)
+    ns_to_delegate: dict[tuple, LiveStep] = {}
+    final_state: dict | None = None
+
+    def notify() -> None:
+        if on_update is not None:
+            on_update(list(steps))
+
+    for namespace, mode, chunk in agent.stream(
+        {"messages": history}, subgraphs=True, stream_mode=["updates", "values"]
+    ):
+        now = time.perf_counter()
+        if mode == "values":
+            if namespace == ():
+                final_state = chunk  # 마지막 루트 values가 최종 대화 상태다
+            continue
+        for node, payload in chunk.items():
+            if node not in _STREAM_NODES:
+                continue  # 미들웨어 이벤트 필터 (조사 주의사항 ③)
+            messages = (payload or {}).get("messages") or []
+            if namespace == ():
+                _apply_leader_event(node, messages, steps, started, pending_delegations, now)
+            else:
+                delegate = ns_to_delegate.get(namespace)
+                if delegate is None and pending_delegations:
+                    # uuid는 tool_call_id와 다르다 — 호출 순서로 배정한다 (주의사항 ①)
+                    delegate = pending_delegations.pop(0)
+                    ns_to_delegate[namespace] = delegate
+                _apply_inner_event(
+                    node, messages, steps, started, delegate, namespace, now
+                )
+            notify()
+
+    if not isinstance(final_state, dict) or "messages" not in final_state:
+        raise RuntimeError("스트리밍이 최종 상태(values)를 돌려주지 않았다")
+    messages = final_state["messages"]
+    return messages, last_text(messages), steps
+
+
+def _apply_leader_event(
+    node: str,
+    messages: Sequence,
+    steps: list[LiveStep],
+    started: dict[str, float],
+    pending_delegations: list[LiveStep],
+    now: float,
+) -> None:
+    if node == "model":
+        for message in messages:
+            for call in getattr(message, "tool_calls", None) or []:
+                step = _leader_step(call)
+                if step.kind == "delegate":
+                    pending_delegations.append(step)
+                if step.call_id:
+                    started[step.call_id] = now
+                steps.append(step)
+        return
+    for message in messages:  # node == "tools" — 결과를 call_id로 맞춘다
+        call_id = getattr(message, "tool_call_id", None)
+        for step in steps:
+            if step.depth == 0 and step.call_id == call_id:
+                step.result_summary = _truncate(message_text(message))
+                step.duration = now - started.get(call_id, now)
+
+
+def _apply_inner_event(
+    node: str,
+    messages: Sequence,
+    steps: list[LiveStep],
+    started: dict[str, float],
+    delegate: LiveStep | None,
+    namespace: tuple,
+    now: float,
+) -> None:
+    if node == "model":
+        for message in messages:
+            for call in getattr(message, "tool_calls", None) or []:
+                key = f"{namespace}:{call.get('id')}"
+                args = call.get("args") or {}
+                args_text = ", ".join(f"{k}={v!r}" for k, v in args.items())
+                step = LiveStep(
+                    "tool",
+                    call.get("name", "?"),
+                    _truncate(args_text),
+                    depth=1,
+                    call_id=key,
+                )
+                started[key] = now
+                _insert_inner(steps, delegate, step)
+        return
+    for message in messages:
+        key = f"{namespace}:{getattr(message, 'tool_call_id', None)}"
+        for step in steps:
+            if step.call_id == key:
+                step.result_summary = _truncate(message_text(message))
+                step.duration = now - started.get(key, now)
+
+
+def stream_agent_reply(
+    agent,
+    history: list,
+    on_update: Callable[[list[LiveStep]], None] | None = None,
+) -> tuple[list, str, list[LiveStep], bool]:
+    """스트리밍으로 한 턴 실행 — (새 이력, 표시 텍스트, 단계, 스트리밍 여부).
+
+    단계가 도착할 때마다 on_update(steps)를 불러 UI가 실시간 갱신하게 한다.
+    스트리밍이 어떤 이유로든 실패하면(미지원·중간 예외·최종 상태 미수신 —
+    주의사항 ②) **기존 invoke 경로(agent_reply)로 처음부터 다시 실행**한다.
+    부분 스트림 상태를 신뢰해 이어붙이지 않는다 — 폴백 시 단계는 빈다.
+    """
+    try:
+        history_out, reply, steps = _stream_reply(agent, history, on_update)
+    except Exception:  # noqa: BLE001 - 스트리밍 실패로 대화가 끊기면 안 된다
+        history_out, reply = agent_reply(agent, history)
+        return history_out, reply, [], False
+    return history_out, reply, steps, True
 
 
 def render_history(history: list) -> list[tuple[str, str]]:
