@@ -64,17 +64,57 @@ def user_identity(claims: dict) -> tuple[str, list[str]]:
     return email, list(groups)
 
 
-def readiness_icon(item: ReadinessItem) -> str:
-    """환경 점검 항목의 Material 아이콘 마크다운 (Phase 8 — 이모지 대체).
-
-    시안 5a의 환경 점검 3단계를 따른다: 정상(check_circle·녹) /
-    경고(error·주황) / 필수 누락(cancel·적).
-    """
+def _readiness_state(item: ReadinessItem) -> tuple[str, str, str]:
+    """(아이콘 이름, 톤 클래스, 상태 라벨) — 시안 5a의 환경 점검 3단계."""
     if item.ok:
-        return ":green[:material/check_circle:]"
+        return "check_circle", "ok", "정상"
     if item.required:
-        return ":red[:material/cancel:]"
-    return ":orange[:material/error:]"
+        return "cancel", "err", "필수 누락"
+    return "error", "warn", "경고"
+
+
+def readiness_rows_html(items: Sequence[ReadinessItem]) -> str:
+    """환경 점검 목록을 그리드 HTML로 (Phase 8 단계 2 보완, 시안 1a).
+
+    아이콘 | 이름 | 상태(우측 정렬) 3열 그리드에 설명이 둘째 줄로 붙는다.
+    st.markdown+st.caption 나열보다 행 간격이 조밀하다. 클래스는
+    ui/style.py의 `.dba-env*`, 아이콘은 Material Symbols 리가처다.
+    """
+    rows = []
+    for item in items:
+        icon, tone, status = _readiness_state(item)
+        detail = (
+            f'<span class="dba-env__detail">{html.escape(item.detail)}</span>'
+            if item.detail
+            else ""
+        )
+        rows.append(
+            '<div class="dba-env__row">'
+            f'<span class="dba-env__icon dba-env--{tone}">{icon}</span>'
+            f'<span class="dba-env__label">{html.escape(item.label)}</span>'
+            f'<span class="dba-env__status dba-env--{tone}">{status}</span>'
+            f"{detail}</div>"
+        )
+    return f'<div class="dba-env">{"".join(rows)}</div>'
+
+
+def user_card_html(name: str, subtitle: str = "Okta · OIDC") -> str:
+    """OIDC 신원 카드 HTML (Phase 8 단계 2 보완, 시안 1a).
+
+    이메일을 마크다운에 넣으면 자동 링크가 걸린다 — HTML 일반 텍스트로
+    그리고, 이니셜 아바타(로컬 파트 첫 알파벳 2자)를 붙인다.
+    """
+    local = name.split("@", 1)[0]
+    letters = [ch for ch in local if ch.isalpha()]
+    avatar = "".join(letters[:2]).upper() or "?"
+    return (
+        '<div class="dba-user">'
+        f'<span class="dba-user__avatar">{html.escape(avatar)}</span>'
+        '<span class="dba-user__meta">'
+        f'<span class="dba-user__name">{html.escape(name)}</span>'
+        f'<span class="dba-user__sub">{html.escape(subtitle)}</span>'
+        "</span></div>"
+    )
 
 
 def eval_case_icon(passed: bool) -> str:

@@ -78,18 +78,54 @@ def test_ready_environment_has_no_blockers():
     assert blocking_problems(check_readiness(READY_ENV)) == []
 
 
-def test_readiness_icon_covers_three_states():
-    """시안 5a의 환경 점검 3단계: 정상 / 필수 누락 / 경고 (Phase 8)."""
+def test_readiness_rows_html_covers_three_states():
+    """시안 5a의 환경 점검 3단계: 정상 / 경고 / 필수 누락 — 상태 라벨 우측 정렬 그리드."""
     from runtime.readiness import ReadinessItem
-    from ui.state import readiness_icon
+    from ui.state import readiness_rows_html
 
-    ok = ReadinessItem(label="KEY", ok=True, detail="", required=True)
-    missing = ReadinessItem(label="KEY", ok=False, detail="", required=True)
-    warning = ReadinessItem(label="KEY", ok=False, detail="", required=False)
+    out = readiness_rows_html(
+        [
+            ReadinessItem(label="KEY", ok=True, detail="필요한 이유", required=True),
+            ReadinessItem(label="OPT", ok=False, detail="", required=False),
+            ReadinessItem(label="REQ", ok=False, detail="", required=True),
+        ]
+    )
 
-    assert readiness_icon(ok) == ":green[:material/check_circle:]"
-    assert readiness_icon(missing) == ":red[:material/cancel:]"
-    assert readiness_icon(warning) == ":orange[:material/error:]"
+    assert out.count('class="dba-env__row"') == 3
+    assert "check_circle" in out and "정상" in out
+    assert "error" in out and "경고" in out
+    assert "cancel" in out and "필수 누락" in out
+    assert "필요한 이유" in out
+
+
+def test_readiness_rows_html_escapes_labels():
+    from runtime.readiness import ReadinessItem
+    from ui.state import readiness_rows_html
+
+    out = readiness_rows_html(
+        [ReadinessItem(label="<KEY>", ok=True, detail="<detail>", required=True)]
+    )
+
+    assert "&lt;KEY&gt;" in out and "<KEY>" not in out
+    assert "&lt;detail&gt;" in out
+
+
+def test_user_card_html_shows_initials_and_plain_email():
+    """이메일이 마크다운 자동 링크로 변하면 안 된다 — HTML 일반 텍스트로 그린다."""
+    from ui.state import user_card_html
+
+    out = user_card_html("user01@example.com")
+
+    assert 'class="dba-user__avatar">PJ<' in out
+    assert "user01@example.com" in out
+    assert "Okta · OIDC" in out
+    assert "href" not in out
+
+
+def test_user_card_html_handles_nameless_local_part():
+    from ui.state import user_card_html
+
+    assert 'class="dba-user__avatar">?<' in user_card_html("754@example.com")
 
 
 def test_eval_case_icon_maps_pass_and_fail():
@@ -151,6 +187,22 @@ def test_readiness_summary_three_states():
     assert readiness_summary([ok]) == "실행 가능"
     assert readiness_summary([ok, warn, warn]) == "실행 가능 · 경고 2"
     assert readiness_summary([ok, missing]) == "실행 불가"
+
+
+def test_badge_palette_css_follows_detected_theme():
+    """st.context.theme을 읽을 수 있으면 배지 색을 그 테마로 고정한다 (Phase 8 보완).
+
+    감지 불가(None)면 prefers-color-scheme 미디어 쿼리로 폴백한다.
+    """
+    from ui.style import badge_palette_css
+
+    dark = badge_palette_css("dark")
+    light = badge_palette_css("light")
+    fallback = badge_palette_css(None)
+
+    assert "#6AA8FF" in dark and "@media" not in dark
+    assert "#1F6FD1" in light and "@media" not in light
+    assert "prefers-color-scheme" in fallback
 
 
 def test_denial_reason_names_role_and_action():

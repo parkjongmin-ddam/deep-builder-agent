@@ -56,9 +56,10 @@ from ui.state import (  # noqa: E402
     load_iam_config,
     oidc_configured,
     principal_names,
-    readiness_icon,
+    readiness_rows_html,
     readiness_summary,
     render_history,
+    user_card_html,
     user_identity,
     spec_overview,
     team_rows,
@@ -100,8 +101,8 @@ def render_sidebar(
     with st.sidebar.container(border=True):
         if oidc_principal is not None:
             principal = oidc_principal
-            st.markdown(f"**{principal.name}**")
-            st.caption("OIDC 로그인 신원")
+            # 이메일을 마크다운에 넣으면 자동 링크가 걸린다 — HTML 카드로 그린다.
+            st.html(user_card_html(principal.name))
         else:
             choice = st.selectbox("주체", principal_names(iam_config))
             principal = iam_config.resolve(choice)
@@ -123,9 +124,7 @@ def render_sidebar(
     pill_color = "red" if summary == "실행 불가" else "green"
     st.sidebar.markdown(f"**환경 점검** · :{pill_color}[{summary}]")
 
-    for item in items:
-        st.sidebar.markdown(f"{readiness_icon(item)} **{item.label}**")
-        st.sidebar.caption(item.detail)
+    st.sidebar.html(readiness_rows_html(items))
 
     blockers = blocking_problems(items)
     if blockers:
@@ -183,6 +182,8 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
     st.subheader("① 에이전트 만들기")
 
     can_create = is_allowed(principal, ACTION_CREATE)
+    can_run = is_allowed(principal, ACTION_RUN)
+    templates = sorted(TEMPLATES_DIR.glob("*.json"))
 
     with st.form("build"):
         request = st.text_area(
@@ -190,16 +191,55 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
             placeholder="웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘",
             height=110,
         )
-        submitted = st.form_submit_button(
-            "생성",
-            type="primary",
-            icon=":material/auto_awesome:" if can_create else ":material/lock:",
-            disabled=blocked or not can_create,
-            help=None if can_create else denial_reason(principal, ACTION_CREATE),
+        # 시안 1a — 생성 · "또는" · 템플릿 선택 · 불러오기를 한 줄에 배치한다.
+        col_gen, col_or, col_tpl, col_load = st.columns(
+            [0.9, 0.35, 1.5, 1.4], vertical_alignment="center"
         )
+        with col_gen:
+            submitted = st.form_submit_button(
+                "생성",
+                type="primary",
+                icon=":material/auto_awesome:" if can_create else ":material/lock:",
+                disabled=blocked or not can_create,
+                help=None if can_create else denial_reason(principal, ACTION_CREATE),
+            )
+        with col_or:
+            st.caption("또는")
+        with col_tpl:
+            template_choice = (
+                st.selectbox(
+                    "템플릿",
+                    [p.stem for p in templates],
+                    label_visibility="collapsed",
+                )
+                if templates
+                else None
+            )
+        with col_load:
+            load_template = st.form_submit_button(
+                "템플릿 불러오기",
+                icon=":material/download:" if can_run else ":material/lock:",
+                disabled=blocked or not can_run or not templates,
+                help=None if can_run else denial_reason(principal, ACTION_RUN),
+            )
     if not can_create:
         st.caption(
             f":material/shield_person: {denial_reason(principal, ACTION_CREATE)}"
+        )
+    if not can_run:
+        st.caption(f":material/shield_person: {denial_reason(principal, ACTION_RUN)}")
+
+    if load_template and template_choice:
+        # 템플릿 활성화는 '기존 에이전트 실행'이다 — 경계는 부여(생성) 시점에만
+        # 적용되므로 run_agent 행위 검사만 받는다 (runtime/iam.py 의미론 참조).
+        try:
+            authorize_action(principal, ACTION_RUN, resource=template_choice)
+        except PermissionDeniedError as exc:
+            st.error(f"**IAM 거부.** {exc}", icon=":material/block:")
+            return
+        activate(load_spec_file(TEMPLATES_DIR / f"{template_choice}.json"))
+        st.success(
+            f"**{template_choice} 를 불러왔습니다.**", icon=":material/check_circle:"
         )
 
     if submitted and request.strip():
@@ -223,34 +263,6 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
         saved = save_spec(spec)
         st.success(f"**명세를 저장했습니다.** {saved}", icon=":material/check_circle:")
         activate(spec)
-
-    st.divider()
-    st.caption("또는 준비된 팀 템플릿으로 시작하기")
-
-    can_run = is_allowed(principal, ACTION_RUN)
-    templates = sorted(TEMPLATES_DIR.glob("*.json"))
-    if templates:
-        choice = st.selectbox("템플릿", [p.stem for p in templates])
-        # 템플릿 활성화는 '기존 에이전트 실행'이다 — 경계는 부여(생성) 시점에만
-        # 적용되므로 run_agent 행위 검사만 받는다 (runtime/iam.py 의미론 참조).
-        if st.button(
-            "템플릿 불러오기",
-            icon=":material/download:" if can_run else ":material/lock:",
-            disabled=blocked or not can_run,
-            help=None if can_run else denial_reason(principal, ACTION_RUN),
-        ):
-            try:
-                authorize_action(principal, ACTION_RUN, resource=choice)
-            except PermissionDeniedError as exc:
-                st.error(f"**IAM 거부.** {exc}", icon=":material/block:")
-                return
-            path = TEMPLATES_DIR / f"{choice}.json"
-            activate(load_spec_file(path))
-            st.success(f"**{choice} 를 불러왔습니다.**", icon=":material/check_circle:")
-        if not can_run:
-            st.caption(
-                f":material/shield_person: {denial_reason(principal, ACTION_RUN)}"
-            )
 
     spec = st.session_state.get("spec")
     if spec is None:
@@ -471,8 +483,12 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
 
 
 def main() -> None:
-    st.title("deep_builder_agent")
-    st.caption("자연어로 AI 에이전트를 만들고, 실행하고, 평가한다")
+    # 시안 1a — 제목 옆에 부제를 같은 베이스라인으로 놓는다.
+    col_title, col_sub = st.columns([0.32, 0.68], vertical_alignment="bottom")
+    with col_title:
+        st.title("deep_builder_agent")
+    with col_sub:
+        st.caption("자연어로 AI 에이전트를 만들고, 실행하고, 평가한다")
 
     # 정책 파일이 깨졌으면 여기서 멈춘다 — 기본 정책으로 조용히 넘어가지 않는다.
     try:

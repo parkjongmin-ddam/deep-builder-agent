@@ -134,6 +134,7 @@
 - Phase 8 (9월 말~): **UI 리디자인** — 시안(docs/design/deep_builder_agent_Redesign.html) 재현. 단계·순서는 docs/design/UI_REDESIGN.md
   - [x] 단계 1 테마·공통 스타일 ✅ (2026-09-30) — config.toml 이원 테마([theme.light]/[theme.dark]), streamlit 1.64.0 고정, Pretendard·JetBrains Mono CDN 로드(ui/style.py), 상태 이모지 → Material 아이콘(순수 함수 + 테스트 2건). 테스트 **356건** 전건 통과
   - [x] 단계 2 빌더 탭 레이아웃 ✅ (2026-09-30) — 사이드바 IAM 카드(역할 배지 + 행위·경계 칩, st.html), 환경 점검 요약 필, 탭 아이콘, 좌측 패널 st.container(height=700) 독립 스크롤, 대화 이력 st.container(height=640, border=True), 현재 명세 카드형(st.table → 카드 + 도구 배지 + 팀 st.dataframe(column_config)), 메시지 체계 통일(굵은 제목 + Material 아이콘), 권한 비활성 버튼(lock 아이콘 + help + shield_person 사유 caption). 배지·칩·요약·사유는 ui/state.py 순수 함수(badges_html·chips_html·readiness_summary·denial_reason) + 테스트 5건. 테스트 **361건** 전건 통과
+    - 보완 (2026-09-30): OIDC 신원을 이니셜 아바타 카드(HTML)로 — 이메일 마크다운 자동 링크 제거. 생성·템플릿 선택·불러오기 한 줄 배치(같은 form의 복수 submit — AppTest 인식은 기존 '수정 적용' 테스트로 검증돼 있던 경로). 환경 점검을 그리드 HTML로(간격 축소 + 상태 라벨 우측 정렬, readiness_icon → readiness_rows_html 대체). 제목 옆 부제(st.columns(vertical_alignment="bottom") — st.title 유지로 AppTest 호환). **배지 팔레트를 st.context.theme.type으로 고정** — 설치본 1.64.0에서 존재 확인, OS와 반대 테마를 강제해도 일치한다. 타입은 세션 첫 로드·테마 전환 직후 한 리런 동안 부정확할 수 있고(설치본 docstring 명시), 감지 불가(None)면 prefers-color-scheme 폴백. 테스트 **365건** 전건 통과
   - [ ] 단계 3 명세 버전 이력
   - [ ] 단계 4 위임·도구 호출 표시 1차
   - [ ] 단계 5 평가 탭 대시보드
