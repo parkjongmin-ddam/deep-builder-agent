@@ -326,7 +326,8 @@ def render_spec_card(spec: AgentSpec) -> None:
                 rows,
                 hide_index=True,
                 column_config={
-                    "name": st.column_config.TextColumn("서브에이전트", width="small"),
+                    # "서브에이전트" 헤더가 small에서 잘린다 — medium으로
+                    "name": st.column_config.TextColumn("서브에이전트", width="medium"),
                     # 배지 2개가 잘리지 않게 도구 열을 넓힌다
                     "tools": st.column_config.ListColumn("도구", width="medium"),
                     "description": st.column_config.TextColumn(

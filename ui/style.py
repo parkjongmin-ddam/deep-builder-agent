@@ -17,8 +17,12 @@
   수 있고(설치본 docstring 명시), 감지 불가(None)면 prefers-color-scheme
   미디어 쿼리로 폴백한다.
 
-Streamlit 내부 클래스명 의존은 최소화한다. 사용 중인 선택자는 전부
-자체 클래스(`.dba-*`)다. 이후 단계에서 내부 선택자를 쓰면 여기 주석에 남긴다.
+Streamlit 내부 클래스명 의존은 최소화한다. 자체 클래스(`.dba-*`) 외에
+사용 중인 내부 선택자는 다음 하나다 (Streamlit 버전 업그레이드 시 확인할 것):
+- `[data-testid="stChatMessage"]` — 채팅 메시지 영역 한정 보정 2건.
+  (1) 에이전트 응답 속 마크다운 h1~h3가 페이지 섹션 제목보다 커 보이는
+  것을 본문보다 약간 큰 수준으로 축소, (2) 넓은 표가 패널 폭을 넘을 때
+  가로 스크롤 + 셀 줄바꿈 방지. 메시지 영역 밖의 제목·표에는 손대지 않는다.
 """
 
 from __future__ import annotations
@@ -168,6 +172,19 @@ _COMPONENT_CSS = """
 .dba-env--ok { color: var(--dba-ok); }
 .dba-env--warn { color: var(--dba-warn); }
 .dba-env--err { color: var(--dba-err); }
+
+/* 채팅 메시지 안 마크다운 보정 — 선택자 근거는 모듈 docstring 참조 */
+[data-testid="stChatMessage"] h1 { font-size: 1.15rem; padding: 0.25rem 0; }
+[data-testid="stChatMessage"] h2 { font-size: 1.1rem; padding: 0.2rem 0; }
+[data-testid="stChatMessage"] h3 { font-size: 1.05rem; padding: 0.15rem 0; }
+[data-testid="stChatMessage"] table {
+  display: block; max-width: 100%;
+  overflow-x: auto;
+}
+[data-testid="stChatMessage"] table th,
+[data-testid="stChatMessage"] table td {
+  white-space: nowrap;
+}
 """
 
 
