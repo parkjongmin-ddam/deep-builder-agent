@@ -422,7 +422,7 @@ class FakeStreamAgent:
         self._events = events
         self._invoke_messages = invoke_messages or []
         self._fail_after = fail_after
-        self.invoked = False
+        self.invoke_calls = 0  # 재실행 여부를 호출 횟수로 검증한다
 
     def stream(self, _payload, subgraphs=False, stream_mode=None):
         for index, event in enumerate(self._events):
@@ -431,7 +431,7 @@ class FakeStreamAgent:
             yield event
 
     def invoke(self, _payload):
-        self.invoked = True
+        self.invoke_calls += 1
         return {"messages": self._invoke_messages}
 
 
@@ -519,14 +519,14 @@ def test_stream_agent_reply_falls_back_when_stream_is_missing():
     assert steps == []
 
 
-def test_stream_agent_reply_falls_back_on_mid_stream_failure():
-    """스트림이 중간에 죽어도 invoke로 다시 실행해 답을 만든다."""
+def test_stream_agent_reply_falls_back_before_first_event_only():
+    """첫 이벤트 수신 전 실패는 아무것도 실행되지 않았으므로 invoke 폴백이 안전하다."""
     from ui.state import stream_agent_reply
 
     agent = FakeStreamAgent(
         _stream_events(),
         invoke_messages=[FakeMessage("ai", "폴백 응답")],
-        fail_after=2,
+        fail_after=0,  # 첫 이벤트를 내기 전에 죽는다
     )
 
     _, reply, steps, streamed = stream_agent_reply(agent, [])
@@ -534,20 +534,45 @@ def test_stream_agent_reply_falls_back_on_mid_stream_failure():
     assert streamed is False
     assert reply == "폴백 응답"
     assert steps == []
-    assert agent.invoked
+    assert agent.invoke_calls == 1
 
 
-def test_stream_agent_reply_falls_back_without_final_values():
-    """루트 values(최종 상태)가 없으면 스트림 결과를 신뢰하지 않고 폴백한다 (주의사항 ②)."""
+def test_stream_agent_reply_does_not_rerun_after_first_event():
+    """이벤트가 도착한 뒤의 실패는 재실행하지 않는다 — 도구가 이미 실행됐을 수 있다.
+
+    invoke로 다시 돌리면 file_write·web_search·위임이 중복 실행된다.
+    지금까지 수집한 단계와 함께 오류로 보고한다.
+    """
+    from ui.state import stream_agent_reply
+
+    agent = FakeStreamAgent(
+        _stream_events(),
+        invoke_messages=[FakeMessage("ai", "재실행되면 안 되는 응답")],
+        fail_after=2,  # 위임 단계(이벤트 2개)까지 나간 뒤 죽는다
+    )
+
+    history, reply, steps, streamed = stream_agent_reply(agent, ["원래 이력"])
+
+    assert agent.invoke_calls == 0, "이벤트 수신 후에는 invoke로 재실행하면 안 된다"
+    assert streamed is True
+    assert reply.startswith("[error]")
+    assert [s.kind for s in steps] == ["delegate"]  # 그때까지의 단계는 남긴다
+    assert history == ["원래 이력"]  # 이력은 원본 그대로
+
+
+def test_stream_agent_reply_missing_final_values_is_not_rerun():
+    """루트 values 미수신도 이벤트 수신 후 실패다 — 재실행 없이 오류로 보고 (주의사항 ②)."""
     from ui.state import stream_agent_reply
 
     events = [e for e in _stream_events() if e[1] != "values"]
-    agent = FakeStreamAgent(events, invoke_messages=[FakeMessage("ai", "폴백")])
+    agent = FakeStreamAgent(events, invoke_messages=[FakeMessage("ai", "금지")])
 
-    _, reply, _, streamed = stream_agent_reply(agent, [])
+    _, reply, steps, streamed = stream_agent_reply(agent, [])
 
-    assert streamed is False
-    assert reply == "폴백"
+    assert agent.invoke_calls == 0
+    assert streamed is True
+    assert reply.startswith("[error]")
+    assert steps, "그때까지 수집한 단계가 남아야 한다"
 
 
 # --- 평가 대시보드 (Phase 8 단계 5) ------------------------------------------

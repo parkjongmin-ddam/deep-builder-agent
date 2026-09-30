@@ -529,9 +529,12 @@ def _insert_inner(steps: list[LiveStep], delegate: LiveStep | None, step: LiveSt
 
 
 def _stream_reply(
-    agent, history: list, on_update: Callable[[list[LiveStep]], None] | None
+    agent,
+    history: list,
+    on_update: Callable[[list[LiveStep]], None] | None,
+    progress: dict,
 ) -> tuple[list, str, list[LiveStep]]:
-    steps: list[LiveStep] = []
+    steps: list[LiveStep] = progress["steps"]
     started: dict[str, float] = {}
     pending_delegations: list[LiveStep] = []  # 네임스페이스 미배정 위임 (호출 순)
     ns_to_delegate: dict[tuple, LiveStep] = {}
@@ -544,6 +547,9 @@ def _stream_reply(
     for namespace, mode, chunk in agent.stream(
         {"messages": history}, subgraphs=True, stream_mode=["updates", "values"]
     ):
+        # 이벤트가 하나라도 도착했다 = 그래프가 이미 실행을 시작했다.
+        # 이 지점 이후의 실패는 invoke로 재실행하면 안 된다 (부작용 중복).
+        progress["saw_event"] = True
         now = time.perf_counter()
         if mode == "values":
             if namespace == ():
@@ -639,15 +645,23 @@ def stream_agent_reply(
     """스트리밍으로 한 턴 실행 — (새 이력, 표시 텍스트, 단계, 스트리밍 여부).
 
     단계가 도착할 때마다 on_update(steps)를 불러 UI가 실시간 갱신하게 한다.
-    스트리밍이 어떤 이유로든 실패하면(미지원·중간 예외·최종 상태 미수신 —
-    주의사항 ②) **기존 invoke 경로(agent_reply)로 처음부터 다시 실행**한다.
-    부분 스트림 상태를 신뢰해 이어붙이지 않는다 — 폴백 시 단계는 빈다.
+
+    **폴백 범위는 첫 이벤트 수신 전으로 한정한다.** 이벤트가 하나도 오기 전의
+    실패(스트리밍 미지원 등)는 아무것도 실행되지 않은 상태라 invoke 재실행이
+    안전하다. 반면 이벤트가 하나라도 도착했다면 도구(file_write·web_search·
+    위임)가 이미 실행됐을 수 있다 — 재실행하면 부작용이 중복되므로, 그때까지
+    수집한 단계와 함께 "[error]"로 보고하고 이력은 원본 그대로 돌려준다
+    (루트 values 미수신 — 주의사항 ② — 도 이 경로다).
     """
+    progress: dict = {"saw_event": False, "steps": []}
     try:
-        history_out, reply, steps = _stream_reply(agent, history, on_update)
-    except Exception:  # noqa: BLE001 - 스트리밍 실패로 대화가 끊기면 안 된다
-        history_out, reply = agent_reply(agent, history)
-        return history_out, reply, [], False
+        history_out, reply, steps = _stream_reply(agent, history, on_update, progress)
+    except Exception as exc:  # noqa: BLE001 - 스트리밍 실패로 대화가 끊기면 안 된다
+        if not progress["saw_event"]:
+            history_out, reply = agent_reply(agent, history)
+            return history_out, reply, [], False
+        reply = f"[error] 스트리밍 실행 실패: {type(exc).__name__}: {exc}"
+        return history, reply, progress["steps"], True
     return history_out, reply, steps, True
 
 
