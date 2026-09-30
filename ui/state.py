@@ -309,24 +309,109 @@ def agent_reply(agent, history: list) -> tuple[list, str]:
     return messages, last_text(messages)
 
 
+# 단계 하나: (종류, 이름, 인자 요약, 결과 요약).
+# 종류는 "delegate"(task 도구 위임) 또는 "tool"(일반 도구 호출)이다.
+Step = tuple[str, str, str, str]
+
+_SUMMARY_LIMIT = 60
+
+# deepagents의 위임 도구 이름과 인자 키 — 설치본 0.7.5
+# middleware/subagents.py의 StructuredTool(name="task")·TaskToolSchema
+# (description, subagent_type)로 확인했다. 추측이 아니다.
+_TASK_TOOL = "task"
+
+
+def _truncate(value: object, limit: int = _SUMMARY_LIMIT) -> str:
+    text = " ".join(str(value).split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def extract_steps(messages: Sequence) -> list[Step]:
+    """메시지 목록에서 리더 수준의 실행 단계를 뽑는다 (Phase 8 단계 4).
+
+    AIMessage.tool_calls를 순서대로 읽고, ToolMessage(tool_call_id)로 결과를
+    맞춘다. `task` 호출은 위임으로 분류해 대상(subagent_type)과 작업 내용
+    (description)을 보여준다. 서브에이전트 내부 단계는 이 이력에 없다 —
+    스트리밍·내부 단계는 단계 7 조사 대상이다.
+    """
+    results: dict[str, str] = {}
+    for message in messages:
+        if getattr(message, "type", None) == "tool":
+            call_id = getattr(message, "tool_call_id", None)
+            if call_id:
+                results[call_id] = message_text(message)
+
+    steps: list[Step] = []
+    for message in messages:
+        if getattr(message, "type", None) != "ai":
+            continue
+        for call in getattr(message, "tool_calls", None) or []:
+            name = call.get("name", "?")
+            args = call.get("args") or {}
+            result = _truncate(results.get(call.get("id"), ""))
+            if name == _TASK_TOOL:
+                steps.append(
+                    (
+                        "delegate",
+                        str(args.get("subagent_type", "?")),
+                        _truncate(args.get("description", "")),
+                        result,
+                    )
+                )
+            else:
+                args_text = ", ".join(f"{k}={v!r}" for k, v in args.items())
+                steps.append(("tool", name, _truncate(args_text), result))
+    return steps
+
+
+def render_turns(history: list) -> list[tuple[str, str, list[Step]]]:
+    """대화 이력을 (역할, 텍스트, 단계 목록)으로 편다 (Phase 8 단계 4).
+
+    사용자 발화가 턴 경계다. 턴 안의 단계는 마지막 에이전트 응답에 붙는다 —
+    UI가 응답 위에 st.status로 그린다. 텍스트 없이 도구만 호출한 턴도
+    단계가 있으면 남긴다 (기존 render_history는 그 턴을 통째로 버렸다).
+    """
+    rows: list[tuple[str, str, list[Step]]] = []
+    segment: list = []
+
+    def flush() -> None:
+        if not segment:
+            return
+        steps = extract_steps(segment)
+        texts = [
+            text
+            for message in segment
+            if getattr(message, "type", None) == "ai"
+            and (text := message_text(message)).strip()
+        ]
+        for text in texts[:-1]:
+            rows.append(("assistant", text, []))
+        if texts:
+            rows.append(("assistant", texts[-1], steps))
+        elif steps:
+            rows.append(("assistant", "", steps))
+        segment.clear()
+
+    for message in history:
+        if isinstance(message, dict):
+            flush()
+            rows.append((message.get("role", "user"), message.get("content", ""), []))
+            continue
+        if getattr(message, "type", None) == "human":
+            flush()
+            rows.append(("user", message_text(message), []))
+            continue
+        segment.append(message)
+    flush()
+    return rows
+
+
 def render_history(history: list) -> list[tuple[str, str]]:
     """대화 이력을 (역할, 텍스트) 목록으로 납작하게 만든다.
 
-    dict(사용자 입력)과 LangChain 메시지 객체가 섞여 있으므로 둘 다 처리한다.
-    텍스트 없이 도구만 호출한 턴은 건너뛴다 — 화면에는 사람과 에이전트의 말만 남긴다.
+    render_turns의 텍스트 투영이다 — 단계가 필요 없는 곳(테스트·간단 표시)용.
+    텍스트가 빈 행(도구만 호출한 턴)은 여기서는 뺀다.
     """
-    rows: list[tuple[str, str]] = []
-    for message in history:
-        if isinstance(message, dict):
-            rows.append((message.get("role", "user"), message.get("content", "")))
-            continue
-
-        kind = getattr(message, "type", None)
-        if kind not in {"human", "ai"}:
-            continue
-
-        text = message_text(message)
-        if not text.strip():
-            continue  # 텍스트 없이 도구만 호출한 턴
-        rows.append(("user" if kind == "human" else "assistant", text))
-    return rows
+    return [
+        (role, text) for role, text, _steps in render_turns(history) if text.strip()
+    ]

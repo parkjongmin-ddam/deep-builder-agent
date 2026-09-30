@@ -42,9 +42,13 @@ def _spec(**over) -> AgentSpec:
 
 
 class FakeMessage:
-    def __init__(self, type_: str, content):
+    def __init__(self, type_: str, content, tool_calls=None, tool_call_id=None):
         self.type = type_
         self.content = content
+        if tool_calls is not None:
+            self.tool_calls = tool_calls
+        if tool_call_id is not None:
+            self.tool_call_id = tool_call_id
 
 
 class FakeAgent:
@@ -401,6 +405,121 @@ def test_render_history_reads_human_messages():
     assert render_history([FakeMessage("human", "질문입니다")]) == [
         ("user", "질문입니다")
     ]
+
+
+# --- 위임·도구 호출 단계 (Phase 8 단계 4) ------------------------------------
+
+
+def _delegation_turn():
+    """위임 1회 + 리더 도구 호출 1회 + 최종 응답으로 이루어진 한 턴."""
+    return [
+        FakeMessage(
+            "ai",
+            "",
+            tool_calls=[
+                {
+                    "name": "task",
+                    "args": {
+                        "subagent_type": "researcher",
+                        "description": "최신 IT 뉴스 수집",
+                    },
+                    "id": "c1",
+                }
+            ],
+        ),
+        FakeMessage("tool", "기사 8건 수집", tool_call_id="c1"),
+        FakeMessage(
+            "ai",
+            "",
+            tool_calls=[
+                {"name": "file_write", "args": {"path": "/out.md"}, "id": "c2"}
+            ],
+        ),
+        FakeMessage("tool", "저장됨", tool_call_id="c2"),
+        FakeMessage("ai", "요약을 저장했습니다."),
+    ]
+
+
+def test_extract_steps_reads_delegation_and_tool_calls():
+    """`task` 호출은 위임(subagent_type·description), 나머지는 일반 도구다.
+
+    인자명은 설치본 deepagents 0.7.5 middleware/subagents.py의
+    TaskToolSchema(description, subagent_type)로 확인했다.
+    """
+    from ui.state import extract_steps
+
+    steps = extract_steps(_delegation_turn())
+
+    assert steps[0][0] == "delegate"
+    assert steps[0][1] == "researcher"
+    assert "뉴스 수집" in steps[0][2]
+    assert "8건" in steps[0][3]
+    assert steps[1][0] == "tool"
+    assert steps[1][1] == "file_write"
+    assert "/out.md" in steps[1][2]
+    assert steps[1][3] == "저장됨"
+
+
+def test_extract_steps_tool_only_history():
+    """위임 없이 도구만 부른 턴도 단계로 나온다."""
+    from ui.state import extract_steps
+
+    steps = extract_steps(
+        [
+            FakeMessage(
+                "ai",
+                "",
+                tool_calls=[{"name": "calculate", "args": {"expr": "1+1"}, "id": "x"}],
+            ),
+            FakeMessage("tool", "2", tool_call_id="x"),
+        ]
+    )
+
+    assert steps == [("tool", "calculate", "expr='1+1'", "2")]
+
+
+def test_extract_steps_text_only_history_is_empty():
+    from ui.state import extract_steps
+
+    assert extract_steps([FakeMessage("ai", "안녕하세요")]) == []
+
+
+def test_render_turns_attaches_steps_to_final_reply():
+    """단계는 그 턴의 마지막 응답에 붙는다 — 응답 위에 st.status로 그려진다."""
+    from ui.state import render_turns
+
+    history = [{"role": "user", "content": "IT 뉴스 요약해줘"}, *_delegation_turn()]
+
+    turns = render_turns(history)
+
+    assert turns[0] == ("user", "IT 뉴스 요약해줘", [])
+    role, text, steps = turns[1]
+    assert (role, text) == ("assistant", "요약을 저장했습니다.")
+    assert len(steps) == 2
+
+
+def test_render_turns_keeps_tool_only_turn():
+    """텍스트 없이 도구만 호출한 턴도 단계가 있으면 버리지 않는다.
+
+    기존 render_history는 이 턴을 통째로 버렸다 (단계 4의 출발점).
+    """
+    from ui.state import render_turns
+
+    history = [
+        FakeMessage(
+            "ai",
+            "",
+            tool_calls=[{"name": "web_search", "args": {"query": "IT"}, "id": "c"}],
+        ),
+        FakeMessage("tool", "결과 8건", tool_call_id="c"),
+    ]
+
+    turns = render_turns(history)
+
+    assert len(turns) == 1
+    role, text, steps = turns[0]
+    assert role == "assistant" and text == ""
+    assert steps == [("tool", "web_search", "query='IT'", "결과 8건")]
 
 
 # --- 앱 렌더링 -------------------------------------------------------------

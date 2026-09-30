@@ -61,7 +61,7 @@ from ui.state import (  # noqa: E402
     principal_names,
     readiness_rows_html,
     readiness_summary,
-    render_history,
+    render_turns,
     spec_version,
     version_label,
     user_card_html,
@@ -423,10 +423,27 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
         st.caption(f":material/shield_person: {denial_reason(principal, ACTION_RUN)}")
 
     # 시안 1a — 대화 이력은 고정 높이 카드 안에서 독립 스크롤한다.
+    # 단계(위임·도구 호출)는 응답 위에 st.status로 그린다 (단계 4, 리더 수준).
     with st.container(height=640, border=True):
-        for role, text in render_history(st.session_state.get("history", [])):
+        for role, text, steps in render_turns(st.session_state.get("history", [])):
             with st.chat_message(role):
-                st.markdown(text)
+                if steps:
+                    with st.status(
+                        f"실행 완료 · {len(steps)}단계", state="complete"
+                    ):
+                        for kind, name, args_summary, result_summary in steps:
+                            if kind == "delegate":
+                                line = (
+                                    f":material/call_split: **위임** → `{name}`"
+                                    f" — {args_summary}"
+                                )
+                            else:
+                                line = f":material/build: `{name}` {args_summary}"
+                            if result_summary:
+                                line += f" · {result_summary}"
+                            st.markdown(line)
+                if text:
+                    st.markdown(text)
 
     user_input = st.chat_input(
         "에이전트에게 메시지 보내기", disabled=blocked or not can_run
