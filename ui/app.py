@@ -512,28 +512,6 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
             st.caption(
                 f":material/shield_person: {principal.role_name} {EVAL_DENIAL}"
             )
-        st.markdown("**케이스 목록**")
-        # 좁은 좌측 열(전체의 2/5)에 4열이 다 보이도록 픽셀 폭으로 고정한다.
-        st.dataframe(
-            [
-                {
-                    "id": c.id,
-                    "요구": c.request,
-                    "기대 도구": list(c.expect_tools) or ["(없음)"],
-                    "팀": "필요" if c.expect_team else "",
-                }
-                for c in cases
-            ],
-            hide_index=True,
-            column_config={
-                "id": st.column_config.TextColumn("id", width=60),
-                "요구": st.column_config.TextColumn("요구", width=175),
-                "기대 도구": st.column_config.ListColumn("기대 도구", width=110),
-                "팀": st.column_config.TextColumn("팀", width=45),
-            },
-        )
-        st.caption("eval/cases/builder_cases.json")
-
     if run_clicked and can_eval:
         started = time.time()
         with st.spinner("평가를 실행하는 중... 케이스마다 LLM을 호출합니다"):
@@ -563,64 +541,98 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
                 "**아직 실행 결과가 없습니다.** 왼쪽에서 평가를 실행하세요.",
                 icon=":material/info:",
             )
-            return
+        else:
+            render_eval_results(report)
 
-        col_pass, col_judge, col_fail = st.columns(3)
-        with col_pass:
-            st.metric(
-                "통과율",
-                f"{report.pass_rate:.0%}",
-                border=True,
-                help=f"{report.passed}/{report.total} 케이스 통과",
-            )
-        with col_judge:
-            judge_value = (
-                f"{report.mean_score:.1f} / 5"
-                if report.mean_score is not None
-                else "—"
-            )
-            st.metric("심판 평균 점수", judge_value, border=True)
-        with col_fail:
-            st.metric("실패 케이스", f"{report.total - report.passed}건", border=True)
+    st.divider()
+    render_case_list(cases)
 
-        with st.container(border=True):
-            st.markdown("**검사 항목별 통과**")
-            for name, passed_count, total_count in check_pass_rates(report):
-                ratio = passed_count / total_count if total_count else 0.0
-                st.progress(
-                    ratio,
-                    text=f"{check_label(name)} — {passed_count}/{total_count}",
+
+def render_eval_results(report) -> None:
+    """결과 대시보드 — 지표·검사별 통과율·케이스별 상세 (시안 2a)."""
+    col_pass, col_judge, col_fail = st.columns(3)
+    with col_pass:
+        st.metric(
+            "통과율",
+            f"{report.pass_rate:.0%}",
+            border=True,
+            help=f"{report.passed}/{report.total} 케이스 통과",
+        )
+    with col_judge:
+        judge_value = (
+            f"{report.mean_score:.1f} / 5"
+            if report.mean_score is not None
+            else "—"
+        )
+        st.metric("심판 평균 점수", judge_value, border=True)
+    with col_fail:
+        st.metric("실패 케이스", f"{report.total - report.passed}건", border=True)
+
+    with st.container(border=True):
+        st.markdown("**검사 항목별 통과**")
+        for name, passed_count, total_count in check_pass_rates(report):
+            ratio = passed_count / total_count if total_count else 0.0
+            st.progress(
+                ratio,
+                text=f"{check_label(name)} — {passed_count}/{total_count}",
+            )
+
+    st.markdown("**케이스별 상세** · 실패 먼저 정렬")
+    for result in failed_first(report.results):
+        with st.expander(
+            case_title(result.case_id, result.request),
+            icon=eval_case_icon(result.passed),
+            expanded=not result.passed,
+        ):
+            st.caption(result.request)
+            if result.error:
+                st.error(f"**생성 실패.** {result.error}", icon=":material/cancel:")
+            if result.checks:
+                chips = " · ".join(
+                    f":green[:material/check: {check_label(c.name)}]"
+                    if c.passed
+                    else f":red[:material/close: {check_label(c.name)}]"
+                    for c in result.checks
                 )
-
-        st.markdown("**케이스별 상세** · 실패 먼저 정렬")
-        for result in failed_first(report.results):
-            with st.expander(
-                case_title(result.case_id, result.request),
-                icon=eval_case_icon(result.passed),
-                expanded=not result.passed,
-            ):
-                st.caption(result.request)
-                if result.error:
-                    st.error(f"**생성 실패.** {result.error}", icon=":material/cancel:")
-                if result.checks:
-                    chips = " · ".join(
-                        f":green[:material/check: {check_label(c.name)}]"
-                        if c.passed
-                        else f":red[:material/close: {check_label(c.name)}]"
-                        for c in result.checks
+                st.markdown(chips)
+            for check in result.failed_checks:
+                st.caption(f":material/subdirectory_arrow_right: {check.detail}")
+            if result.verdict is not None:
+                with st.chat_message("judge", avatar=":material/gavel:"):
+                    st.markdown(
+                        f"**심판 {result.verdict.score} / 5** — "
+                        f"{result.verdict.reason}"
                     )
-                    st.markdown(chips)
-                for check in result.failed_checks:
-                    st.caption(f":material/subdirectory_arrow_right: {check.detail}")
-                if result.verdict is not None:
-                    with st.chat_message("judge", avatar=":material/gavel:"):
-                        st.markdown(
-                            f"**심판 {result.verdict.score} / 5** — "
-                            f"{result.verdict.reason}"
-                        )
 
-        with st.expander("텍스트 리포트", icon=":material/description:"):
-            st.code(format_report(report))
+    with st.expander("텍스트 리포트", icon=":material/description:"):
+        st.code(format_report(report))
+
+
+def render_case_list(cases) -> None:
+    """케이스 목록 — 좁은 좌측 열에서는 잘려서(실측) 전체 폭에 그린다.
+
+    id가 판별의 기준이므로 id 열은 내용 맞춤(None)으로 전부 보이게 둔다.
+    """
+    st.markdown("**케이스 목록**")
+    st.dataframe(
+        [
+            {
+                "id": c.id,
+                "요구": c.request,
+                "기대 도구": list(c.expect_tools) or ["(없음)"],
+                "팀": "필요" if c.expect_team else "",
+            }
+            for c in cases
+        ],
+        hide_index=True,
+        column_config={
+            "id": st.column_config.TextColumn("id"),
+            "요구": st.column_config.TextColumn("요구", width="large"),
+            "기대 도구": st.column_config.ListColumn("기대 도구", width="medium"),
+            "팀": st.column_config.TextColumn("팀", width="small"),
+        },
+    )
+    st.caption("eval/cases/builder_cases.json")
 
 
 # --- OIDC 게이트 화면 (Phase 8 단계 6) --------------------------------------
