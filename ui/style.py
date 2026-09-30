@@ -123,6 +123,10 @@ _COMPONENT_CSS = """
   border-style: dashed;
   border-color: var(--dba-chip-border-dashed);
 }
+.dba-or {
+  white-space: nowrap;
+  font-size: 12px; color: var(--dba-muted);
+}
 .dba-user { display: flex; align-items: center; gap: 10px; }
 .dba-user__avatar {
   width: 32px; height: 32px; flex: none;

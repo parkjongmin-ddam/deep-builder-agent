@@ -260,6 +260,23 @@ def display_name(identifier: str) -> str:
     return _DISPLAY_NAMES.get(identifier, identifier.replace("_", " "))
 
 
+_HANGUL_START, _HANGUL_END = 0xAC00, 0xD7A3
+
+
+def with_object_josa(word: str) -> str:
+    """단어 뒤에 목적격 조사(을/를)를 붙인다.
+
+    한글 음절은 받침 유무로 판정하고(받침 있으면 '을'), 한글이 아니면
+    판정할 수 없으므로 '을(를)'로 병기한다.
+    """
+    last = word[-1] if word else ""
+    code = ord(last) if last else 0
+    if _HANGUL_START <= code <= _HANGUL_END:
+        josa = "을" if (code - _HANGUL_START) % 28 else "를"
+        return f"{word}{josa}"
+    return f"{word}을(를)"
+
+
 def spec_overview(spec: AgentSpec) -> dict[str, str]:
     """스펙을 표로 보여주기 위한 납작한 요약."""
     return {
@@ -275,11 +292,12 @@ def team_rows(spec: AgentSpec) -> list[dict[str, object]]:
     """팀 구성을 표 형태로. 팀이 없으면 빈 목록.
 
     tools는 목록 그대로 준다 — st.dataframe의 ListColumn이 배지로 그린다.
+    도구가 없으면 빈 칸 대신 "(없음)"을 보여준다.
     """
     return [
         {
             "name": sub.name,
-            "tools": list(sub.tools),
+            "tools": list(sub.tools) or ["(없음)"],
             "description": sub.description,
         }
         for sub in spec.subagents

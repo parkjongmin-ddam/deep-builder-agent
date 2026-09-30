@@ -68,6 +68,7 @@ from ui.state import (  # noqa: E402
     user_identity,
     spec_overview,
     team_rows,
+    with_object_josa,
 )
 from ui.style import inject_css  # noqa: E402
 
@@ -209,7 +210,8 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
                 help=None if can_create else denial_reason(principal, ACTION_CREATE),
             )
         with col_or:
-            st.caption("또는")
+            # st.caption은 좁은 열에서 줄바꿈된다 — nowrap 클래스로 고정한다.
+            st.html('<span class="dba-or">또는</span>')
         with col_tpl:
             template_choice = (
                 st.selectbox(
@@ -245,7 +247,8 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
             return
         activate(load_spec_file(TEMPLATES_DIR / f"{template_choice}.json"))
         st.success(
-            f"**{template_choice} 를 불러왔습니다.**", icon=":material/check_circle:"
+            f"**{with_object_josa(display_name(template_choice))} 불러왔습니다.**",
+            icon=":material/check_circle:",
         )
 
     if submitted and request.strip():
@@ -323,8 +326,9 @@ def render_spec_card(spec: AgentSpec) -> None:
                 rows,
                 hide_index=True,
                 column_config={
-                    "name": st.column_config.TextColumn("서브에이전트"),
-                    "tools": st.column_config.ListColumn("도구"),
+                    "name": st.column_config.TextColumn("서브에이전트", width="small"),
+                    # 배지 2개가 잘리지 않게 도구 열을 넓힌다
+                    "tools": st.column_config.ListColumn("도구", width="medium"),
                     "description": st.column_config.TextColumn(
                         "설명", width="large"
                     ),

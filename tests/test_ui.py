@@ -253,6 +253,33 @@ def test_display_name_maps_templates_and_falls_back():
     assert display_name("it_news_summarizer") == "it news summarizer"
 
 
+def test_with_object_josa_follows_final_consonant():
+    """받침이 있으면 '을', 없으면 '를' — 표시 이름 성공 메시지용 (단계 2 보완)."""
+    from ui.state import with_object_josa
+
+    assert with_object_josa("리서치 팀") == "리서치 팀을"
+    assert with_object_josa("문서 Q&A 팀") == "문서 Q&A 팀을"
+    assert with_object_josa("에이전트") == "에이전트를"
+    # 한글로 끝나지 않으면 판정 불가 — 병기한다
+    assert with_object_josa("summarizer") == "summarizer을(를)"
+
+
+def test_team_rows_show_placeholder_for_toolless_member():
+    """도구 없는 팀원은 빈 칸이 아니라 '(없음)'으로 보인다."""
+    spec = _spec(
+        subagents=[
+            {
+                "name": "writer",
+                "description": "글 작성",
+                "system_prompt": f"써라. {GUARDRAIL_SENTENCE}",
+                "tools": [],
+            }
+        ]
+    )
+
+    assert team_rows(spec)[0]["tools"] == ["(없음)"]
+
+
 def test_spec_overview_flattens_fields():
     overview = spec_overview(_spec())
 
@@ -576,7 +603,8 @@ def test_loading_a_template_opens_the_chat_panel(monkeypatch):
 
     assert not loaded.exception, [e.value for e in loaded.exception]
     assert loaded.chat_input, "대화 입력창이 렌더링되지 않았다"
-    assert any("data_analysis_team" in s.value for s in loaded.success)
+    # Phase 8: 성공 메시지는 식별자가 아니라 표시 이름 + 을/를 조사다
+    assert any("데이터 분석 팀을" in s.value for s in loaded.success)
 
 
 @pytest.mark.integration
