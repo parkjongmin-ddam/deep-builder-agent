@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import html
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -85,6 +86,10 @@ def readiness_rows_html(items: Sequence[ReadinessItem]) -> str:
     rows = []
     for item in items:
         icon, tone, status = _readiness_state(item)
+        # 환경변수 키(대문자+밑줄)만 고정폭 — 한글 라벨은 본문 폰트로 남긴다.
+        label_cls = "dba-env__label"
+        if re.fullmatch(r"[A-Z][A-Z0-9_]*", item.label):
+            label_cls += " dba-env__label--code"
         detail = (
             f'<span class="dba-env__detail">{html.escape(item.detail)}</span>'
             if item.detail
@@ -93,7 +98,7 @@ def readiness_rows_html(items: Sequence[ReadinessItem]) -> str:
         rows.append(
             '<div class="dba-env__row">'
             f'<span class="dba-env__icon dba-env--{tone}">{icon}</span>'
-            f'<span class="dba-env__label">{html.escape(item.label)}</span>'
+            f'<span class="{label_cls}">{html.escape(item.label)}</span>'
             f'<span class="dba-env__status dba-env--{tone}">{status}</span>'
             f"{detail}</div>"
         )

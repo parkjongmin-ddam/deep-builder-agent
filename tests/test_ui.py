@@ -98,6 +98,24 @@ def test_readiness_rows_html_covers_three_states():
     assert "필요한 이유" in out
 
 
+def test_readiness_rows_html_monospaces_only_env_var_names():
+    """키 이름(대문자+밑줄)만 고정폭, 한글 라벨은 본문 폰트다 (단계 2 보완)."""
+    from runtime.readiness import ReadinessItem
+    from ui.state import readiness_rows_html
+
+    out = readiness_rows_html(
+        [
+            ReadinessItem(label="ANTHROPIC_API_KEY", ok=True, detail="", required=True),
+            ReadinessItem(label="LangSmith 트레이싱", ok=True, detail="", required=False),
+        ]
+    )
+
+    code = 'class="dba-env__label dba-env__label--code">ANTHROPIC_API_KEY<'
+    plain = 'class="dba-env__label">LangSmith 트레이싱<'
+    assert code in out
+    assert plain in out
+
+
 def test_readiness_rows_html_escapes_labels():
     from runtime.readiness import ReadinessItem
     from ui.state import readiness_rows_html

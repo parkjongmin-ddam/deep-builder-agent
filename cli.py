@@ -30,6 +30,7 @@ from builder.builder import (
     generate_spec,
     revise_spec,
     save_spec,
+    unique_spec_name,
 )
 from registry import MCP_PREFIX
 from registry.mcp import MCPConfigError
@@ -275,6 +276,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[error] 명세 생성 실패: {exc}", file=sys.stderr)
                 print(f"        마지막 원인: {exc.__cause__}", file=sys.stderr)
                 return 1
+            # 생성은 새 명세다 — 이름이 겹치면 _2, _3으로 분리해 기존 이력에
+            # 섞이지 않게 한다 (수정 --revise 는 같은 이름에 버전을 누적한다).
+            new_name = unique_spec_name(spec.name)
+            if new_name != spec.name:
+                spec = spec.model_copy(update={"name": new_name})
             saved = save_spec(spec)
             print(f"[spec] {saved} 에 저장했습니다")
 

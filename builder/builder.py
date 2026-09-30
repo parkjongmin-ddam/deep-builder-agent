@@ -259,6 +259,27 @@ def revise_spec(
     )
 
 
+def unique_spec_name(name: str, directory: Path = SPECS_DIR) -> str:
+    """생성(create) 전용 — 같은 이름이 있으면 `_2`, `_3` 접미사로 분리한다.
+
+    새로 만든 명세가 기존 명세의 버전 이력에 섞이면 안 된다. 최신본 파일이
+    지워졌어도 이력 디렉터리가 남아 있으면 충돌로 본다.
+    수정(revise)은 같은 이름에 버전을 누적하므로 이 함수를 타지 않는다.
+    """
+
+    def taken(candidate: str) -> bool:
+        return (directory / f"{candidate}.json").exists() or (
+            directory / candidate
+        ).is_dir()
+
+    if not taken(name):
+        return name
+    suffix = 2
+    while taken(f"{name}_{suffix}"):
+        suffix += 1
+    return f"{name}_{suffix}"
+
+
 def save_spec(spec: AgentSpec, directory: Path = SPECS_DIR) -> Path:
     """검증된 스펙을 저장하고 최신본 경로를 반환한다.
 

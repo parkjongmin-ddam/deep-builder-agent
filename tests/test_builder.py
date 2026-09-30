@@ -301,6 +301,34 @@ def test_save_spec_accumulates_version_history(tmp_path):
     assert "3판" in latest.read_text(encoding="utf-8")
 
 
+def test_unique_spec_name_appends_numeric_suffix(tmp_path):
+    """생성(create)은 기존 명세를 잇지 않는다 — 충돌하면 _2, _3으로 분리 (Phase 8).
+
+    수정(revise)은 같은 이름에 버전을 누적하므로 이 함수를 타지 않는다.
+    """
+    from builder.builder import unique_spec_name
+
+    # 아무것도 없으면 그대로
+    assert unique_spec_name("news_summarizer", directory=tmp_path) == "news_summarizer"
+
+    save_spec(AgentSpec(**VALID_SPEC), directory=tmp_path)
+    assert unique_spec_name("news_summarizer", directory=tmp_path) == "news_summarizer_2"
+
+    save_spec(
+        AgentSpec(**{**VALID_SPEC, "name": "news_summarizer_2"}), directory=tmp_path
+    )
+    assert unique_spec_name("news_summarizer", directory=tmp_path) == "news_summarizer_3"
+
+
+def test_unique_spec_name_treats_history_dir_as_conflict(tmp_path):
+    """최신본이 지워졌어도 이력 디렉터리가 남아 있으면 충돌이다 — 이력이 섞이면 안 된다."""
+    from builder.builder import unique_spec_name
+
+    (tmp_path / "news_summarizer").mkdir()
+
+    assert unique_spec_name("news_summarizer", directory=tmp_path) == "news_summarizer_2"
+
+
 def test_save_spec_never_overwrites_history(tmp_path):
     """이력 파일은 불변이다 — v1은 두 번째 저장 후에도 처음 내용 그대로다."""
     spec = AgentSpec(**VALID_SPEC)

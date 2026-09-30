@@ -26,6 +26,7 @@ from builder.builder import (  # noqa: E402
     generate_spec,
     revise_spec,
     save_spec,
+    unique_spec_name,
 )
 from eval.dataset import load_cases  # noqa: E402
 from eval.judge import judge_spec  # noqa: E402
@@ -197,7 +198,7 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
         )
         # 시안 1a — 생성 · "또는" · 템플릿 선택 · 불러오기를 한 줄에 배치한다.
         col_gen, col_or, col_tpl, col_load = st.columns(
-            [0.9, 0.35, 1.5, 1.4], vertical_alignment="center"
+            [0.75, 0.2, 1.55, 1.4], gap="small", vertical_alignment="center"
         )
         with col_gen:
             submitted = st.form_submit_button(
@@ -265,6 +266,11 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
                     icon=":material/cancel:",
                 )
                 return
+        # 생성은 새 명세다 — 같은 이름이 있으면 _2, _3으로 분리해 기존 이력에
+        # 섞이지 않게 한다 (수정은 같은 이름에 버전을 누적한다).
+        new_name = unique_spec_name(spec.name)
+        if new_name != spec.name:
+            spec = spec.model_copy(update={"name": new_name})
         old_version = spec_version(spec.name)
         saved = save_spec(spec)
         st.success(

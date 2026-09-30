@@ -149,8 +149,11 @@ _COMPONENT_CSS = """
   font-variation-settings: "FILL" 1;
 }
 .dba-env__label {
-  font: 500 12.5px/1.3 "JetBrains Mono", monospace;
+  font-size: 13px; font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dba-env__label--code {
+  font: 500 12.5px/1.3 "JetBrains Mono", monospace;
 }
 .dba-env__status { font-size: 12px; font-weight: 600; text-align: right; }
 .dba-env__detail {
