@@ -18,12 +18,29 @@ from pydantic import BaseModel, Field, field_validator
 
 CASES_DIR = Path(__file__).resolve().parent / "cases"
 
+# 평가 세트 — 프로필 3종 + 전체 (Phase 9 단계 4).
+# 기본 실행은 "common"이라 기존 27건 동작이 그대로 유지된다.
+CASE_PROFILES = ("common", "infra", "dev")
+EVAL_SETS = (*CASE_PROFILES, "all")
+
 
 class EvalCase(BaseModel):
     """평가 케이스 하나. 자연어 요구 + 그 요구에 대한 기대."""
 
     id: str = Field(..., pattern=r"^[a-z][a-z0-9_]{1,60}$")
     request: str = Field(..., min_length=1)
+    profile: str = Field(
+        default="common",
+        description="케이스가 속한 평가 세트 (Phase 9) — 기존 케이스는 생략 = common",
+    )
+
+    @field_validator("profile")
+    @classmethod
+    def profile_must_be_known(cls, v: str) -> str:
+        """오타난 프로필이 조용히 어느 세트에도 안 돌게 되는 것을 막는다."""
+        if v not in CASE_PROFILES:
+            raise ValueError(f"unknown profile: {v!r} (allowed: {CASE_PROFILES})")
+        return v
 
     # 기계적 확인 -----------------------------------------------------------
     expect_tools: list[str] = Field(
@@ -89,3 +106,19 @@ def load_cases(path: Path | None = None) -> list[EvalCase]:
         raise ValueError(f"중복된 케이스 id: {duplicates}")
 
     return cases
+
+
+def cases_for_set(cases: list[EvalCase], eval_set: str = "common") -> list[EvalCase]:
+    """평가 세트에 해당하는 케이스만 고른다.
+
+    "common"/"infra"/"dev"는 그 프로필 케이스만, "all"은 전부다. 기본은
+    "common" — 세트 개념이 생기기 전과 완전히 같은 실행이다.
+
+    Raises:
+        ValueError: 알 수 없는 세트 이름 (오타가 빈 실행이 되면 안 된다).
+    """
+    if eval_set not in EVAL_SETS:
+        raise ValueError(f"unknown eval set: {eval_set!r} (allowed: {EVAL_SETS})")
+    if eval_set == "all":
+        return list(cases)
+    return [c for c in cases if c.profile == eval_set]

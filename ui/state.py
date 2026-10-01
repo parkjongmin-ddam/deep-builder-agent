@@ -271,6 +271,25 @@ def ordered_templates(stems: Sequence[str], profile: Profile | None) -> list[str
     return first + rest
 
 
+# 평가 세트 표시 이름 (Phase 9 단계 4) — 식별자는 파일명·CLI 인자에 그대로 쓴다.
+_EVAL_SET_LABELS_KO = {
+    "common": "공통",
+    "infra": "시스템 엔지니어",
+    "dev": "개발자",
+    "all": "전체",
+}
+
+
+def eval_set_label(key: str) -> str:
+    """평가 세트의 한글 표시 이름. 매핑이 없으면 식별자 그대로."""
+    return _EVAL_SET_LABELS_KO.get(key, key)
+
+
+def default_eval_set(profile: Profile | None) -> str:
+    """평가 탭 세트 기본값 — 선택된 팀의 프로필, 미선택이면 common."""
+    return profile.key if profile is not None else "common"
+
+
 def template_option_label(stem: str, profile: Profile | None) -> str:
     """템플릿 옵션 표시 — 선택한 프로필의 추천이면 `· 추천`을 붙인다."""
     label = display_name(stem)

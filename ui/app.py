@@ -29,7 +29,7 @@ from builder.builder import (  # noqa: E402
     save_spec,
     unique_spec_name,
 )
-from eval.dataset import load_cases  # noqa: E402
+from eval.dataset import EVAL_SETS, cases_for_set, load_cases  # noqa: E402
 from eval.judge import judge_spec  # noqa: E402
 from eval.runner import format_report, run_evaluation, save_report  # noqa: E402
 from registry import MCP_PREFIX  # noqa: E402
@@ -48,6 +48,8 @@ from ui.state import (  # noqa: E402
     Profile,
     action_label,
     builder_placeholder,
+    default_eval_set,
+    eval_set_label,
     example_chips,
     load_teams_config,
     ordered_templates,
@@ -603,7 +605,9 @@ def render_chat_panel(blocked: bool, principal: Principal) -> None:
 EVAL_DENIAL = "역할은 평가(Builder 호출)를 실행할 수 없습니다"
 
 
-def render_eval_tab(blocked: bool, principal: Principal) -> None:
+def render_eval_tab(
+    blocked: bool, principal: Principal, profile: Profile | None = None
+) -> None:
     """평가 탭 — 좌측 설정·케이스 목록, 우측 결과 대시보드 (시안 2a, 단계 5)."""
     try:
         cases = load_cases()
@@ -618,8 +622,20 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
 
     with left:
         st.subheader("평가 설정")
+        # 세트 선택은 폼 밖 — 바꾸는 즉시 아래 건수가 따라와야 한다 (Phase 9).
+        # 기본값은 사이드바에서 고른 팀의 프로필이고, 미선택이면 common(기존 27건).
+        eval_set = st.selectbox(
+            "평가 세트",
+            EVAL_SETS,
+            index=EVAL_SETS.index(default_eval_set(profile)),
+            format_func=eval_set_label,
+        )
+        selected_cases = cases_for_set(cases, eval_set)
         with st.form("eval_run"):
-            st.markdown(f":material/list_alt: 평가 케이스 **{len(cases)}건**")
+            st.markdown(
+                f":material/list_alt: {eval_set_label(eval_set)} 세트 "
+                f"**{len(selected_cases)}건**"
+            )
             use_judge = st.checkbox("LLM 심판 사용", value=False)
             st.caption(
                 ":material/payments: 케이스마다 추가 API 호출로 비용이 발생합니다"
@@ -628,22 +644,24 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
                 "평가 실행",
                 type="primary",
                 icon=":material/play_arrow:" if can_eval else ":material/lock:",
-                disabled=blocked or not can_eval,
+                disabled=blocked or not can_eval or not selected_cases,
                 help=None if can_eval else f"{principal.role_name} {EVAL_DENIAL}",
             )
         if not can_eval:
             st.caption(
                 f":material/shield_person: {principal.role_name} {EVAL_DENIAL}"
             )
-    if run_clicked and can_eval:
+    if run_clicked and can_eval and selected_cases:
         started = time.time()
         with st.spinner("평가를 실행하는 중... 케이스마다 LLM을 호출합니다"):
-            report = run_evaluation(cases, judge=judge_spec if use_judge else None)
+            report = run_evaluation(
+                selected_cases, judge=judge_spec if use_judge else None
+            )
         st.session_state.eval_report = report
         st.session_state.eval_ran_at = datetime.now().strftime("%Y-%m-%d %H:%M")
         st.session_state.eval_duration = time.time() - started
         # 세션이 닫혀도 결과가 남게 즉시 파일로 적는다 (기준값 보관은 git add -f).
-        st.session_state.eval_saved = str(save_report(report))
+        st.session_state.eval_saved = str(save_report(report, set_name=eval_set))
 
     with right:
         # 마지막 실행 시각·소요시간은 결과 제목 옆에 — 실행 블록 뒤에 그려지므로
@@ -668,7 +686,7 @@ def render_eval_tab(blocked: bool, principal: Principal) -> None:
             render_eval_results(report)
 
     st.divider()
-    render_case_list(cases)
+    render_case_list(selected_cases)
 
 
 def render_eval_results(report) -> None:
@@ -690,6 +708,18 @@ def render_eval_results(report) -> None:
         st.metric("심판 평균 점수", judge_value, border=True)
     with col_fail:
         st.metric("실패 케이스", f"{report.total - report.passed}건", border=True)
+
+    # 프로필이 2종 이상 섞인 실행(전체 세트)에서만 — 단일 세트에선 중복 정보다.
+    profile_rates = report.pass_rates_by_profile()
+    if len(profile_rates) > 1:
+        with st.container(border=True):
+            st.markdown("**프로필별 통과율**")
+            for profile_key, passed_count, total_count in profile_rates:
+                st.progress(
+                    passed_count / total_count if total_count else 0.0,
+                    text=f"{eval_set_label(profile_key)} — "
+                    f"{passed_count}/{total_count}",
+                )
 
     with st.container(border=True):
         st.markdown("**검사 항목별 통과**")
@@ -868,7 +898,7 @@ def main() -> None:
             render_chat_panel(blocked, principal)
 
     with eval_tab:
-        render_eval_tab(blocked, principal)
+        render_eval_tab(blocked, principal, profile)
 
 
 main()

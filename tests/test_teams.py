@@ -220,6 +220,27 @@ def test_team_label_for_sidebar():
     assert team_label("CLP", "시스템 엔지니어") == "CLP · 시스템 엔지니어"
 
 
+# --- 평가 세트 선택 (단계 4) -------------------------------------------------
+
+
+def test_default_eval_set_follows_the_selected_profile():
+    """평가 탭 세트 기본값 — 팀을 골랐으면 그 프로필, 아니면 common."""
+    from ui.state import default_eval_set
+
+    assert default_eval_set(None) == "common"
+    assert default_eval_set(PROFILES["infra"]) == "infra"
+    assert default_eval_set(PROFILES["dev"]) == "dev"
+
+
+def test_eval_set_labels_cover_every_set():
+    from eval.dataset import EVAL_SETS
+    from ui.state import eval_set_label
+
+    labels = [eval_set_label(s) for s in EVAL_SETS]
+
+    assert labels == ["공통", "시스템 엔지니어", "개발자", "전체"]
+
+
 # --- 빌더 소재 선택 (단계 2) -------------------------------------------------
 
 

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,7 @@ class CaseResult:
     checks: list[CheckResult] = field(default_factory=list)
     verdict: JudgeVerdict | None = None
     error: str | None = None
+    profile: str = "common"  # 케이스의 평가 세트 (Phase 9) — 프로필별 집계용
 
     @property
     def checks_passed(self) -> bool:
@@ -93,6 +95,23 @@ class EvalReport:
         score = f", 평균 {self.mean_score:.2f}점" if self.mean_score is not None else ""
         return f"{self.passed}/{self.total} 통과 ({self.pass_rate:.0%}){score}"
 
+    def pass_rates_by_profile(self) -> list[tuple[str, int, int]]:
+        """프로필별 (이름, 통과, 전체) — 결과에 존재하는 프로필만, 선언 순서로.
+
+        'all' 세트처럼 여러 프로필이 섞인 실행에서 어느 직군 케이스가
+        깨졌는지 바로 보이게 한다 (Phase 9 단계 4).
+        """
+        from eval.dataset import CASE_PROFILES
+
+        rates = []
+        for profile in CASE_PROFILES:
+            matching = [r for r in self.results if r.profile == profile]
+            if matching:
+                rates.append(
+                    (profile, sum(1 for r in matching if r.passed), len(matching))
+                )
+        return rates
+
 
 def _default_spec_generator(request: str) -> AgentSpec:
     """지연 임포트 — 평가 모듈을 임포트만 해도 LangChain이 딸려오지 않도록."""
@@ -136,6 +155,7 @@ def run_case(
             case_id=case.id,
             request=case.request,
             error=f"{type(exc).__name__}: {exc}",
+            profile=case.profile,
         )
 
     checks = run_checks(spec, case)
@@ -143,7 +163,11 @@ def run_case(
     # 기계적 검사가 깨졌으면 심판을 부르지 않는다 — 이미 실패한 케이스다.
     if judge is None or not all(c.passed for c in checks):
         return CaseResult(
-            case_id=case.id, request=case.request, spec=spec, checks=checks
+            case_id=case.id,
+            request=case.request,
+            spec=spec,
+            checks=checks,
+            profile=case.profile,
         )
 
     try:
@@ -155,6 +179,7 @@ def run_case(
             spec=spec,
             checks=checks,
             error=f"채점 실패: {exc}",
+            profile=case.profile,
         )
 
     return CaseResult(
@@ -163,6 +188,7 @@ def run_case(
         spec=spec,
         checks=checks,
         verdict=verdict,
+        profile=case.profile,
     )
 
 
@@ -215,7 +241,15 @@ def run_evaluation(
 
 def format_report(report: EvalReport) -> str:
     """리포트를 사람이 읽는 텍스트로 만든다 (CLI·로그용)."""
-    lines = [report.summary_line(), ""]
+    lines = [report.summary_line()]
+    # 프로필이 2종 이상 섞였을 때만 프로필별 줄을 붙인다 — 단일 세트 실행의
+    # 리포트는 기존 형식 그대로다 (기준값 diff 가독성).
+    rates = report.pass_rates_by_profile()
+    if len(rates) > 1:
+        lines.extend(
+            f"  [{profile}] {passed}/{total} 통과" for profile, passed, total in rates
+        )
+    lines.append("")
     for result in report.results:
         mark = "PASS" if result.passed else "FAIL"
         lines.append(f"[{mark}] {result.case_id}")
@@ -237,32 +271,55 @@ def save_report(
     report: EvalReport,
     directory: Path = RESULTS_DIR,
     now: datetime | None = None,
+    set_name: str = "common",
 ) -> Path:
-    """리포트 텍스트를 `<directory>/<YYYY-MM-DD_HHMMSS>.txt`로 남긴다 (Phase 8).
+    """리포트를 `<directory>/<YYYY-MM-DD_HHMMSS>_<세트>.txt`로 남긴다.
 
     실행할 때마다 자동으로 불린다 — 이미 지불한 LLM 호출 결과가 화면·세션에만
-    남아 사라지는 일을 막는다. 자동 저장본은 실행 산출물이라 gitignore 대상이고,
+    남아 사라지는 일을 막는다. 파일명의 세트 이름(Phase 9)은 기준값끼리
+    같은 세트를 비교하게 한다. 자동 저장본은 실행 산출물이라 gitignore 대상이고,
     기준값으로 삼을 파일만 `git add -f`로 골라 커밋한다 (.gitignore 주석 참조).
     """
     directory.mkdir(parents=True, exist_ok=True)
     stamp = (now or datetime.now()).strftime("%Y-%m-%d_%H%M%S")
-    path = directory / f"{stamp}.txt"
+    path = directory / f"{stamp}_{set_name}.txt"
     path.write_text(format_report(report) + "\n", encoding="utf-8")
     return path
 
 
-def main() -> int:
-    """`python -m eval.runner` — 기본 케이스로 평가를 돌린다 (심판 포함).
+def main(argv: list[str] | None = None) -> int:
+    """`python -m eval.runner [--profile 세트]` — 케이스를 돌린다 (심판 포함).
+
+    기본 세트는 common — Phase 9 전과 완전히 같은 실행이다.
 
     인코딩 고정이 **평가를 돌리기 전에** 와야 한다. 리포트에 `—` 같은 문자가 있어
     출력 단계에서 죽으면 이미 지불한 LLM 호출 결과가 통째로 사라진다(실제로 겪었다).
     """
+    import argparse
+
+    from eval.dataset import EVAL_SETS, cases_for_set
+
     force_utf8_stdio()
     load_env()
 
-    report = run_evaluation(judge=judge_spec)
+    parser = argparse.ArgumentParser(prog="eval.runner", description=__doc__)
+    parser.add_argument(
+        "--profile",
+        choices=EVAL_SETS,
+        default="common",
+        help="평가 세트 (기본 common — 기존 27건)",
+    )
+    args = parser.parse_args(argv)
+
+    cases = cases_for_set(load_cases(), args.profile)
+    if not cases:
+        print(f"[error] 세트 {args.profile!r}에 케이스가 없다", file=sys.stderr)
+        return 1
+    print(f"[eval] 세트 {args.profile} — {len(cases)}건")
+
+    report = run_evaluation(cases, judge=judge_spec)
     print(format_report(report))
-    saved = save_report(report)
+    saved = save_report(report, set_name=args.profile)
     print(f"[report] {saved} 에 저장했습니다")
     return 0 if report.passed == report.total else 1
 

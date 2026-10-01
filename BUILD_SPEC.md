@@ -821,6 +821,7 @@ python_repl을 골랐다. "계산이면 calculate" 규칙과 "CSV 파싱이면 p
 
 ## 6. 미결 사항 / 알려진 한계
 
+- **(Phase 9 후속 과제, 2026-10-01)** Builder의 **팀 판단 경계 변동** — "웹에서 조사해서 체크리스트로 정리"(두 동사, 분리 요구 없음) 요청에서 3회 중 2회 2인 팀을 만들었다(`adfs_runbook_research` 실측). 케이스는 단일 명시로 고정했지만 Builder 프롬프트의 "역할 분리 근거" 기준이 '조사→정리'를 가르지 못하는 것은 남아 있다 — common 27건 기준값에 영향 주는 프롬프트 수정이므로 별도 착수 필요
 - **(Phase 9 후속 과제, 2026-10-01)** `adfs_log_triage_team` 실대화 1회가 **270초** — 데모에 쓰기엔 길다. 데모 영상 촬영 전 단축 검토 (후보: analyst 분량 축소 지시, 팀원 모델 차등, extractor 발췌 형식 간소화). 다른 신규 템플릿은 79~139초
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.
 - ~~**파일 백엔드**: 기본 `StateBackend` — 실제 디스크 접근 필요 여부를 결정한다~~ → 2026-08-10 결정. `FilesystemBackend(root_dir=workspace/, virtual_mode=True)`로 교체 (아래 결정 로그 참조)

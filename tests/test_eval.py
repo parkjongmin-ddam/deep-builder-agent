@@ -530,5 +530,113 @@ def test_save_report_writes_timestamped_text_file(tmp_path):
         now=datetime(2026, 9, 30, 14, 22, 5),
     )
 
-    assert path == tmp_path / "results" / "2026-09-30_142205.txt"
+    # Phase 9: 파일명에 세트 이름이 들어간다 (기본 common) — 기준값끼리
+    # 같은 세트를 비교하게 하기 위함이다.
+    assert path == tmp_path / "results" / "2026-09-30_142205_common.txt"
     assert path.read_text(encoding="utf-8").rstrip() == format_report(report)
+
+
+def test_save_report_filename_carries_the_set_name(tmp_path):
+    from datetime import datetime
+
+    from eval.runner import save_report
+
+    report = run_evaluation([_case()], spec_generator=lambda r: _spec())
+
+    path = save_report(
+        report,
+        directory=tmp_path,
+        now=datetime(2026, 10, 1, 9, 0, 0),
+        set_name="infra",
+    )
+
+    assert path.name == "2026-10-01_090000_infra.txt"
+
+
+# --- 평가 세트 (Phase 9 단계 4) ----------------------------------------------
+
+
+def test_case_profile_defaults_to_common():
+    """기존 27건은 profile을 쓰지 않는다 — 생략 = common이어야 무수정 호환이다."""
+    assert _case().profile == "common"
+
+
+def test_unknown_profile_is_rejected():
+    with pytest.raises(ValidationError, match="unknown profile"):
+        _case(profile="ops")
+
+
+def test_cases_for_set_filters_by_profile():
+    from eval.dataset import cases_for_set
+
+    cases = [
+        _case(id="c1"),
+        _case(id="i1", profile="infra"),
+        _case(id="d1", profile="dev"),
+    ]
+
+    assert [c.id for c in cases_for_set(cases)] == ["c1"]  # 기본 = common
+    assert [c.id for c in cases_for_set(cases, "infra")] == ["i1"]
+    assert [c.id for c in cases_for_set(cases, "dev")] == ["d1"]
+    assert [c.id for c in cases_for_set(cases, "all")] == ["c1", "i1", "d1"]
+
+
+def test_unknown_eval_set_raises():
+    """오타난 세트 이름이 빈 실행(0건 통과 100%)이 되면 안 된다."""
+    from eval.dataset import cases_for_set
+
+    with pytest.raises(ValueError, match="unknown eval set"):
+        cases_for_set([_case()], "infra ")
+
+
+def test_shipped_case_sets_have_the_agreed_sizes():
+    """배포 세트 크기 고정 — common 27(기존 무수정), infra 7, dev 8.
+
+    기존 케이스에 실수로 profile이 붙거나 신규가 common으로 새면 여기서 잡힌다.
+    """
+    from eval.dataset import cases_for_set
+
+    cases = load_cases()
+
+    assert len(cases_for_set(cases, "common")) == 27
+    assert len(cases_for_set(cases, "infra")) == 7
+    assert len(cases_for_set(cases, "dev")) == 8
+    assert len(cases_for_set(cases, "all")) == 42
+
+
+def test_report_pass_rates_by_profile():
+    """프로필별 집계 — 존재하는 프로필만, 선언 순서(common, infra, dev)로."""
+    passing = _spec()
+
+    def generator(request: str):
+        if "깨져라" in request:
+            raise RuntimeError("생성 실패")
+        return passing
+
+    report = run_evaluation(
+        [
+            _case(id="c1"),
+            _case(id="i1", profile="infra"),
+            _case(id="i2", profile="infra", request="깨져라"),
+            _case(id="d1", profile="dev"),
+        ],
+        spec_generator=generator,
+    )
+
+    assert report.pass_rates_by_profile() == [
+        ("common", 1, 1),
+        ("infra", 1, 2),
+        ("dev", 1, 1),
+    ]
+
+
+def test_format_report_shows_profile_lines_only_for_mixed_runs():
+    single = run_evaluation([_case()], spec_generator=lambda r: _spec())
+    mixed = run_evaluation(
+        [_case(id="c1"), _case(id="i1", profile="infra")],
+        spec_generator=lambda r: _spec(),
+    )
+
+    assert "[common]" not in format_report(single)
+    assert "[common]" in format_report(mixed)
+    assert "[infra]" in format_report(mixed)
