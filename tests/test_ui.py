@@ -1056,6 +1056,64 @@ def test_viewer_principal_disables_creation_in_the_ui(monkeypatch, tmp_path):
     assert any("생성할 수 없습니다" in m for m in captions), captions
 
 
+@pytest.mark.integration
+def test_default_team_selection_keeps_the_common_screen(monkeypatch):
+    """소속 팀 기본값은 '선택 안 함' — 이 상태는 기존(공통) 화면과 같아야 한다.
+
+    Phase 9 단계 2: 팀 selectbox는 teams.example.json 폴백으로 뜨지만,
+    고르기 전에는 예시 칩이 없고 요청 입력창 placeholder도 공통 문구다.
+    """
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+
+    app = demo_mode_apptest(AppTest).run()
+
+    assert not app.exception, [e.value for e in app.exception]
+    team_boxes = [s for s in app.sidebar.selectbox if s.label == "소속 팀"]
+    assert team_boxes, "소속 팀 selectbox가 없다 (example 폴백으로 떠야 한다)"
+    assert team_boxes[0].value == "(선택 안 함)"
+
+    from ui.state import DEFAULT_BUILDER_PLACEHOLDER
+
+    assert not app.pills, "팀 미선택인데 예시 칩이 떠 있다"
+    assert app.text_area[0].placeholder == DEFAULT_BUILDER_PLACEHOLDER
+
+
+@pytest.mark.integration
+def test_selecting_a_team_swaps_examples_and_fills_the_request(monkeypatch):
+    """팀을 고르면 placeholder·예시 칩이 바뀌고, 칩 클릭이 입력창을 채운다.
+
+    예시 칩은 st.form 밖의 st.pills다 — 폼 안 일반 버튼은 제출로만 동작해서
+    값 주입에 쓸 수 없다. 추천 템플릿 4종은 단계 3 전이라 아직 없으므로
+    드롭다운이 조용히 기존 옵션만 보여야 한다 (예외·빈 항목 금지).
+    """
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+
+    from runtime.teams import PROFILES
+
+    infra = PROFILES["infra"]
+
+    app = demo_mode_apptest(AppTest).run()
+    team_box = [s for s in app.sidebar.selectbox if s.label == "소속 팀"][0]
+    selected = team_box.set_value("CLP").run()
+
+    assert not selected.exception, [e.value for e in selected.exception]
+    assert selected.pills, "팀을 골랐는데 예시 칩이 없다"
+    assert selected.pills[0].options == list(infra.examples)
+    assert selected.text_area[0].placeholder == infra.placeholder
+    # 추천 템플릿이 아직 없으니 템플릿 드롭다운은 기존 목록 그대로다.
+    template_box = selected.selectbox[0]
+    assert "adfs_log_triage_team" not in template_box.options
+
+    filled = selected.pills[0].set_value(infra.examples[0]).run()
+
+    assert not filled.exception, [e.value for e in filled.exception]
+    assert filled.text_area[0].value == infra.examples[0]
+    # 적용 후 칩 선택은 해제된다 — 같은 칩을 다시 눌러도 동작해야 한다.
+    assert filled.pills[0].value is None
+
+
 def test_principal_names_puts_the_default_first():
     """selectbox 기본 선택(첫 항목)이 admin이어야 CLI와 기본 동작이 같다."""
     from ui.state import load_iam_config, principal_names

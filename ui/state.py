@@ -41,6 +41,14 @@ from runtime.iam import (  # noqa: F401
 )
 from runtime.spec import AgentSpec
 
+# 소속 팀(직무 프로필)도 runtime/에 산다 (Phase 9) — 평가 CLI도 같은 해석을 쓴다.
+from runtime.teams import (  # noqa: F401
+    PROFILES,
+    Profile,
+    TeamsConfig,
+    load_teams_config,
+)
+
 
 def oidc_configured(secrets) -> bool:
     """OIDC 모드 여부 — `[auth]` 설정에 client_id가 있어야 한다 (Phase 7).
@@ -192,6 +200,62 @@ def team_label(team: str, profile_display: str) -> str:
     무슨 직무인지 알 수 없고, 직무만으로는 어느 팀을 골랐는지 알 수 없다.
     """
     return f"{team} · {profile_display}"
+
+
+# 팀 selectbox의 기본(첫) 옵션 — 팀은 옵트인이고, 이 상태는 공통 화면과 같다.
+NO_TEAM = "(선택 안 함)"
+
+# 팀 미선택(공통)일 때의 요청 입력창 안내 문구 — Phase 9 전과 동일해야 한다.
+DEFAULT_BUILDER_PLACEHOLDER = (
+    "웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘"
+)
+
+
+def team_options(config: TeamsConfig) -> list[str]:
+    """팀 selectbox 옵션 — 첫 항목(기본 선택)은 '선택 안 함', 이후 선언 순서."""
+    return [NO_TEAM, *config.teams]
+
+
+def selected_profile(
+    config: TeamsConfig | None, choice: str | None
+) -> Profile | None:
+    """선택값 → 프로필. 미선택·미정의 팀·설정 없음은 전부 None(공통)이다."""
+    if config is None or not choice or choice not in config.teams:
+        return None
+    return config.profile_for(choice)
+
+
+def builder_placeholder(profile: Profile | None) -> str:
+    """요청 입력창 placeholder — 프로필이 없으면 공통 문구 그대로."""
+    return profile.placeholder if profile is not None else DEFAULT_BUILDER_PLACEHOLDER
+
+
+def example_chips(profile: Profile | None) -> list[str]:
+    """예시 칩 문구 — 프로필이 없으면 빈 목록(칩 영역 자체를 그리지 않는다)."""
+    return list(profile.examples) if profile is not None else []
+
+
+def ordered_templates(stems: Sequence[str], profile: Profile | None) -> list[str]:
+    """템플릿 드롭다운 순서 — 프로필 추천을 앞으로, 나머지는 원래 순서.
+
+    추천 목록에 있지만 `templates/`에 실제 파일이 없는 이름은 **조용히
+    건너뛴다** — 단계 3 전에는 프로필 템플릿 4종이 아직 없고, 그때 빈 항목이나
+    에러를 내면 팀 선택 자체가 단계 3에 묶인다.
+    """
+    if profile is None:
+        return list(stems)
+    existing = set(stems)
+    recommended = [t for t in profile.recommended_templates if t in existing]
+    rest = [s for s in stems if s not in set(recommended)]
+    return recommended + rest
+
+
+def template_option_label(stem: str, profile: Profile | None) -> str:
+    """템플릿 옵션 표시 — 선택한 프로필의 추천이면 `· 추천`을 붙인다."""
+    label = display_name(stem)
+    if profile is not None and stem in profile.recommended_templates:
+        return f"{label} · 추천"
+    return label
 
 
 def _span(cls: str, key: str, labeler: Callable[[str], str] | None) -> str:

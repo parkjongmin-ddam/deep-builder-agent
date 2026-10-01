@@ -218,3 +218,93 @@ def test_team_label_for_sidebar():
     from ui.state import team_label
 
     assert team_label("CLP", "시스템 엔지니어") == "CLP · 시스템 엔지니어"
+
+
+# --- 빌더 소재 선택 (단계 2) -------------------------------------------------
+
+
+def test_ordered_templates_puts_existing_recommendations_first():
+    from ui.state import ordered_templates
+
+    profile = PROFILES["infra"]  # 추천: adfs_log_triage_team, sync_report_team
+    stems = [
+        "data_analysis_team",
+        "sync_report_team",
+        "doc_qa_team",
+        "adfs_log_triage_team",
+    ]
+
+    assert ordered_templates(stems, profile) == [
+        "adfs_log_triage_team",  # 추천 선언 순서가 곧 표시 순서
+        "sync_report_team",
+        "data_analysis_team",  # 나머지는 원래 순서 유지
+        "doc_qa_team",
+    ]
+
+
+def test_ordered_templates_silently_skips_missing_recommendations():
+    """단계 3 전에는 추천 템플릿 4종이 templates/에 아직 없다.
+
+    존재하지 않는 추천 이름은 **조용히 건너뛴다** — 에러도, 빈 항목도 아니다.
+    """
+    from ui.state import ordered_templates
+
+    stems = ["data_analysis_team", "doc_qa_team"]
+
+    assert ordered_templates(stems, PROFILES["dev"]) == stems
+    assert ordered_templates([], PROFILES["dev"]) == []
+
+
+def test_ordered_templates_without_profile_keeps_the_original_order():
+    from ui.state import ordered_templates
+
+    stems = ["doc_qa_team", "data_analysis_team"]
+
+    assert ordered_templates(stems, None) == stems
+
+
+def test_template_option_label_marks_recommended_only():
+    from ui.state import template_option_label
+
+    profile = PROFILES["infra"]
+
+    assert template_option_label("adfs_log_triage_team", profile).endswith("추천")
+    assert "추천" not in template_option_label("data_analysis_team", profile)
+    assert "추천" not in template_option_label("adfs_log_triage_team", None)
+
+
+def test_builder_placeholder_defaults_to_the_common_example():
+    """팀 미선택(공통)이면 기존 placeholder 그대로 — 현행 화면과 동일해야 한다."""
+    from ui.state import DEFAULT_BUILDER_PLACEHOLDER, builder_placeholder
+
+    assert builder_placeholder(None) == DEFAULT_BUILDER_PLACEHOLDER
+    assert builder_placeholder(PROFILES["dev"]) == PROFILES["dev"].placeholder
+
+
+def test_example_chips_hidden_without_a_profile():
+    """팀 미선택이면 칩이 아예 없다 — 공통 화면에 새 위젯을 더하지 않는다."""
+    from ui.state import example_chips
+
+    assert example_chips(None) == []
+    assert example_chips(PROFILES["infra"]) == list(PROFILES["infra"].examples)
+
+
+def test_team_options_defaults_to_no_team():
+    """첫 옵션(기본 선택)이 '선택 안 함'이어야 한다 — 팀은 옵트인이다."""
+    from ui.state import NO_TEAM, team_options
+
+    options = team_options(_config())
+
+    assert options[0] == NO_TEAM
+    assert options[1:] == ["CLP", "ANX", "SNP"]
+
+
+def test_selected_profile_resolution():
+    from ui.state import NO_TEAM, selected_profile
+
+    config = _config()
+
+    assert selected_profile(config, NO_TEAM) is None
+    assert selected_profile(config, None) is None
+    assert selected_profile(None, "CLP") is None
+    assert selected_profile(config, "CLP") is PROFILES["infra"]

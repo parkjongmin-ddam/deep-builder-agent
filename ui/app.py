@@ -45,7 +45,16 @@ from ui.state import (  # noqa: E402
     ACTION_RUN,
     PermissionDeniedError,
     Principal,
+    Profile,
     action_label,
+    builder_placeholder,
+    example_chips,
+    load_teams_config,
+    ordered_templates,
+    selected_profile,
+    team_label,
+    team_options,
+    template_option_label,
     append_turn,
     authorize_action,
     badges_html,
@@ -95,9 +104,9 @@ inject_css()
 
 
 def render_sidebar(
-    iam_config, oidc_principal: Principal | None = None
-) -> tuple[list[str], Principal]:
-    """주체 표시/선택 + 환경 상태를 그리고, (실행 차단 목록, 주체)를 돌려준다.
+    iam_config, oidc_principal: Principal | None = None, teams_config=None
+) -> tuple[list[str], Principal, Profile | None]:
+    """주체·소속 팀 + 환경 상태를 그리고, (차단 목록, 주체, 프로필)을 돌려준다.
 
     두 모드가 있다 (Phase 7):
     - **OIDC 모드**: 로그인된 신원이 곧 주체다 — 선택기가 없다. 인증이 있는데
@@ -134,6 +143,21 @@ def render_sidebar(
         if oidc_principal is not None:
             st.button("로그아웃", icon=":material/logout:", on_click=st.logout)
 
+    # 소속 팀 (Phase 9) — 권한과 별개의 축이라 사용자가 직접 바꿔도 안전하다.
+    # 설정이 없으면(teams.json·example 둘 다 부재) 영역 자체를 그리지 않는다.
+    profile = None
+    if teams_config is not None:
+        with st.sidebar.container(border=True):
+            choice = st.selectbox(
+                "소속 팀",
+                team_options(teams_config),
+                key="team_choice",
+                help="예시 문구와 템플릿 추천만 바뀝니다 — 권한(역할)과는 무관합니다.",
+            )
+            profile = selected_profile(teams_config, choice)
+            if profile is not None:
+                st.caption(team_label(choice, profile.display))
+
     items = check_readiness()
     summary = readiness_summary(items)
     pill_color = "red" if summary == "실행 불가" else "green"
@@ -152,7 +176,7 @@ def render_sidebar(
     except TracingConfigError as exc:
         st.sidebar.error(str(exc))
 
-    return blockers, principal
+    return blockers, principal, profile
 
 
 # --- 에이전트 생성 ---------------------------------------------------------
@@ -194,17 +218,46 @@ def activate(spec: AgentSpec) -> None:
 # --- 탭 1: 빌더 ------------------------------------------------------------
 
 
-def render_builder_panel(blocked: bool, principal: Principal) -> None:
+def _apply_example_chip() -> None:
+    """예시 칩 → 요청 입력창 (Phase 9 단계 2).
+
+    칩은 폼 **밖**의 st.pills다 — 폼 안 일반 버튼은 제출로만 동작해 값 주입에
+    쓸 수 없다. 적용 후 선택을 해제해야 같은 칩을 다시 눌러도 동작한다
+    (선택이 남아 있으면 재클릭이 변경 이벤트가 아니다).
+    """
+    chip = st.session_state.get("example_chip")
+    if chip:
+        st.session_state.build_request = chip
+        st.session_state.example_chip = None
+
+
+def render_builder_panel(
+    blocked: bool, principal: Principal, profile: Profile | None = None
+) -> None:
     st.subheader("① 에이전트 만들기")
 
     can_create = is_allowed(principal, ACTION_CREATE)
     can_run = is_allowed(principal, ACTION_RUN)
     templates = sorted(TEMPLATES_DIR.glob("*.json"))
+    # 추천 템플릿 중 아직 파일이 없는 이름은 ordered_templates가 조용히 건넌다.
+    stems = ordered_templates([p.stem for p in templates], profile)
+
+    # 예시 칩 — 팀(프로필)을 골랐을 때만 그린다. 공통 화면은 Phase 9 전과 같다.
+    chips = example_chips(profile)
+    if chips:
+        st.pills(
+            "예시 요청",
+            chips,
+            key="example_chip",
+            label_visibility="collapsed",
+            on_change=_apply_example_chip,
+        )
 
     with st.form("build"):
         request = st.text_area(
             "무엇을 하는 에이전트가 필요한가요?",
-            placeholder="웹 검색으로 최신 IT 뉴스를 찾아 3줄로 요약해주는 에이전트 만들어줘",
+            key="build_request",
+            placeholder=builder_placeholder(profile),
             height=110,
         )
         # 시안 1a — 생성 · "또는" · 템플릿 선택 · 불러오기를 한 줄에 배치한다.
@@ -226,11 +279,11 @@ def render_builder_panel(blocked: bool, principal: Principal) -> None:
             template_choice = (
                 st.selectbox(
                     "템플릿",
-                    [p.stem for p in templates],
-                    format_func=display_name,
+                    stems,
+                    format_func=lambda s: template_option_label(s, profile),
                     label_visibility="collapsed",
                 )
-                if templates
+                if stems
                 else None
             )
         with col_load:
@@ -749,6 +802,13 @@ def main() -> None:
         st.error(f"IAM 정책 오류: {exc}")
         st.stop()
 
+    # 팀 설정도 같은 원칙이다 (Phase 9) — 깨진 파일은 숨김(None)과 다르다.
+    try:
+        teams_config = load_teams_config()
+    except (ValueError, OSError) as exc:
+        st.error(f"팀 설정 오류 (teams.json): {exc}")
+        st.stop()
+
     # OIDC 인증 게이트 (Phase 7). `.streamlit/secrets.toml`의 [auth]가 있으면
     # 로그인 없이는 아무 화면도 그리지 않는다. 미설정이면 데모 모드로 폴백해
     # "clone 후 5분" 경로와 오프라인 테스트가 그대로 유지된다.
@@ -764,8 +824,16 @@ def main() -> None:
         except PermissionDeniedError as exc:
             render_access_denied(email, str(exc))
             st.stop()
+        # 선택 기능: Okta 그룹 → 팀 자동 선택. 최초 1회만 — 사용자가 바꾼
+        # 선택(session_state)을 로그인 상태가 매 rerun 덮어쓰면 안 된다.
+        if teams_config is not None and "team_choice" not in st.session_state:
+            auto_team = teams_config.team_for_groups(groups)
+            if auto_team is not None:
+                st.session_state.team_choice = auto_team
 
-    blockers, principal = render_sidebar(iam_config, oidc_principal)
+    blockers, principal, profile = render_sidebar(
+        iam_config, oidc_principal, teams_config
+    )
     blocked = bool(blockers)
 
     build_tab, eval_tab = st.tabs(
@@ -777,7 +845,7 @@ def main() -> None:
         with left:
             # 시안 1a — 좌측 패널은 고정 높이 컨테이너에서 독립 스크롤한다.
             with st.container(height=700, border=False):
-                render_builder_panel(blocked, principal)
+                render_builder_panel(blocked, principal, profile)
         with right:
             render_chat_panel(blocked, principal)
 
