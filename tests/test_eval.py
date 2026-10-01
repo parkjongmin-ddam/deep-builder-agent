@@ -630,6 +630,55 @@ def test_report_pass_rates_by_profile():
     ]
 
 
+# --- 팀 판단 경계 프로브 (Phase 9) -------------------------------------------
+
+
+def test_boundary_probes_are_kept_out_of_the_eval_sets():
+    """경계 프로브 문구는 어떤 평가 세트에도 없어야 한다.
+
+    프로브는 Builder가 흔들리는 입력이라 세트에 섞이면 간헐 실패로
+    기준값을 흐린다 — 분리 보존이 존재 이유다.
+    """
+    from eval.boundary import BOUNDARY_PROBES
+
+    case_requests = {c.request for c in load_cases()}
+    overlapping = [p.id for p in BOUNDARY_PROBES if p.request in case_requests]
+    assert not overlapping, f"평가 세트와 겹치는 프로브: {overlapping}"
+    assert BOUNDARY_PROBES, "보존하기로 한 경계 프로브가 비어 있다"
+    assert all(p.observed for p in BOUNDARY_PROBES), "관찰 기록이 없는 프로브"
+
+
+def test_team_formation_count_measures_frequency_not_pass_fail():
+    """빈도 측정 — 팀 1회·단일 2회면 (1, 3)이다. 통과/실패 판정이 아니다."""
+    from eval.boundary import team_formation_count
+
+    single = _spec()
+    team = _spec(
+        subagents=[
+            {
+                "name": "helper",
+                "description": "d",
+                "system_prompt": single.system_prompt,
+                "tools": [],
+            }
+        ]
+    )
+    specs = iter([team, single, single])
+
+    teams, total = team_formation_count(
+        "경계 요청", runs=3, spec_generator=lambda r: next(specs)
+    )
+
+    assert (teams, total) == (1, 3)
+
+
+def test_team_formation_count_rejects_zero_runs():
+    from eval.boundary import team_formation_count
+
+    with pytest.raises(ValueError, match="runs"):
+        team_formation_count("요청", runs=0, spec_generator=lambda r: _spec())
+
+
 def test_format_report_shows_profile_lines_only_for_mixed_runs():
     single = run_evaluation([_case()], spec_generator=lambda r: _spec())
     mixed = run_evaluation(
