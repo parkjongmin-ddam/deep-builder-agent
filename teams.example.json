@@ -1,0 +1,9 @@
+{
+  "_comment": "소속 팀 → 직무 프로필 매핑 (Phase 9). 팀은 권한(iam.json)과 별개의 축으로, 예시 문구·템플릿 추천·평가 세트만 바꾼다. teams.json으로 복사해 수정하면 그쪽이 우선하고, 없으면 이 파일이 그대로 로드된다. 프로필 키는 runtime/teams.py의 PROFILES에 정의된 것만 쓸 수 있다 (infra=시스템 엔지니어, dev=개발자). groups는 선택 기능 — Okta 그룹 클레임을 팀으로 자동 매핑한다. 예: {\"okta-adfs-ops\": \"CLP\"}. example에서는 비워 둔다 — 이 파일이 기본 로드되므로 더미 매핑이 실제 동작이 되면 안 된다.",
+  "teams": {
+    "CLP": "infra",
+    "ANX": "dev",
+    "SNP": "dev"
+  },
+  "groups": {}
+}

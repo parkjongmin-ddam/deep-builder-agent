@@ -185,6 +185,15 @@ def tool_label(key: str) -> str:
     return _TOOL_LABELS_KO.get(key, key)
 
 
+def team_label(team: str, profile_display: str) -> str:
+    """사이드바 소속 팀 표시 — `CLP · 시스템 엔지니어` (Phase 9 단계 1).
+
+    팀 코드(식별자)와 프로필 표시 이름을 함께 보여준다 — 팀 코드만으로는
+    무슨 직무인지 알 수 없고, 직무만으로는 어느 팀을 골랐는지 알 수 없다.
+    """
+    return f"{team} · {profile_display}"
+
+
 def _span(cls: str, key: str, labeler: Callable[[str], str] | None) -> str:
     label = labeler(key) if labeler else key
     # hover에 원래 식별자를 남긴다 — 라벨과 같으면 title이 무의미하므로 생략.
