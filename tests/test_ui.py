@@ -1114,6 +1114,38 @@ def test_selecting_a_team_swaps_examples_and_fills_the_request(monkeypatch):
     assert filled.pills[0].value is None
 
 
+@pytest.mark.integration
+def test_switching_teams_clears_only_untouched_chip_text(monkeypatch):
+    """팀 변경 시: 칩 문장 **그대로**면 입력창을 비우고, 수정했으면 유지한다."""
+    AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+
+    from runtime.teams import PROFILES
+
+    infra = PROFILES["infra"]
+
+    def team_box(app):
+        return [s for s in app.sidebar.selectbox if s.label == "소속 팀"][0]
+
+    app = demo_mode_apptest(AppTest).run()
+    selected = team_box(app).set_value("CLP").run()
+    filled = selected.pills[0].set_value(infra.examples[0]).run()
+    assert filled.text_area[0].value == infra.examples[0]
+
+    # 칩 문장 그대로 → ANX로 바꾸면 비워진다.
+    cleared = team_box(filled).set_value("ANX").run()
+    assert not cleared.exception, [e.value for e in cleared.exception]
+    assert not (cleared.text_area[0].value or "").strip()
+
+    # 사용자가 수정한 문장 → 팀을 바꿔도 남는다.
+    edited = infra.examples[1] + " 단, 지난달 분만"
+    back = team_box(cleared).set_value("CLP").run()
+    typed = back.text_area[0].set_value(edited).run()
+    kept = team_box(typed).set_value("SNP").run()
+    assert not kept.exception, [e.value for e in kept.exception]
+    assert kept.text_area[0].value == edited
+
+
 def test_principal_names_puts_the_default_first():
     """selectbox 기본 선택(첫 항목)이 admin이어야 CLI와 기본 동작이 같다."""
     from ui.state import load_iam_config, principal_names

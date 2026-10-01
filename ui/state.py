@@ -235,6 +235,19 @@ def example_chips(profile: Profile | None) -> list[str]:
     return list(profile.examples) if profile is not None else []
 
 
+def request_after_team_change(request: str, previous_profile: Profile | None) -> str:
+    """팀 변경 후 요청 입력창에 남길 값.
+
+    칩으로 채운 문장이 **한 글자도 수정되지 않은 채**(= 이전 팀의 예시와
+    정확히 일치) 남아 있으면 비운다 — 이전 팀의 예시가 새 팀 화면에 남으면
+    사용자의 요청처럼 보인다. 수정했거나 직접 쓴 글은 사용자의 것이므로
+    팀 변경이 지우면 안 된다.
+    """
+    if previous_profile is not None and request in previous_profile.examples:
+        return ""
+    return request
+
+
 def ordered_templates(stems: Sequence[str], profile: Profile | None) -> list[str]:
     """템플릿 드롭다운 순서 — 프로필 추천을 앞으로, 나머지는 원래 순서.
 

@@ -299,6 +299,32 @@ def test_team_options_defaults_to_no_team():
     assert options[1:] == ["CLP", "ANX", "SNP"]
 
 
+def test_request_after_team_change_clears_untouched_chip_text():
+    """칩으로 채운 문장이 **그대로**면 팀 변경 시 비운다 — 이전 팀의 예시가
+    새 팀 화면에 남아 있으면 예시가 아니라 사용자의 요청처럼 보인다."""
+    from ui.state import request_after_team_change
+
+    infra = PROFILES["infra"]
+
+    assert request_after_team_change(infra.examples[0], infra) == ""
+    assert request_after_team_change(infra.examples[1], infra) == ""
+
+
+def test_request_after_team_change_keeps_user_edits():
+    """한 글자라도 수정했으면 사용자의 글이다 — 팀 변경이 지우면 안 된다."""
+    from ui.state import request_after_team_change
+
+    infra = PROFILES["infra"]
+    edited = infra.examples[0] + " 단, 매주 월요일 기준으로"
+
+    assert request_after_team_change(edited, infra) == edited
+    assert request_after_team_change("내가 직접 쓴 요청", infra) == "내가 직접 쓴 요청"
+    # 이전 팀이 없었으면(공통) 비교 대상이 없다 — 무엇이든 유지한다.
+    assert (
+        request_after_team_change(infra.examples[0], None) == infra.examples[0]
+    )
+
+
 def test_selected_profile_resolution():
     from ui.state import NO_TEAM, selected_profile
 

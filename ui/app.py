@@ -51,6 +51,7 @@ from ui.state import (  # noqa: E402
     example_chips,
     load_teams_config,
     ordered_templates,
+    request_after_team_change,
     selected_profile,
     team_label,
     team_options,
@@ -103,6 +104,18 @@ inject_css()
 # --- 사이드바: 환경 점검 ---------------------------------------------------
 
 
+def _on_team_change(teams_config) -> None:
+    """팀 변경 콜백 — 칩으로 채운(이전 팀 예시 그대로인) 입력만 비운다.
+
+    사용자가 수정한 문장은 판단을 request_after_team_change에 맡겨 유지된다.
+    """
+    previous = selected_profile(
+        teams_config, st.session_state.get("_last_team_choice")
+    )
+    request = st.session_state.get("build_request", "")
+    st.session_state.build_request = request_after_team_change(request, previous)
+
+
 def render_sidebar(
     iam_config, oidc_principal: Principal | None = None, teams_config=None
 ) -> tuple[list[str], Principal, Profile | None]:
@@ -153,7 +166,12 @@ def render_sidebar(
                 team_options(teams_config),
                 key="team_choice",
                 help="예시 문구와 템플릿 추천만 바뀝니다 — 권한(역할)과는 무관합니다.",
+                on_change=_on_team_change,
+                args=(teams_config,),
             )
+            # 다음 변경 때 "이전 팀"으로 쓸 값 — 콜백은 변경 후에 불리므로
+            # 직전 렌더에서 기록해 둔 이 값이 곧 바꾸기 전의 팀이다.
+            st.session_state["_last_team_choice"] = choice
             profile = selected_profile(teams_config, choice)
             if profile is not None:
                 st.caption(team_label(choice, profile.display))
