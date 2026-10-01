@@ -302,20 +302,26 @@ def test_readiness_summary_three_states():
     assert readiness_summary([ok, missing]) == "실행 불가"
 
 
-def test_badge_palette_css_follows_detected_theme():
-    """st.context.theme을 읽을 수 있으면 배지 색을 그 테마로 고정한다 (Phase 8 보완).
+def test_badge_palette_uses_light_dark_pairs_without_theme_branch():
+    """배지 팔레트는 테마 분기 없이 CSS light-dark()로 양 테마를 한 번에 담는다.
 
-    감지 불가(None)면 prefers-color-scheme 미디어 쿼리로 폴백한다.
+    st.context.theme.type 고정 방식은 테마 전환 직후 한 리런 늦게 갱신돼
+    (설치본 docstring) 첫 렌더가 이전 팔레트로 그려졌다 — 라이트 전환 직후
+    '허용 행위' 배지가 다크 스타일로 뜨는 실화면 결함(2026-10-01).
+    light-dark()는 Streamlit 프런트엔드가 앱 컨테이너에 즉시 설정하는
+    color-scheme을 요소 위치에서 평가하므로 리런 없이 맞는 색이 된다.
     """
     from ui.style import badge_palette_css
 
-    dark = badge_palette_css("dark")
-    light = badge_palette_css("light")
-    fallback = badge_palette_css(None)
+    css = badge_palette_css()
 
-    assert "#6AA8FF" in dark and "@media" not in dark
-    assert "#1F6FD1" in light and "@media" not in light
-    assert "prefers-color-scheme" in fallback
+    # 두 팔레트가 쌍으로 한 선언에 들어간다 — 파이썬 쪽 테마 분기가 없다.
+    assert "light-dark(#1F6FD1, #6AA8FF)" in css  # info
+    assert "light-dark(#F3F3F0, #1E2229)" in css  # chip-bg
+    # 미지원 구형 브라우저 폴백: 라이트 기본 + prefers-color-scheme 다크.
+    # @supports 블록이 소스 뒤에 있어 지원 브라우저에서는 항상 이긴다.
+    assert "prefers-color-scheme" in css
+    assert css.index("prefers-color-scheme") < css.index("@supports")
 
 
 def test_denial_reason_names_role_and_action():

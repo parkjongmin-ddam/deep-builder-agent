@@ -10,12 +10,14 @@
   로컬 woff2 커밋은 기각 — 사유는 BUILD_SPEC.md Phase 8 결정 로그.
 
 - **도구 배지·칩·환경 점검·신원 카드** (단계 2) — `ui/state.py`의 `*_html`
-  함수들이 만드는 마크업을 st.html로 렌더한다. 색 팔레트는
-  `st.context.theme.type`(설치본 1.64.0 확인)으로 현재 앱 테마를 읽어
-  고정한다 — Streamlit 설정에서 OS와 반대 테마를 강제해도 일치한다.
-  **한계**: 테마 타입은 세션 첫 로드나 테마 전환 직후 한 리런 동안 부정확할
-  수 있고(설치본 docstring 명시), 감지 불가(None)면 prefers-color-scheme
-  미디어 쿼리로 폴백한다.
+  함수들이 만드는 마크업을 st.html로 렌더한다. 색 팔레트는 **CSS
+  `light-dark()` 쌍**으로 양 테마를 한 선언에 담는다 — Streamlit 프런트엔드가
+  앱 컨테이너에 `color-scheme`을 activeTheme 기준으로 설정하는 것을 설치본
+  1.64.0 index.js로 확인했고, light-dark()는 그 값을 요소 위치에서 평가하므로
+  테마 전환 **즉시**(파이썬 리런 없이) 맞는 색이 된다. 이전의
+  `st.context.theme.type` 고정 방식은 전환 직후 한 리런 동안 이전 팔레트를
+  주입하는 결함이 있었다(실화면 확인, 2026-10-01). light-dark() 미지원 구형
+  브라우저는 라이트 기본 + prefers-color-scheme 다크로 폴백한다.
 
 Streamlit 내부 클래스명 의존은 최소화한다. 자체 클래스(`.dba-*`) 외에
 사용 중인 내부 선택자는 다음 하나다 (Streamlit 버전 업그레이드 시 확인할 것):
@@ -76,28 +78,30 @@ def _root_vars(palette: dict[str, str]) -> str:
     return f":root {{{body}}}"
 
 
-def badge_palette_css(theme_type: str | None) -> str:
-    """현재 테마에 맞는 색 변수 블록을 만든다.
+def badge_palette_css() -> str:
+    """양 테마를 한 번에 담는 색 변수 블록 — 테마 분기·리런 의존이 없다.
 
-    테마를 아는 경우("light"/"dark") 그 팔레트로 고정하고, 모르는 경우(None)
-    라이트 기본 + prefers-color-scheme 다크 미디어 쿼리로 폴백한다.
+    `light-dark(라이트값, 다크값)`은 사용 요소의 color-scheme으로 평가된다.
+    Streamlit은 앱 컨테이너에 color-scheme을 activeTheme 기준으로 즉시
+    설정하므로(설치본 index.js 실측), 테마를 바꾸면 파이썬 리런 없이도
+    맞는 색이 된다. 폴백 블록(라이트 기본 + prefers-color-scheme 다크)은
+    light-dark() 미지원 구형 브라우저용이며, @supports 블록이 소스 뒤에
+    있어 지원 브라우저에서는 항상 이긴다.
     """
-    if theme_type in _PALETTES:
-        return _root_vars(_PALETTES[theme_type])
+    pairs = "".join(
+        f"--dba-{name}: light-dark("
+        f"{_PALETTES['light'][name]}, {_PALETTES['dark'][name]});"
+        for name in _PALETTES["light"]
+    )
     return (
         _root_vars(_PALETTES["light"])
         + "\n@media (prefers-color-scheme: dark) {"
         + _root_vars(_PALETTES["dark"])
         + "}"
+        + "\n@supports (color: light-dark(#000, #fff)) {"
+        + f":root {{{pairs}}}"
+        + "}"
     )
-
-
-def _detected_theme() -> str | None:
-    """st.context.theme.type — 스크립트 컨텍스트가 없으면 None."""
-    try:
-        return st.context.theme.type
-    except Exception:  # noqa: BLE001 - 감지 실패는 폴백 CSS로 흡수한다
-        return None
 
 
 _COMPONENT_CSS = """
@@ -196,8 +200,7 @@ _COMPONENT_CSS = """
 def inject_css() -> None:
     """앱 시작 시 1회 호출한다 (재실행마다 불려도 멱등이다).
 
-    팔레트는 호출 시점의 st.context.theme으로 고른다 — 테마 전환은 리런을
-    일으키므로 다음 리런에서 맞는 팔레트로 다시 주입된다.
+    팔레트는 light-dark() 쌍이라 호출 시점의 테마를 알 필요가 없다 —
+    테마 전환은 브라우저 쪽 color-scheme 변경만으로 즉시 반영된다.
     """
-    palette = badge_palette_css(_detected_theme())
-    st.html(f"<style>\n{_FONT_CSS}\n{palette}\n{_COMPONENT_CSS}\n</style>")
+    st.html(f"<style>\n{_FONT_CSS}\n{badge_palette_css()}\n{_COMPONENT_CSS}\n</style>")
