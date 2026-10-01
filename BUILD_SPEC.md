@@ -820,6 +820,8 @@ python_repl을 골랐다. "계산이면 calculate" 규칙과 "CSV 파싱이면 p
   비싼 실행의 출력 경로 확인은 도구가 아니라 **절차**여야 한다: 이후 매 건 파일 저장으로 바꿨다
 
 ## 6. 미결 사항 / 알려진 한계
+
+- **(Phase 9 후속 과제, 2026-10-01)** `adfs_log_triage_team` 실대화 1회가 **270초** — 데모에 쓰기엔 길다. 데모 영상 촬영 전 단축 검토 (후보: analyst 분량 축소 지시, 팀원 모델 차등, extractor 발췌 형식 간소화). 다른 신규 템플릿은 79~139초
 - **제거 불가 잔여 도구 (deepagents 0.7.5)**: `read_file`은 FilesystemMiddleware가 필수로 요구하고, `task`는 SubAgentMiddleware(`_REQUIRED_MIDDLEWARE`)가 제거를 막는다. 스펙이 도구를 하나도 요청하지 않아도 이 둘은 항상 노출된다. Phase 2에서 `task` 노출이 실제 위험인지(subagents=[] 상태에서 general-purpose 서브에이전트만 뜨는지) 평가한다.
 - ~~**파일 백엔드**: 기본 `StateBackend` — 실제 디스크 접근 필요 여부를 결정한다~~ → 2026-08-10 결정. `FilesystemBackend(root_dir=workspace/, virtual_mode=True)`로 교체 (아래 결정 로그 참조)
 - ~~**모델 최신화**: 상위 모델로 `claude-sonnet-5`·`claude-opus-5`가 존재한다. 평가 후 기본값 재검토~~ → 2026-08-10 검토 완료. **기본값을 `claude-sonnet-4-6`으로 유지한다** (아래 비교 기록). 유일하게 갈렸던 결과가 프롬프트 모순 탓으로 밝혀져 **품질 차이가 입증되지 않았다.** 6케이스 × 1회로 기본값을 바꾸는 것은 잡음에 반응하는 것이다 — 같은 스위트가 실행마다 뒤집힌다는 직접 증거가 있다. `DEEP_BUILDER_MODEL`로 언제든 바꿀 수 있다

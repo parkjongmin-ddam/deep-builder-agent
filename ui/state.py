@@ -248,19 +248,27 @@ def request_after_team_change(request: str, previous_profile: Profile | None) ->
     return request
 
 
+# 프로필과 무관하게 드롭다운 맨 위에 두는 범용 템플릿 — 팀 미선택이어도 적용된다.
+_COMMON_FIRST_TEMPLATES = ("general_assistant",)
+
+
 def ordered_templates(stems: Sequence[str], profile: Profile | None) -> list[str]:
-    """템플릿 드롭다운 순서 — 프로필 추천을 앞으로, 나머지는 원래 순서.
+    """템플릿 드롭다운 순서 — 범용 → 프로필 추천 → 나머지(원래 순서).
 
     추천 목록에 있지만 `templates/`에 실제 파일이 없는 이름은 **조용히
-    건너뛴다** — 단계 3 전에는 프로필 템플릿 4종이 아직 없고, 그때 빈 항목이나
-    에러를 내면 팀 선택 자체가 단계 3에 묶인다.
+    건너뛴다** — 추천과 배포 파일이 어긋나도 빈 항목이나 에러를 내지 않는다
+    (실존 여부 자체는 test_recommended_profile_templates_exist가 강제한다).
     """
-    if profile is None:
-        return list(stems)
     existing = set(stems)
-    recommended = [t for t in profile.recommended_templates if t in existing]
-    rest = [s for s in stems if s not in set(recommended)]
-    return recommended + rest
+    first = [t for t in _COMMON_FIRST_TEMPLATES if t in existing]
+    if profile is not None:
+        first += [
+            t
+            for t in profile.recommended_templates
+            if t in existing and t not in first
+        ]
+    rest = [s for s in stems if s not in set(first)]
+    return first + rest
 
 
 def template_option_label(stem: str, profile: Profile | None) -> str:
@@ -470,6 +478,7 @@ _DISPLAY_NAMES = {
     "sync_report_team": "계정 동기화 점검 팀",
     "auth_error_analysis_team": "연동 오류 분석 팀",
     "auth_lib_research_team": "연동 라이브러리 조사 팀",
+    "general_assistant": "범용 질문 도우미",
 }
 
 

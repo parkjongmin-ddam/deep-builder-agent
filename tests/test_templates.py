@@ -62,11 +62,20 @@ def test_template_passes_spec_validation(path: Path):
     assert spec.name == path.stem
 
 
+# 단일 에이전트로 배포하는 템플릿 — 팀 선언 검사의 의도적 예외.
+# general_assistant는 범용 질문 도우미라 역할 분리 근거가 없다 (Builder 프롬프트의
+# "근거 없으면 단일" 규칙과 같은 판단을 손으로 쓴 템플릿에 적용한 것).
+SINGLE_AGENT_TEMPLATES = frozenset({"general_assistant"})
+
+
 @pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
 def test_template_declares_a_team(path: Path):
-    """팀 템플릿인데 팀이 없으면 템플릿이 아니다."""
+    """팀 템플릿인데 팀이 없으면 템플릿이 아니다 (단일 예외 목록 제외)."""
     spec = _load(path)
 
+    if path.stem in SINGLE_AGENT_TEMPLATES:
+        assert not spec.subagents, f"{path.stem}은 단일 에이전트 템플릿이어야 한다"
+        return
     assert spec.subagents, "subagents가 비어 있다"
 
 

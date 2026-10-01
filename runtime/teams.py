@@ -57,10 +57,15 @@ PROFILES: dict[str, Profile] = {
         examples=(
             "계정 동기화 결과 CSV를 읽어 실패 건을 유형별로 집계하고 "
             "보고서 파일로 저장해주는 에이전트 만들어줘",
-            "ADFS 토큰 서명 인증서 만료 대응 절차를 조사해서 점검 "
-            "체크리스트로 정리해주는 에이전트 만들어줘",
+            # 한 칩은 도메인 밖 일반 업무 — 프로필이 ADFS 전용이라는 인상을 피한다.
+            "Windows 서버 이벤트 로그에서 반복 오류를 찾아 정리해주는 "
+            "에이전트 만들어줘",
         ),
-        recommended_templates=("adfs_log_triage_team", "sync_report_team"),
+        recommended_templates=(
+            "general_assistant",
+            "adfs_log_triage_team",
+            "sync_report_team",
+        ),
     ),
     "dev": Profile(
         key="dev",
@@ -72,10 +77,15 @@ PROFILES: dict[str, Profile] = {
         examples=(
             "Python 계정 동기화 스크립트의 traceback을 읽고 원인 후보를 "
             "정리해주는 에이전트 만들어줘",
-            ".NET과 Python에서 ADFS(OIDC·SAML) 연동에 쓰는 라이브러리를 "
-            "비교 조사해주는 에이전트 만들어줘",
+            # 한 칩은 도메인 밖 일반 업무 — 프로필이 ADFS 전용이라는 인상을 피한다.
+            "Git 커밋 이력 파일을 읽고 릴리스 노트 초안을 써주는 "
+            "에이전트 만들어줘",
         ),
-        recommended_templates=("auth_error_analysis_team", "auth_lib_research_team"),
+        recommended_templates=(
+            "general_assistant",
+            "auth_error_analysis_team",
+            "auth_lib_research_team",
+        ),
     ),
 }
 

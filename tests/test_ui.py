@@ -1077,6 +1077,8 @@ def test_default_team_selection_keeps_the_common_screen(monkeypatch):
 
     assert not app.pills, "팀 미선택인데 예시 칩이 떠 있다"
     assert app.text_area[0].placeholder == DEFAULT_BUILDER_PLACEHOLDER
+    # 범용 템플릿은 팀 미선택이어도 드롭다운 첫 항목이다 (추천 표시는 없음).
+    assert app.selectbox[0].options[0] == "범용 질문 도우미"
 
 
 @pytest.mark.integration
@@ -1102,9 +1104,12 @@ def test_selecting_a_team_swaps_examples_and_fills_the_request(monkeypatch):
     assert selected.pills, "팀을 골랐는데 예시 칩이 없다"
     assert selected.pills[0].options == list(infra.examples)
     assert selected.text_area[0].placeholder == infra.placeholder
-    # 추천 템플릿이 아직 없으니 템플릿 드롭다운은 기존 목록 그대로다.
+    # 드롭다운(표시 문자열)은 범용 → 프로필 추천 순이고 추천 표시가 붙는다.
+    # (주의: AppTest의 options는 format_func가 적용된 표시 문자열이다 —
+    #  식별자로 단언하면 아무것도 검사하지 않는 약한 단언이 된다)
     template_box = selected.selectbox[0]
-    assert "adfs_log_triage_team" not in template_box.options
+    assert template_box.options[0] == "범용 질문 도우미 · 추천"
+    assert template_box.options[1] == "ADFS 로그 분석 팀 · 추천"
 
     filled = selected.pills[0].set_value(infra.examples[0]).run()
 

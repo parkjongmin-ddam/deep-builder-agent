@@ -263,6 +263,26 @@ def test_ordered_templates_without_profile_keeps_the_original_order():
     assert ordered_templates(stems, None) == stems
 
 
+def test_general_assistant_is_first_even_without_a_profile():
+    """범용 템플릿은 팀 미선택이어도 드롭다운 첫 항목이다."""
+    from ui.state import ordered_templates
+
+    stems = ["data_analysis_team", "doc_qa_team", "general_assistant"]
+
+    assert ordered_templates(stems, None)[0] == "general_assistant"
+    # 프로필을 골라도 범용이 1순위, 프로필 추천이 그 뒤를 잇는다.
+    ordered = ordered_templates(
+        [*stems, "adfs_log_triage_team"], PROFILES["infra"]
+    )
+    assert ordered[:2] == ["general_assistant", "adfs_log_triage_team"]
+
+
+def test_every_profile_recommends_the_general_assistant_first():
+    """모든 프로필의 추천 맨 위는 범용 질문 도우미다 (사용자 지시 2026-10-01)."""
+    for profile in PROFILES.values():
+        assert profile.recommended_templates[0] == "general_assistant"
+
+
 def test_template_option_label_marks_recommended_only():
     from ui.state import template_option_label
 

@@ -22,17 +22,17 @@ ADFS·계정 동기화 도메인의 **가상 데이터**다. 실제 사내 호�
 
 | 이벤트 ID | 의도한 의미 | 샘플에서의 시나리오 |
 |---|---|---|
-| 342 | Token validation failed — 자격 증명 오류(틀린 암호) 또는 잠긴 계정 | user07 연속 3회 암호 오류, user12 계정 잠김, user20 단건 |
+| 342 | Token validation failed — 자격 증명 오류(틀린 암호) 또는 잠긴 계정 | user07 연속 3회 암호 오류, user12는 **AD 계정 잠금**(도메인 잠금 정책) 시나리오 — ADFS Extranet (Smart) Lockout이 아니다, user20 단건 |
 | 364 | Encountered error during federation passive request — 수동(브라우저) 인증 요청 처리 중 오류의 일반 래퍼. 세부 원인은 Exception details에 | MSIS7007·MSIS7065·일반 오류의 컨테이너 |
 | 111 | Federation Service가 WS-Trust 요청 처리 중 오류 | WS-Trust Issue 요청 실패 2건 |
-| 276 | 페더레이션 서버 프록시(WAP)가 Federation Service에 인증 실패 — 프록시 신뢰(trust) 문제 | wap01 프록시 신뢰 인증서 문제 1건 |
+| 276 | 페더레이션 서버 프록시(WAP)가 Federation Service에 인증 실패 — 프록시 신뢰(trust) 문제 (2026-10-01 Microsoft 문서로 의미 재확인) | wap01 프록시 신뢰 인증서 문제 1건 |
 
 ### MSIS 코드 (`adfs_events.csv`의 Exception details)
 
 | 코드 | 의도한 의미 | 시나리오 |
 |---|---|---|
 | MSIS7007 | 요청한 relying party trust가 미등록/미지원(또는 비활성) | 미등록 RP `https://newapp.contoso.com/` 접근 2건 |
-| MSIS7065 | 해당 경로를 처리할 등록된 프로토콜 핸들러 없음 | 비활성화된 `/adfs/ls/idpinitiatedsignon` 접근 1건 |
+| MSIS7065 | 해당 경로를 처리할 등록된 프로토콜 핸들러 없음 | 비활성화된 `/adfs/ls/idpinitiatedsignon` 접근 1건 — 원인: `EnableIdpInitiatedSignonPage` 속성 비활성(ADFS 2016+ 기본값 false, `Set-AdfsProperties`로 변경) |
 
 ### Microsoft.IdentityModel IDX 코드 (`dotnet_oidc_exception.txt`)
 
