@@ -138,7 +138,7 @@ def test_user_card_html_shows_initials_and_plain_email():
 
     out = user_card_html("user01@example.com")
 
-    assert 'class="dba-user__avatar">PJ<' in out
+    assert 'class="dba-user__avatar">US<' in out
     assert "user01@example.com" in out
     assert "Okta · OIDC" in out
     assert "href" not in out
