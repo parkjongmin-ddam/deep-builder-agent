@@ -1,0 +1,38 @@
+timestamp,account,upn,action,result,detail
+2026-09-30T02:00:03,CONTOSO\user01,user01@contoso.com,updated,success,
+2026-09-30T02:00:03,CONTOSO\user02,user02@contoso.com,updated,success,
+2026-09-30T02:00:04,CONTOSO\user03,user03@contoso.com,added,success,
+2026-09-30T02:00:04,CONTOSO\user04,user04@contoso.com,updated,success,
+2026-09-30T02:00:05,CONTOSO\user05,user05@contoso.com,updated,success,
+2026-09-30T02:00:05,CONTOSO\user06,user06@contoso.com,failed,error,duplicate-upn: user06@contoso.com already assigned to CONTOSO\svc-sync-test
+2026-09-30T02:00:06,CONTOSO\user07,user07@contoso.com,updated,success,
+2026-09-30T02:00:06,CONTOSO\user08,user08@contoso.com,added,success,
+2026-09-30T02:00:07,CONTOSO\user09,user09@contoso.com,updated,success,
+2026-09-30T02:00:07,CONTOSO\user10,user10@contoso.com,disabled,success,left-organization
+2026-09-30T02:00:08,CONTOSO\user11,user11@contoso.com,updated,success,
+2026-09-30T02:00:08,CONTOSO\user12,user12@contoso.com,failed,error,attribute-invalid: mail value 'user12@contoso' is not a valid SMTP address
+2026-09-30T02:00:09,CONTOSO\user13,user13@contoso.com,updated,success,
+2026-09-30T02:00:09,CONTOSO\user14,user14@contoso.com,updated,success,
+2026-09-30T02:00:10,CONTOSO\user15,user15@contoso.com,added,success,
+2026-09-30T02:00:10,CONTOSO\user16,user16@contoso.com,updated,success,
+2026-09-30T02:00:11,CONTOSO\user17,user17@contoso.com,failed,error,connection-timeout: no response from sync endpoint within 30s
+2026-09-30T02:00:41,CONTOSO\user17,user17@contoso.com,failed,error,connection-timeout: no response from sync endpoint within 30s (retry 1)
+2026-09-30T02:01:12,CONTOSO\user18,user18@contoso.com,updated,success,
+2026-09-30T02:01:12,CONTOSO\user19,user19@contoso.com,updated,success,
+2026-09-30T02:01:13,CONTOSO\user20,user20@contoso.com,updated,success,
+2026-09-30T02:01:13,CONTOSO\user21,user21@contoso.com,disabled,success,contract-ended
+2026-09-30T02:01:14,CONTOSO\user22,user22@contoso.com,added,success,
+2026-09-30T02:01:14,CONTOSO\user23,user23@contoso.com,updated,success,
+2026-09-30T02:01:15,CONTOSO\user24,user24@contoso.com,failed,error,password-policy: initial password does not meet complexity requirements
+2026-09-30T02:01:15,CONTOSO\user25,user25@contoso.com,updated,success,
+2026-09-30T02:01:16,CONTOSO\user26,user26@contoso.com,updated,success,
+2026-09-30T02:01:16,CONTOSO\user27,user27@contoso.com,added,success,
+2026-09-30T02:01:17,CONTOSO\user28,user28@contoso.com,updated,success,
+2026-09-30T02:01:17,CONTOSO\user29,user29@contoso.com,updated,success,
+2026-09-30T02:01:18,CONTOSO\user30,user30@contoso.com,disabled,success,left-organization
+2026-09-30T02:01:18,CONTOSO\user31,user31@contoso.com,failed,error,duplicate-upn: user31@contoso.com already assigned to CONTOSO\user31-ext
+2026-09-30T02:01:19,CONTOSO\user32,user32@contoso.com,updated,success,
+2026-09-30T02:01:19,CONTOSO\user33,user33@contoso.com,added,success,
+2026-09-30T02:01:20,CONTOSO\user34,user34@contoso.com,updated,success,
+2026-09-30T02:01:20,CONTOSO\user35,user35@contoso.com,disabled,success,contract-ended
+2026-09-30T02:01:21,CONTOSO\user36,user36@contoso.com,updated,success,

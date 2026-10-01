@@ -18,6 +18,12 @@ eval/results/
 .streamlit/secrets.toml
 
 # 에이전트 작업공간: 사용자가 넣은 문서는 커밋하지 않는다.
-# (안내문만 추적 — 여기 무엇을 두면 안 되는지 적혀 있다)
+# (안내문과 Phase 9 배포 샘플만 추적 — 샘플은 전부 contoso 가상 데이터다.
+#  에이전트가 samples/ 에 쓴 산출물이 커밋되지 않도록 samples는 알려진 파일만 연다)
 workspace/*
 !workspace/README.md
+!workspace/samples/
+workspace/samples/*
+!workspace/samples/README.md
+!workspace/samples/*.csv
+!workspace/samples/*.txt

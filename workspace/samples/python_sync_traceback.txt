@@ -1,0 +1,22 @@
+2026-09-30 02:00:01 INFO  sync_accounts: starting nightly sync (source=hr_export.csv, target=dc01.contoso.com)
+2026-09-30 02:00:01 INFO  sync_accounts: loaded 36 rows from hr_export.csv
+2026-09-30 02:00:02 ERROR sync_accounts: LDAP bind failed for CONTOSO\svc-sync: result 49 (invalidCredentials), data 52e
+2026-09-30 02:00:02 ERROR sync_accounts: aborting - no changes were applied
+
+Traceback (most recent call last):
+  File "C:\jobs\account-sync\sync_accounts.py", line 142, in <module>
+    sys.exit(main())
+  File "C:\jobs\account-sync\sync_accounts.py", line 87, in main
+    conn = connect_ad(settings)
+  File "C:\jobs\account-sync\sync_accounts.py", line 54, in connect_ad
+    conn = Connection(
+  File "C:\jobs\account-sync\.venv\lib\site-packages\ldap3\core\connection.py", line 363, in __init__
+    self._do_auto_bind()
+  File "C:\jobs\account-sync\.venv\lib\site-packages\ldap3\core\connection.py", line 387, in _do_auto_bind
+    raise LDAPBindError(error)
+ldap3.core.exceptions.LDAPBindError: automatic bind not successful - invalidCredentials
+
+Environment:
+  Python 3.11, ldap3 2.9.x
+  Bind account: CONTOSO\svc-sync (password rotated on 2026-09-29 by security policy)
+  Target DC: dc01.contoso.com:636 (LDAPS)

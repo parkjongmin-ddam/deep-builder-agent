@@ -125,6 +125,69 @@ def test_template_subagents_resolve_to_tools(path: Path):
     assert len(payloads) == len(spec.subagents)
 
 
+def test_recommended_profile_templates_exist():
+    """프로필이 추천하는 템플릿 4종이 실제 파일로 존재한다 (Phase 9 단계 3).
+
+    단계 2까지는 '없으면 조용히 건너뛰기'가 맞는 동작이었지만, 단계 3부터
+    없는 추천은 결함이다 — 추천 목록과 배포 파일이 어긋나면 그 프로필
+    사용자는 추천을 영영 못 본다.
+    """
+    from runtime.teams import PROFILES
+
+    missing = [
+        stem
+        for profile in PROFILES.values()
+        for stem in profile.recommended_templates
+        if not (TEMPLATES_DIR / f"{stem}.json").exists()
+    ]
+    assert not missing, f"추천 목록에 있지만 파일이 없는 템플릿: {missing}"
+
+
+@pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
+def test_every_template_has_a_display_name(path: Path):
+    """드롭다운에 식별자 그대로 노출되지 않도록 표시 이름 매핑을 강제한다."""
+    from ui.state import _DISPLAY_NAMES
+
+    assert path.stem in _DISPLAY_NAMES, f"{path.stem}: _DISPLAY_NAMES 매핑이 없다"
+
+
+SAMPLES_DIR = TEMPLATES_DIR.parent / "workspace" / "samples"
+SAMPLE_FILES = [
+    "README.md",
+    "adfs_events.csv",
+    "sync_result_2026-09.csv",
+    "dotnet_oidc_exception.txt",
+    "python_sync_traceback.txt",
+]
+
+
+@pytest.mark.parametrize("name", SAMPLE_FILES)
+def test_sample_workspace_files_are_shipped(name: str):
+    """프로필 템플릿의 실행 재료인 샘플이 배포본에 있어야 한다.
+
+    템플릿 프롬프트가 /samples/<파일명>을 기본 경로로 안내하므로, 파일이
+    빠지면 clone 직후의 실대화가 '파일 없음'으로 끝난다.
+    """
+    assert (SAMPLES_DIR / name).exists(), f"workspace/samples/{name} 이 없다"
+
+
+@pytest.mark.parametrize("name", SAMPLE_FILES)
+def test_sample_files_use_only_synthetic_identifiers(name: str):
+    """샘플은 contoso 가상 값만 쓴다 — 실제 사내 호스트·계정 유출 방지.
+
+    완전한 검출은 불가능하므로 성질로 검사한다: 등장하는 이메일·UPN 형식
+    문자열은 전부 contoso.com 도메인이어야 한다.
+    """
+    import re
+
+    text = (SAMPLES_DIR / name).read_text(encoding="utf-8")
+    addresses = re.findall(r"[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+)", text)
+    foreign = sorted(
+        {d for d in addresses if d.rstrip(".") not in ("contoso", "contoso.com")}
+    )
+    assert not foreign, f"{name}: contoso 밖 도메인 발견 {foreign}"
+
+
 @pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
 def test_template_builds_a_real_agent(path: Path, monkeypatch):
     """스펙이 통과하는 것과 deepagents가 기동되는 것은 다른 문제다."""

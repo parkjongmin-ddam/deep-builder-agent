@@ -465,6 +465,11 @@ _DISPLAY_NAMES = {
     "data_analysis_team": "데이터 분석 팀",
     "research_team": "리서치 팀",
     "doc_qa_team": "문서 Q&A 팀",
+    # Phase 9 프로필 템플릿 (ADFS·계정 동기화 도메인)
+    "adfs_log_triage_team": "ADFS 로그 분석 팀",
+    "sync_report_team": "계정 동기화 점검 팀",
+    "auth_error_analysis_team": "연동 오류 분석 팀",
+    "auth_lib_research_team": "연동 라이브러리 조사 팀",
 }
 
 
