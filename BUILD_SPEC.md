@@ -162,10 +162,12 @@
   - [x] 보고서(개조식) — [REPORT.md](REPORT.md)
   - [x] README 정비 — 빠른 시작 5분 경로, 기능별 필요 키, 자기모순 수정
   - [x] MCP HTTP transport 실연결 검증 — `streamable_http`·`sse` (5-2절)
-  - [ ] **데모 영상** — 🚧 **기능이 전부 구축된 뒤에 촬영한다** (2026-08-10 결정).
-        선행 조건이던 평가 케이스 확장은 2026-09-28 4차 확장으로 해소됐고
-        (21→27건, 아래 기록), 촬영 대본([DEMO.md](DEMO.md))도 Phase 6·7(IAM·OIDC)
-        장면을 포함해 갱신했다 — **이제 촬영만 남았다**
+  - [ ] **데모 영상** — 🚧 **촬영 진행 중** (2026-10-01 기준, demo_assets/):
+        장면 2~4 터미널 편집본(2026-09-28, demo_terminal_edit.mp4 2:59) +
+        장면 5·6·7·8·9·10 화면 영상(2026-10-01 — demo_login / demo_builder /
+        demo_honesty / demo_eval 4종, 단계별 캡처 + 자막, 무음).
+        **viewer 잠금 화면(장면 5-3)은 미촬영.** 대본은 [DEMO.md](DEMO.md)
+        장면 1~11 (Phase 9 장면 6~9 포함)
 
 ## 5. Phase 1 체크리스트
 - [x] AgentSpec v0.1 스키마 (runtime/spec.py) + 테스트 5건 통과
