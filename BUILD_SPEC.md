@@ -167,7 +167,10 @@
         장면 5·6·7·8·9·10 화면 영상(2026-10-01 — demo_login / demo_builder /
         demo_honesty / demo_eval 4종, 단계별 캡처 + 자막, 무음).
         **viewer 잠금 화면(장면 5-3)은 미촬영.** 대본은 [DEMO.md](DEMO.md)
-        장면 1~11 (Phase 9 장면 6~9 포함)
+        장면 1~11 (Phase 9 장면 6~9 포함).
+        9/28 브라우저 소재 3종(viewer_locked·eval_tab_27cases·scene5 gif)은
+        **이메일 노출로 git 이력에서 제거**했다(2026-10-01, git-filter-repo —
+        README의 builder_steps.jpg도 같은 사유로 이메일 가림본으로 교체)
 
 ## 5. Phase 1 체크리스트
 - [x] AgentSpec v0.1 스키마 (runtime/spec.py) + 테스트 5건 통과
