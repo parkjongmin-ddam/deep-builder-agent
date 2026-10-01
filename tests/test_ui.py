@@ -324,6 +324,34 @@ def test_badge_palette_uses_light_dark_pairs_without_theme_branch():
     assert css.index("prefers-color-scheme") < css.index("@supports")
 
 
+def test_tool_label_maps_builtin_runtime_names():
+    """스트리밍 단계의 도구명은 registry 키가 아니라 deepagents **내장 이름**이다.
+
+    설치본 0.7.5 실측: filesystem.py가 ls/read_file/write_file/edit_file/
+    delete/glob/grep/execute, subagents.py가 task를 등록한다. 매핑이 없으면
+    화면에 read_file이 식별자 그대로 떴다(2026-10-01 확인). 같은 기능은
+    registry 키와 같은 라벨을 쓴다 — 경계 판정은 registry 키 기준 그대로다.
+    task는 delegate 경로(위임 표시)로 빠져 이 라벨을 타지 않는다.
+    """
+    from ui.state import tool_label
+
+    # 내장 이름 → registry 키와 같은 기능이면 같은 라벨
+    assert tool_label("read_file") == "파일 읽기"
+    assert tool_label("write_file") == "파일 쓰기"
+    assert tool_label("ls") == "파일 목록"
+    # registry 대응 키가 없는 내장 도구 — 의미가 드러나는 한글 라벨
+    assert tool_label("edit_file") == "파일 수정"
+    assert tool_label("delete") == "파일 삭제"
+    assert tool_label("glob") == "파일 찾기"
+    assert tool_label("grep") == "파일 검색"
+    assert tool_label("execute") == "셸 실행"
+    # registry 키 매핑 회귀
+    assert tool_label("file_read") == "파일 읽기"
+    assert tool_label("python_repl") == "코드 실행"
+    # 미지 이름 폴백 — 식별자 그대로
+    assert tool_label("mystery_tool") == "mystery_tool"
+
+
 def test_denial_reason_names_role_and_action():
     """권한 비활성 버튼 옆 사유 한 줄 (시안 5a) — 행위별 한국어 술어."""
     from runtime.iam import ACTION_CREATE, ACTION_REVISE, ACTION_RUN, load_iam_config

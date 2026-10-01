@@ -160,6 +160,20 @@ _TOOL_LABELS_KO = {
     "file_list": "파일 목록",
     "python_repl": "코드 실행",
     "*": "전체",
+    # deepagents 내장 도구의 **실행 레이어 이름** (설치본 0.7.5 실측 9종 —
+    # filesystem.py 8종 + subagents.py의 task). 스트리밍 단계(step_line)에는
+    # registry 키가 아니라 이 이름이 오므로 매핑이 없으면 식별자가 그대로
+    # 떴다(2026-10-01). 같은 기능은 registry 키와 같은 라벨을 쓴다 —
+    # IAM 경계 판정은 registry 키 기준 그대로다. task는 delegate(위임)
+    # 경로로 분류돼 이 테이블을 타지 않는다.
+    "read_file": "파일 읽기",
+    "write_file": "파일 쓰기",
+    "ls": "파일 목록",
+    "edit_file": "파일 수정",
+    "delete": "파일 삭제",
+    "glob": "파일 찾기",
+    "grep": "파일 검색",
+    "execute": "셸 실행",
 }
 
 

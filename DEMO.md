@@ -172,7 +172,8 @@ streamlit run ui/app.py
 가리킬 것 (실행 중 — 대기 시간에 설명을 얹는다):
 
 - 응답 위 `실행 중 · n단계`가 차오르고, **위임 extractor → analyst** 아래로
-  내부 `read_file` 호출이 들여쓰기 + 소요시간과 함께 보인다
+  내부 `파일 읽기` 호출이 들여쓰기 + 소요시간과 함께 보인다
+  (내장 도구 read_file의 화면 라벨 — hover에 원래 식별자가 뜬다)
 - extractor는 `/samples/adfs_events.csv` **한 파일만** 읽는다 (범위 밖 파일을
   읽으면 집계가 오염된다 — 실측으로 잡아 고정한 규칙)
 
