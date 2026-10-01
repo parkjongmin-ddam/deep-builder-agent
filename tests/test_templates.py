@@ -97,6 +97,25 @@ def test_leader_prompt_mentions_every_member(path: Path):
 
 
 @pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
+def test_calculate_members_know_how_to_handle_tool_errors(path: Path):
+    """calculate를 쓰는 팀원은 Error 응답 시 대처를 프롬프트로 알아야 한다.
+
+    실측(2026-09-30): data_analysis_team 팀원이 미허용 함수(all)를 반복
+    시도해 한 턴이 28단계까지 늘었다. 허용 목록·대안은 도구 설명과 오류
+    메시지가 알려주므로, 프롬프트에는 '같은 식을 그대로 재시도하지 않는다'는
+    행동 규칙만 둔다 (중복 금지).
+    """
+    spec = _load(path)
+
+    for sub in spec.subagents:
+        if "calculate" not in sub.tools:
+            continue
+        assert "Error" in sub.system_prompt and "재시도" in sub.system_prompt, (
+            f"{path.stem}/{sub.name}: calculate 오류 대처 규칙이 프롬프트에 없다"
+        )
+
+
+@pytest.mark.parametrize("path", TEMPLATE_PATHS, ids=lambda p: p.stem)
 def test_template_subagents_resolve_to_tools(path: Path):
     """템플릿이 참조한 도구가 실제 구현으로 해석된다."""
     spec = _load(path)

@@ -163,6 +163,35 @@ def test_unknown_name_is_rejected_with_a_useful_message():
     assert "sum" in str(excinfo.value), "쓸 수 있는 함수를 알려줘야 고쳐 쓴다"
 
 
+@pytest.mark.parametrize(
+    ("expression", "hint_fragment"),
+    [
+        # 실측(2026-09-30): data_analysis_team 팀원이 all()을 반복 시도해
+        # 한 턴이 28단계까지 늘었다. 거부만 하면 모델은 같은 식을 다시 던진다 —
+        # 대안을 함께 줘야 다음 시도가 달라진다.
+        ("all(n % d != 0 for d in range(2, 10))", "sum(1 for"),
+        ("any(n % d == 0 for d in range(2, 10))", "sum(1 for"),
+        ("pow(2, 10)", "**"),
+    ],
+)
+def test_disallowed_call_suggests_an_alternative(expression, hint_fragment):
+    """자주 시도되는 미허용 함수는 거부 메시지에 대안 힌트가 실린다."""
+    with pytest.raises(CalculationError) as excinfo:
+        evaluate(expression)
+
+    message = str(excinfo.value)
+    assert "호출할 수 없는 함수" in message
+    assert hint_fragment in message, f"대안 힌트가 없다: {message}"
+
+
+def test_unknown_name_hints_that_assignment_is_unsupported():
+    """모델이 '변수에 담아 두고 쓰는' 습관으로 이름을 참조하는 경우가 많다."""
+    with pytest.raises(CalculationError) as excinfo:
+        evaluate("x + 1")
+
+    assert "변수 대입" in str(excinfo.value)
+
+
 # --- 폭주 방지 --------------------------------------------------------------
 
 
@@ -219,6 +248,33 @@ def test_calculate_tool_reports_errors_instead_of_raising():
 
     assert result.startswith("Error:")
     assert "호출할 수 없는 함수" in result
+
+
+def test_calculate_description_stays_in_sync_with_the_whitelist():
+    """도구 설명의 함수 목록이 ALLOWED_FUNCTIONS와 어긋나면 모델이 헛짚는다.
+
+    설명은 손으로 쓴 하드코딩이라 화이트리스트를 고칠 때 빠뜨리기 쉽다 —
+    동기화를 테스트로 강제한다.
+    """
+    from registry.builtin import calculate
+    from registry.safe_eval import ALLOWED_CONSTANTS, ALLOWED_FUNCTIONS
+
+    description = calculate.description
+    missing = [n for n in ALLOWED_FUNCTIONS if n not in description]
+    assert not missing, f"설명에 없는 허용 함수: {missing}"
+    missing_constants = [n for n in ALLOWED_CONSTANTS if n not in description]
+    assert not missing_constants, f"설명에 없는 상수: {missing_constants}"
+
+
+def test_calculate_description_names_common_rejections():
+    """자주 시도되는 불가 구문(all/any, 대입)이 설명에 예시로 있어야
+    모델이 시도 자체를 하지 않는다 (실측 28단계의 근본 원인)."""
+    from registry.builtin import calculate
+
+    description = calculate.description
+    assert "all(" in description
+    assert "any(" in description
+    assert "대입" in description
 
 
 def test_calculate_is_registered_and_offered_to_the_builder():

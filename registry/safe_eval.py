@@ -72,6 +72,24 @@ ALLOWED_FUNCTIONS: dict[str, Any] = {
 # 이름으로 참조 가능한 상수.
 ALLOWED_CONSTANTS: dict[str, Any] = {"pi": math.pi, "e": math.e}
 
+# 자주 시도되는 미허용 이름 → 대안 안내. 거부 메시지에 실어 재시도를 줄인다.
+# 실측(2026-09-30): 거부 사유만 돌려주면 모델이 같은 식을 반복 시도해
+# 한 턴이 28단계까지 늘었다 (data_analysis_team, all() 반복).
+_ALTERNATIVE_HINTS: dict[str, str] = {
+    "all": "all(조건 for ...) 대신 sum(1 for ... if not (조건)) == 0 으로 바꿔라",
+    "any": "any(조건 for ...) 대신 sum(1 for ... if 조건) > 0 으로 바꿔라",
+    "pow": "pow(a, b) 대신 a ** b 를 써라",
+    "math": "math.sqrt 같은 속성 접근 대신 sqrt(...) 처럼 함수 이름을 바로 써라",
+    "filter": "filter 대신 컴프리헨션의 if 절을 써라: sum(x for x in ... if 조건)",
+    "map": "map 대신 컴프리헨션을 써라: [식 for x in ...]",
+}
+
+
+def _rejection_hint(name: str) -> str:
+    """미허용 이름에 대한 대안 힌트. 알려진 이름이 아니면 빈 문자열."""
+    hint = _ALTERNATIVE_HINTS.get(name)
+    return f" 대안: {hint}." if hint else ""
+
 _BINARY_OPS = {
     ast.Add: lambda a, b: a + b,
     ast.Sub: lambda a, b: a - b,
@@ -132,8 +150,10 @@ class _Evaluator:
         if node.id in ALLOWED_FUNCTIONS:
             return ALLOWED_FUNCTIONS[node.id]
         raise CalculationError(
-            f"알 수 없는 이름이다: {node.id!r}. "
-            f"쓸 수 있는 함수: {', '.join(sorted(ALLOWED_FUNCTIONS))}"
+            f"알 수 없는 이름이다: {node.id!r}.{_rejection_hint(node.id)} "
+            "변수 대입은 지원하지 않는다 — 값을 식에 직접 넣어 한 표현식으로 써라. "
+            f"쓸 수 있는 함수: {', '.join(sorted(ALLOWED_FUNCTIONS))} / "
+            f"상수: {', '.join(sorted(ALLOWED_CONSTANTS))}"
         )
 
     # --- 연산 ------------------------------------------------------------
@@ -200,7 +220,9 @@ class _Evaluator:
             )
         if node.func.id not in ALLOWED_FUNCTIONS:
             raise CalculationError(
-                f"호출할 수 없는 함수다: {node.func.id!r}. "
+                f"호출할 수 없는 함수다: {node.func.id!r}."
+                f"{_rejection_hint(node.func.id)} "
+                "같은 식을 그대로 재시도하지 말고 아래 허용 함수로 바꿔 써라. "
                 f"쓸 수 있는 함수: {', '.join(sorted(ALLOWED_FUNCTIONS))}"
             )
         if node.keywords:

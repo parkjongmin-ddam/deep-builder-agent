@@ -70,13 +70,25 @@ def calculate(expression: str) -> str:
     """수식을 계산한다. 코드를 실행하지 않으므로 계산 용도에는 이쪽이 안전하다.
 
     Args:
-        expression: 파이썬 수식 한 줄. 예) `(120*3+45)/7`,
+        expression: 파이썬 수식 **한 줄** (단일 표현식). 예) `(120*3+45)/7`,
             `sum(x for x in range(1,201) if x%3==0 and x%5!=0)`
 
-    사칙연산·비교·조건식과 `range`·컴프리헨션, 그리고 abs/round/min/max/sum/len/
-    sorted/int/float/sqrt/floor/ceil/log/log10/exp를 쓸 수 있다.
-    변수 대입·임포트·속성 접근·파일·네트워크는 되지 않는다 — 그런 일이 필요하면
-    `python_repl`을 쓰되, 그것은 임의 코드 실행이라는 점을 감수하는 것이다.
+    되는 것:
+    - 사칙연산·`**`·`%`·`//`, 비교(연쇄 포함), and/or/not, 조건식(`a if c else b`)
+    - `range`와 리스트/집합/제너레이터 컴프리헨션 (중첩, if 절 포함)
+    - 함수: abs, round, min, max, sum, len, sorted, int, float, range,
+      sqrt, floor, ceil, log, log10, exp / 상수: pi, e
+
+    안 되는 것 — 시도하면 Error 문자열이 돌아온다. **같은 식을 그대로 재시도하지
+    말고** 아래 대안으로 바꿔 쓴다:
+    - `all(조건 for ...)` → `sum(1 for ... if not (조건)) == 0`
+    - `any(조건 for ...)` → `sum(1 for ... if 조건) > 0`
+    - 변수 대입(`x = ...`)·여러 문장 → 값을 식에 직접 넣어 한 표현식으로 합친다
+    - 문자열·f-string, 구독(`a[0]`), 속성 접근(`math.sqrt`), 임포트, 람다,
+      키워드 인자, 위 목록 밖의 함수 호출
+
+    파일·네트워크·임의 코드가 필요하면 `python_repl`을 쓰되, 그것은 임의 코드
+    실행이라는 점을 감수하는 것이다.
     """
     try:
         return str(evaluate(expression))
