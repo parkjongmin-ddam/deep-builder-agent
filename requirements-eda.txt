@@ -1,0 +1,6 @@
+# notebooks/eda.ipynb 재실행용 추가 의존성 (메인 requirements.txt 위에 얹는다).
+# 앱 실행에는 필요 없다 — "clone 후 5분" 경로를 무겁게 하지 않으려고 분리했다.
+matplotlib
+nbformat
+nbclient
+ipykernel
