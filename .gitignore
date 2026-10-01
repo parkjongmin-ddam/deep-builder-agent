@@ -6,6 +6,10 @@ __pycache__/
 specs/
 mcp_servers.json
 
+# 소속 팀 설정(Phase 9): 로컬 조정본은 커밋하지 않는다 — example만 추적하고,
+# teams.json이 없으면 example이 그대로 로드된다 (runtime/teams.py)
+teams.json
+
 # IAM 감사 로그: 실행 기록이라 커밋하지 않는다 (workspace/ 밖에 두는 이유는 runtime/iam.py 참조)
 logs/
 

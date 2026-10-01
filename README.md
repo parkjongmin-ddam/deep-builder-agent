@@ -111,6 +111,24 @@ streamlit run ui/app.py   # → 로그인 화면 → Okta → 그룹 클레임�
   SAML·ADFS를 쓰지 않은 이유는 BUILD_SPEC.md 결정 로그(2026-09-28) 참조
   (ADFS 2016+의 OIDC 엔드포인트로는 동일 구조 이식 가능)
 
+### 소속 팀 프로필 (Phase 9, 선택)
+
+사이드바에서 **소속 팀**을 고르면 직무 프로필(시스템 엔지니어/개발자)에 맞춰
+요청 입력창 예시·예시 칩·템플릿 추천·평가 세트 기본값이 바뀐다.
+샘플 도메인은 **ADFS(페더레이션 인증)·계정 동기화**다.
+
+- **권한과는 별개의 축**이다 — 역할(iam.json)은 "무엇을 할 수 있나",
+  프로필은 "어떤 일을 하나". 프로필은 권한·도구 경계를 바꾸지 않으므로
+  직접 골라도 안전하고, 기본값 "(선택 안 함)"은 기존 공통 화면 그대로다
+- 팀 → 프로필 매핑은 `teams.json` ([teams.example.json](teams.example.json)을
+  복사해 수정). **파일이 없으면 example이 그대로 로드**되므로 clone 직후에도
+  동작하고, 둘 다 없으면 팀 선택 자체가 숨겨진다. 깨진 파일은 iam.json과
+  같은 원칙으로 앱을 멈춘다
+- 선택 기능: `groups`에 Okta 그룹 → 팀 매핑을 넣으면 로그인 시 자동 선택된다
+  (사용자가 바꿀 수 있다)
+- 프로필 내용(표시 이름·예시·추천 순서)은 파일이 아니라 코드에 있다
+  (`runtime/teams.py` — 수정이 코드 리뷰를 거친다)
+
 ---
 
 ## 환경변수
@@ -124,6 +142,7 @@ streamlit run ui/app.py   # → 로그인 화면 → Okta → 그룹 클레임�
 | `DEEP_BUILDER_WORKSPACE` | — | 에이전트가 파일을 읽고 쓰는 디렉터리 (기본 `workspace`) |
 | `DEEP_BUILDER_PRINCIPAL` | — | IAM 주체 이름 (기본 `admin`). CLI `--as`가 우선한다 |
 | `DEEP_BUILDER_IAM_FILE` | — | IAM 정책 파일 경로 (기본 `iam.json`, 없으면 내장 기본 정책) |
+| `DEEP_BUILDER_TEAMS_FILE` | — | 소속 팀 설정 경로 (기본 `teams.json`, 없으면 `teams.example.json`, 둘 다 없으면 팀 선택 숨김) |
 | `DEEP_BUILDER_AUDIT_LOG` | — | 감사 로그 경로 (기본 `logs/audit.jsonl`) |
 | `LANGSMITH_TRACING` | — | `true`면 트레이싱. 키 없이 켜면 **실행 전에** 막는다 |
 | `LANGSMITH_API_KEY` | — | 트레이싱을 켤 때 필수 |
@@ -188,10 +207,14 @@ Phase 8에서 전면 리디자인했다 (시안·작업 지시서: [docs/design/
 |---|---|---|
 | ![빌더 탭 — 위임 단계 펼침](docs/images/builder_steps.jpg) | ![평가 대시보드](docs/images/eval_dashboard.jpg) | ![로그인 게이트](docs/images/login_gate.jpg) |
 
-- **사이드바** — 사용자·IAM 카드(역할 배지 + 허용 행위·도구 경계 칩)와
-  환경 점검(키·트레이싱·MCP). 비밀값은 **존재 여부만** 표시한다.
+- **사이드바** — 사용자·IAM 카드(역할 배지 + 허용 행위·도구 경계 칩),
+  **소속 팀 선택**(Phase 9 — 기본 "(선택 안 함)"), 환경 점검(키·트레이싱·MCP).
+  비밀값은 **존재 여부만** 표시한다.
   OIDC 모드에서는 로그인 신원 카드, 데모 모드에서는 주체 선택기가 뜬다
 - **빌더 탭** — 왼쪽에서 자연어로 만들거나 템플릿을 불러오고, 오른쪽에서 바로 대화
+  - 팀을 고르면 입력창 위에 **예시 칩**이 뜬다(클릭 = 입력창 채움,
+    칩 그대로인 문장은 팀을 바꾸면 비워지고 수정한 문장은 남는다).
+    템플릿 드롭다운은 범용 → 프로필 추천(`· 추천` 표시) → 나머지 순서다
   - 현재 명세는 카드형(표시 이름 + `vN` 버전 배지 + 도구 배지 + 팀 구성 표).
     저장할 때마다 `specs/<이름>/vN.json` 이력이 쌓이고 최신본 경로는 유지된다
   - 「명세 고치기」의 변경 내역은 diff 색(추가 +/삭제 −)으로 표시된다
@@ -199,17 +222,20 @@ Phase 8에서 전면 리디자인했다 (시안·작업 지시서: [docs/design/
     차오르고, 위임 줄 아래에 서브에이전트 내부 도구 호출이 들여쓰기 +
     단계별 소요시간과 함께 보인다. 스트리밍이 시작 전에 실패하면 일반 실행으로
     자동 폴백하고, 시작 후 실패는 재실행하지 않는다(부작용 중복 방지)
-- **평가 탭** — 지표 3종(통과율·심판 평균·실패 수)과 검사 항목별 통과율,
-  실패 우선 케이스 상세. 심판은 기본 꺼짐(비용 발생).
-  실행 결과 텍스트 리포트는 `eval/results/<날짜시각>.txt`로 자동 저장된다
-  (실행 산출물이라 gitignore — 기준값만 `git add -f`로 커밋)
+- **평가 탭** — 세트 선택(공통/시스템 엔지니어/개발자/전체 — 기본값은
+  선택한 팀의 프로필), 지표 3종(통과율·심판 평균·실패 수)과 검사 항목별
+  통과율, 전체 세트 실행 시 프로필별 통과율, 실패 우선 케이스 상세.
+  심판은 기본 꺼짐(비용 발생).
+  실행 결과 텍스트 리포트는 `eval/results/<날짜시각>_<세트>.txt`로 자동
+  저장된다 (실행 산출물이라 gitignore — 기준값만 `git add -f`로 커밋)
 - **로그인·권한 거부** — OIDC 설정 시 중앙 게이트 카드로 로그인하고,
   역할 매핑이 없는 계정은 계정·사유가 담긴 거부 카드에서 멈춘다
 
 ### 평가
 
 ```bash
-python -m eval.runner          # 기계적 검사 + LLM 심판
+python -m eval.runner                   # 기계적 검사 + LLM 심판 (공통 27건)
+python -m eval.runner --profile infra   # 세트 선택: common / infra / dev / all
 ```
 
 무엇을 재는가: **Builder가 자연어 요구를 옳은 AgentSpec으로 옮기는가.**
@@ -222,8 +248,13 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 
 - 기계적 검사가 깨지면 심판을 부르지 않는다 — 이미 실패한 명세의 문장력을 채점할 이유가 없다
 - 심판 판별력은 실측으로 확인했다: 부실 스펙 1/5, 무관 스펙 1/5, 좋은 스펙 5/5
-- 케이스는 `eval/cases/*.json`에 있다
-- **비용 주의**: 1회 실행 = Builder 호출 21회(케이스 수) + 심판 호출. `repeats=N`이면 그만큼 곱해진다. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다.
+- 케이스는 `eval/cases/*.json`에 있다 — 세트 구성: 공통 **27건** + 프로필
+  infra **7건**·dev **8건** (Phase 9, `profile` 필드). 기본 실행은 공통만이라
+  Phase 9 전과 동일하다
+- Builder가 **흔들리는 것이 관찰된** 경계 입력은 세트에 넣지 않고
+  `eval/boundary.py`에 보존한다 — 통과/실패가 아니라 팀 생성 **빈도**를 잰다
+  (`python -m eval.boundary`, Builder 프롬프트 수정 전/후 비교용)
+- **비용 주의**: 1회 실행 = Builder 호출 케이스 수만큼(세트별 7~42회) + 심판 호출. `repeats=N`이면 그만큼 곱해진다. 프롬프트·도구 레지스트리를 바꿨을 때만 돌린다.
   Builder 시스템 프롬프트에는 프롬프트 캐시를 걸어 두 번째 호출부터 정가의 10%로 읽는다(실측 확인)
 
 ---
@@ -276,20 +307,29 @@ python -m eval.runner          # 기계적 검사 + LLM 심판
 
 ---
 
-## 팀 템플릿
+## 템플릿
 
 | 템플릿 | 구성 | 쓰임 | 필요한 키 |
 |---|---|---|---|
+| `general_assistant` | **단일** (`web_search`+`file_read`+`file_list`) | 범용 질문 도우미 — 모든 추천의 맨 위 | Anthropic (+Tavily 권장) |
 | `research_team` | researcher(`web_search`) + writer | 주제 조사 → 출처 붙은 브리핑 | Anthropic + Tavily |
 | `data_analysis_team` | analyst(`calculate`) + reviewer(`calculate`) | 계산 후 **독립 검산** | Anthropic |
 | `doc_qa_team` | extractor(`file_read`, **haiku**) + summarizer | 문서 근거를 인용한 질의응답 | Anthropic |
+| `adfs_log_triage_team` | extractor(`file_read`) + analyst | ADFS 이벤트 로그 오류 분류 → 조치 체크리스트 | Anthropic |
+| `sync_report_team` | aggregator(`file_read`+`calculate`) + reporter(`file_write`) | 동기화 결과 CSV 집계 → 보고서 저장 | Anthropic |
+| `auth_error_analysis_team` | dotnet_analyst + python_analyst (각 `file_read`) | .NET 예외·Python traceback 정적 분석 | Anthropic |
+| `auth_lib_research_team` | 조사 담당 2인 (각 `web_search`) | ADFS 연동 라이브러리 비교 조사 | Anthropic + Tavily |
 
 ```bash
 python cli.py --spec templates/data_analysis_team.json
 ```
 
-템플릿은 Builder를 거치지 않으므로 가드레일 문장이 파일에 직접 적혀 있다
-(`tests/test_templates.py`가 리더·팀원 전원에 대해 강제한다).
+- ADFS 도메인 템플릿 4종(Phase 9)은 **서버 접속·셸·AD 조회·코드 실행을 하지
+  않는다** — 작업공간 파일 분석과 수동 절차 안내까지가 범위이고, 그 한계가
+  명세에 적혀 있다. 실행 재료 샘플(contoso 가상 데이터)은
+  [workspace/samples/](workspace/samples/README.md) 참조
+- 템플릿은 Builder를 거치지 않으므로 가드레일 문장이 파일에 직접 적혀 있다
+  (`tests/test_templates.py`가 리더·팀원 전원에 대해 강제한다)
 
 ---
 
@@ -300,6 +340,9 @@ python cli.py --spec templates/data_analysis_team.json
 - `..`, `~`, 바깥 절대경로는 차단된다 (`FilesystemBackend(virtual_mode=True)`)
 - 가상 루트가 `/`이므로 `workspace/report.md`는 에이전트에게 `/report.md`로 보인다
 - `.env`는 이 디렉터리 **밖**(프로젝트 루트)에 있어 접근되지 않는다
+- `workspace/samples/`에는 ADFS 템플릿용 contoso 가상 데이터가 커밋돼 있다
+  (에이전트 경로로는 `/samples/...`) — 사용한 오류 코드 목록은
+  [workspace/samples/README.md](workspace/samples/README.md)
 
 ```bash
 cp ~/some-report.md workspace/
