@@ -34,3 +34,6 @@ workspace/samples/*
 !workspace/samples/README.md
 !workspace/samples/*.csv
 !workspace/samples/*.txt
+
+# 2026-10-01 히스토리 재작성 때 치운 git lock 파일 보관함 — 커밋 금지, 수동 삭제 대상
+_to_delete/
