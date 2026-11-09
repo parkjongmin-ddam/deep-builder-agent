@@ -1238,6 +1238,12 @@ def test_oidc_gate_renders_login_card(monkeypatch):
     AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
 
+    # st.user.is_logged_in은 AppTest가 주입한 secrets가 아니라 **실제**
+    # `.streamlit/secrets.toml`의 [auth] 유무로 채워진다 (설치본
+    # streamlit/user_info.py `_get_user_info` 실측). 클린 클론에는 그 파일이
+    # 없어 AttributeError로 깨지므로, 로컬 파일과 무관하게 "설정됨"으로 고정한다.
+    monkeypatch.setattr("streamlit.user_info.get_secrets_auth_section", lambda: True)
+
     app = AppTest.from_file(str(APP_PATH), default_timeout=60)
     app.secrets["auth"] = {"client_id": "synthetic-client"}
     app.run()
