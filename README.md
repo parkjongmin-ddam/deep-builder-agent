@@ -3,8 +3,16 @@
 자연어 요구를 받아 AI 에이전트를 **생성·실행·평가**하는 빌더.
 LangChain deepagents 하네스 위에서 Pydantic 스펙(`AgentSpec`)이 도구 화이트리스트와 가드레일을 강제한다.
 
-> **상태**: Phase 1~6 완료 · Phase 7(OIDC)은 Okta 실계정 실측만 남음 · 테스트 347건 통과
+> **상태**: Phase 1~9 완료 · 테스트 525건(비통합 500 + 통합 25) · 평가 케이스 42건
 > **문서**: [REPORT.md](REPORT.md) 개발 보고서 · [BUILD_SPEC.md](BUILD_SPEC.md) 설계 결정·실측 원장 · [DEMO.md](DEMO.md) 데모 대본 · [CLAUDE.md](CLAUDE.md) 작업 규칙
+
+| 산출물 | 위치 |
+|---|---|
+| 시스템 설계 (스키마 관계도·데이터흐름도) | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 데이터 분석 보고서 (EDA) | [docs/EDA_REPORT.md](docs/EDA_REPORT.md) · [notebooks/eda.ipynb](notebooks/eda.ipynb) |
+| 평가 보고서 (개선 전/후 비교) | [docs/EVAL_COMPARISON.md](docs/EVAL_COMPARISON.md) |
+| 테스트 UI (Streamlit) | [ui/app.py](ui/app.py) — 화면은 아래 「Streamlit UI」 절 |
+| 시연 영상 | [demo_assets/](demo_assets/) — 목록은 아래 「시연 영상」 절 |
 
 ---
 
@@ -21,9 +29,14 @@ python -m venv .venv
 # 2. 키 설정 — .env 를 열어 ANTHROPIC_API_KEY= 뒤에 붙여넣는다
 cp .env.example .env
 
-# 3. 바로 실행 (Anthropic 키만 필요)
-python cli.py --spec templates/data_analysis_team.json
+# 3. 바로 실행 (Anthropic 키만 필요) — 1단계에서 만든 가상환경의 Python으로 실행한다
+./.venv/Scripts/python.exe cli.py --spec templates/data_analysis_team.json   # Windows
+# .venv/bin/python cli.py --spec templates/data_analysis_team.json           # macOS/Linux
 ```
+
+> 이후 예시의 `python`·`streamlit`은 가상환경을 활성화한 상태를 전제로 한다
+> (Windows `.venv\Scripts\activate`, macOS/Linux `source .venv/bin/activate`).
+> 검증 환경: Python 3.13.
 
 ```
 you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구해줘
@@ -57,7 +70,7 @@ you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구
 - deepagents가 자동 주입하는 셸 실행 도구(`execute`)는 `FilesystemMiddleware` 재정의로 차단한다
 - **계산에는 코드를 실행하지 않는다** — `calculate`가 AST를 직접 평가한다.
   `python_repl`(임의 코드 실행)은 표준 라이브러리·다단계 가공이 실제로 필요할 때만 붙는다
-  (평가 21케이스 실측: `python_repl` 선택 **0건**)
+  (Phase 5-1 당시 평가 21케이스 실측: `python_repl` 선택 **0건**)
 - **서브에이전트에도 같은 차단을 따로 건다** — 메인의 제한은 팀원에게 전파되지 않아서,
   빠뜨리면 위임 한 번으로 셸이 열린다 (실측 근거: [BUILD_SPEC.md](BUILD_SPEC.md) 5-3)
 - 검증에 실패하면 에러 메시지를 Builder에게 되돌려 **최대 3회까지 시도**한다
@@ -231,6 +244,18 @@ Phase 8에서 전면 리디자인했다 (시안·작업 지시서: [docs/design/
 - **로그인·권한 거부** — OIDC 설정 시 중앙 게이트 카드로 로그인하고,
   역할 매핑이 없는 계정은 계정·사유가 담긴 거부 카드에서 멈춘다
 
+### 시연 영상
+
+[demo_assets/](demo_assets/)에 장면별 영상 5개가 있다 (무음, 자막 포함). 장면 번호는 [DEMO.md](DEMO.md) 기준이다.
+
+| 파일 | 길이 | 내용 |
+|---|---|---|
+| [demo_terminal_edit.mp4](demo_assets/demo_terminal_edit.mp4) | 2:59 | 터미널 편집본 — 장면 2~4 (자연어로 만들기 · 강제 확인 · 자연어로 고치기) |
+| [demo_login.mp4](demo_assets/demo_login.mp4) | 0:11 | 로그인 게이트 화면 |
+| [demo_builder.mp4](demo_assets/demo_builder.mp4) | 0:58 | 빌더 탭 화면 |
+| [demo_honesty.mp4](demo_assets/demo_honesty.mp4) | 0:13 | 할 수 없는 일을 요청했을 때의 화면 |
+| [demo_eval.mp4](demo_assets/demo_eval.mp4) | 0:25 | 평가 탭 화면 |
+
 ### 평가
 
 ```bash
@@ -374,7 +399,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ## 개발
 
 ```bash
-./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 307건
+./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 525건 (통합 25건 포함)
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
 ```
 
@@ -392,7 +417,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
   `os.system`·`subprocess`·절대경로 파일 접근·네트워크는 여전히 가능하다.
   **스펙에 이 도구를 넣는 것은 셸에 준하는 권한을 주는 것과 같다.**
   Phase 5-1에서 `calculate`를 분리해 **기본으로는 붙지 않게** 만들었지만
-  (평가 21케이스 실측 0건), 도구 자체를 없애지는 않았다 —
+  (Phase 5-1 당시 평가 21케이스 실측 0건), 도구 자체를 없애지는 않았다 —
   진짜 필요한 요구가 있고 그때는 의식적으로 그 권한을 주는 것이 맞다.
   진짜 격리가 필요하면 컨테이너 같은 별도 수단이 필요하다.
 - **`workspace/`는 샌드박스가 아니다** — 경로 제한일 뿐 프로세스 격리가 없다. 위 경고 참조.
@@ -402,7 +427,7 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
   다른 구현체의 인증 방식(OAuth 등)·세션 정책·스키마 방언과의 상호운용성은 미검증이다.
 - **평가 케이스가 현재 전부 통과한다** — 지금 이 스위트는 이미 고친 결함의 재발만 감지한다.
 - **Builder는 결정적이지 않다** — 같은 요구에 한 번은 단일 에이전트, 한 번은 4인 팀이 나온 적이 있다.
-  평가는 케이스당 1회만 돌리므로 **"21/21"은 단일 표본**이다.
+  평가는 케이스당 1회만 돌리므로 현행 기준값(common 27/27 · infra 7/7 · dev 8/8)도 **단일 표본**이다.
   안정성을 봐야 할 때는 `run_evaluation(repeats=N)`으로 올린다(그만큼 비용이 는다).
 - **팀은 비싸다** — 실측상 2인 팀은 같은 답에 **LLM 호출 3배, 출력 토큰 10배 이상, 지연 5배**를 쓴다.
   Builder가 근거 없이 팀을 만들지 않도록 프롬프트에 이 수치를 넣었지만, 강제가 아니라 지침이다.
