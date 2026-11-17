@@ -393,6 +393,8 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 - 비밀값은 파일에 직접 쓰지 않고 `${ENV_VAR}` 참조로 적으면 로드 시 치환된다
 - 스펙에서는 `"mcp:<서버명>"`으로 참조하며, **설정에 없는 서버명은 검증 단계에서 거부**된다
 - 연결 확인용 로컬 서버가 포함돼 있다 (`examples/echo_mcp_server.py`)
+- 예시 파일의 `command`는 Windows 경로(`.venv/Scripts/python.exe`)다 —
+  macOS/Linux에서는 `.venv/bin/python`으로 바꾼다
 
 ---
 
@@ -401,6 +403,10 @@ cp mcp_servers.example.json mcp_servers.json   # 접속 정보를 채운다
 ```bash
 ./.venv/Scripts/python.exe -m pytest tests/ -q                    # 전체 525건 (통합 25건 포함)
 ./.venv/Scripts/python.exe -m pytest tests/ -q -m "not integration"  # 빠른 피드백
+
+# macOS/Linux
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q -m "not integration"
 ```
 
 - `integration` 마커는 실제 프로세스·Streamlit 앱을 띄우는 느린 검증이다
