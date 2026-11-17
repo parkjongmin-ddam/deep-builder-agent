@@ -37,6 +37,10 @@ cp .env.example .env
 > 이후 예시의 `python`·`streamlit`은 가상환경을 활성화한 상태를 전제로 한다
 > (Windows `.venv\Scripts\activate`, macOS/Linux `source .venv/bin/activate`).
 > 검증 환경: Python 3.13.
+>
+> **Python 3.11 이상이 필요하다** (`deepagents==0.7.5`의 요구 사항). macOS 기본 `python3`(3.9)로
+> 가상환경을 만들면 `No matching distribution found for deepagents==0.7.5`로 설치가 실패한다 —
+> `python3 --version`으로 확인하고, 낮으면 `python3.13 -m venv .venv`처럼 버전을 지정한다.
 
 ```
 you> 1부터 200까지 3의 배수이면서 5의 배수가 아닌 수의 합 구해줘
